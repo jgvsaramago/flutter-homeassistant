@@ -1,12 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'calendar_entities_store.dart';
+import 'ha_providers.dart';
 
-final calendarEntitiesStoreProvider = Provider<CalendarEntitiesStore>((ref) => CalendarEntitiesStore());
+final calendarEntitiesStoreProvider = Provider<CalendarEntitiesStore>(
+  (ref) => CalendarEntitiesStore(ref.watch(haWebSocketClientProvider)),
+);
 
 /// Configured calendars persisted from a previous session, read once at
-/// startup.
-final savedCalendarEntriesProvider = FutureProvider<List<CalendarEntryConfig>>((ref) {
+/// startup — waits for the HA connection first, same idiom as
+/// `areaByEntityIdProvider`.
+final savedCalendarEntriesProvider = FutureProvider<List<CalendarEntryConfig>>((ref) async {
+  await ref.watch(entitiesProvider.future);
   return ref.watch(calendarEntitiesStoreProvider).read();
 });
 

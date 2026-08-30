@@ -1,8 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../ha_client/ha_websocket_client.dart';
 import '../theme/nocturne_theme.dart';
 
 /// The palette a calendar entry can be assigned. Deliberately capped at the
@@ -52,30 +50,23 @@ class CalendarEntryConfig {
   );
 }
 
-/// Persists the configured calendar list as a single JSON-encoded string —
-/// unlike the other entity configs (fixed named fields), this one is a
-/// user-grown list, so there's no fixed set of `shared_preferences` keys to
-/// enumerate.
+/// Persists the configured calendar list via the `flutter_homeassistant` HA
+/// integration, so any device running this app shares the same calendars.
 class CalendarEntitiesStore {
-  CalendarEntitiesStore();
+  CalendarEntitiesStore(this._client);
 
-  static const _key = 'calendar_entries';
+  final HaWebSocketClient _client;
+
+  static const _key = 'calendar_entities';
 
   Future<List<CalendarEntryConfig>> read() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
-    if (raw == null || raw.isEmpty) return const [];
-    final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
-    return list.map(CalendarEntryConfig.fromJson).toList();
+    final raw = await _client.getSettings(_key);
+    if (raw is! List) return const [];
+    return raw.cast<Map<String, dynamic>>().map(CalendarEntryConfig.fromJson).toList();
   }
 
   Future<void> save(List<CalendarEntryConfig> entries) async {
-    final prefs = await SharedPreferences.getInstance();
     final valid = entries.where((e) => e.entityId.trim().isNotEmpty).toList();
-    if (valid.isEmpty) {
-      await prefs.remove(_key);
-      return;
-    }
-    await prefs.setString(_key, jsonEncode(valid.map((e) => e.toJson()).toList()));
+    await _client.setSettings(_key, valid.map((e) => e.toJson()).toList());
   }
 }

@@ -23,22 +23,33 @@ class FloatingSaveButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<bool>(
-      valueListenable: controller.saved,
-      builder: (context, saved, _) {
-        return SizedBox(
-          height: height,
-          child: FilledButton.icon(
-            onPressed: controller.requestSave,
-            icon: Icon(saved ? Icons.check_circle : Icons.save_outlined, size: 22),
-            label: Text(saved ? 'Guardado' : 'Guardar'),
-            style: FilledButton.styleFrom(
-              backgroundColor: saved ? NocturneColors.batteryMark : null,
-              padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 18),
-              textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-              elevation: 6,
-              shadowColor: const Color(0x8C000000),
-            ),
-          ),
+      valueListenable: controller.saving,
+      builder: (context, saving, _) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: controller.saved,
+          builder: (context, saved, _) {
+            return SizedBox(
+              height: height,
+              child: FilledButton.icon(
+                onPressed: saving ? null : () => controller.requestSave(),
+                icon: saving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                      )
+                    : Icon(saved ? Icons.check_circle : Icons.save_outlined, size: 22),
+                label: Text(saving ? 'A guardar...' : (saved ? 'Guardado' : 'Guardar')),
+                style: FilledButton.styleFrom(
+                  backgroundColor: saved && !saving ? NocturneColors.batteryMark : null,
+                  padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 18),
+                  textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                  elevation: 6,
+                  shadowColor: const Color(0x8C000000),
+                ),
+              ),
+            );
+          },
         );
       },
     );

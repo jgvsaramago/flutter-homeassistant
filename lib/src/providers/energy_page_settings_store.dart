@@ -1,4 +1,5 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import '../ha_client/ha_websocket_client.dart';
+import 'settings_json_utils.dart';
 
 /// Settings specific to the full-page "Energia" tab — installed system
 /// facts, tariffs, and the optional entities behind its KPI/forecast/system
@@ -70,80 +71,63 @@ class EnergyPageConfig {
       lastCleaningDate == null &&
       nextCleaningDate == null &&
       forecastDayEntityIds.every((e) => e == null);
+
+  Map<String, dynamic> toJson() => {
+    'installedKwp': installedKwp,
+    'panelCount': panelCount,
+    'panelOrientation': panelOrientation,
+    'importPricePerKwh': importPricePerKwh,
+    'exportPricePerKwh': exportPricePerKwh,
+    'inverterStatusEntityId': inverterStatusEntityId,
+    'inverterTemperatureEntityId': inverterTemperatureEntityId,
+    'inverterEfficiencyEntityId': inverterEfficiencyEntityId,
+    'weatherEntityId': weatherEntityId,
+    'lastCleaningDate': lastCleaningDate?.toIso8601String(),
+    'nextCleaningDate': nextCleaningDate?.toIso8601String(),
+    'forecastDayEntityIds': forecastDayEntityIds,
+  };
+
+  factory EnergyPageConfig.fromJson(Map<String, dynamic> json) {
+    final rawForecast = (json['forecastDayEntityIds'] as List?)?.cast<String?>();
+    return EnergyPageConfig(
+      installedKwp: (json['installedKwp'] as num?)?.toDouble(),
+      panelCount: json['panelCount'] as int?,
+      panelOrientation: json['panelOrientation'] as String?,
+      importPricePerKwh: (json['importPricePerKwh'] as num?)?.toDouble(),
+      exportPricePerKwh: (json['exportPricePerKwh'] as num?)?.toDouble(),
+      inverterStatusEntityId: json['inverterStatusEntityId'] as String?,
+      inverterTemperatureEntityId: json['inverterTemperatureEntityId'] as String?,
+      inverterEfficiencyEntityId: json['inverterEfficiencyEntityId'] as String?,
+      weatherEntityId: json['weatherEntityId'] as String?,
+      lastCleaningDate: DateTime.tryParse(json['lastCleaningDate'] as String? ?? ''),
+      nextCleaningDate: DateTime.tryParse(json['nextCleaningDate'] as String? ?? ''),
+      forecastDayEntityIds: rawForecast ?? const [null, null, null, null, null, null, null],
+    );
+  }
 }
 
-/// Persists [EnergyPageConfig] via `shared_preferences` — fixed keys per
-/// field, same convention as `EnergyEntitiesStore`. The settings card builds
-/// its own mutable draft rather than round-tripping through a `copyWith` on
-/// this class: several fields here are nullable non-`String` types
-/// (`double?`, `DateTime?`) where `existing ?? this.existing`-style
-/// `copyWith` can never actually clear a field back to null, only ever
+/// Persists [EnergyPageConfig] via the `flutter_homeassistant` HA
+/// integration, so any device running this app shares the same settings.
+/// The settings card builds its own mutable draft rather than round-tripping
+/// through a `copyWith` on this class: several fields here are nullable
+/// non-`String` types (`double?`, `DateTime?`) where `existing ?? this.existing`-
+/// style `copyWith` can never actually clear a field back to null, only ever
 /// replace or leave it — the same trap `EnergyEntitiesCard`'s sensor rows
 /// sidestep with their own plain mutable `_SensorDraftEntry`.
 class EnergyPageSettingsStore {
-  EnergyPageSettingsStore();
+  EnergyPageSettingsStore(this._client);
 
-  static const _installedKwpKey = 'energy_page_installed_kwp';
-  static const _panelCountKey = 'energy_page_panel_count';
-  static const _panelOrientationKey = 'energy_page_panel_orientation';
-  static const _importPriceKey = 'energy_page_import_price_per_kwh';
-  static const _exportPriceKey = 'energy_page_export_price_per_kwh';
-  static const _inverterStatusKey = 'energy_page_inverter_status_entity_id';
-  static const _inverterTemperatureKey = 'energy_page_inverter_temperature_entity_id';
-  static const _inverterEfficiencyKey = 'energy_page_inverter_efficiency_entity_id';
-  static const _weatherKey = 'energy_page_weather_entity_id';
-  static const _lastCleaningKey = 'energy_page_last_cleaning_date';
-  static const _nextCleaningKey = 'energy_page_next_cleaning_date';
-  static const _forecastDayKeyPrefix = 'energy_page_forecast_day_';
+  final HaWebSocketClient _client;
+
+  static const _key = 'energy_page_settings';
 
   Future<EnergyPageConfig> read() async {
-    final prefs = await SharedPreferences.getInstance();
-    return EnergyPageConfig(
-      installedKwp: prefs.getDouble(_installedKwpKey),
-      panelCount: prefs.getInt(_panelCountKey),
-      panelOrientation: prefs.getString(_panelOrientationKey),
-      importPricePerKwh: prefs.getDouble(_importPriceKey),
-      exportPricePerKwh: prefs.getDouble(_exportPriceKey),
-      inverterStatusEntityId: prefs.getString(_inverterStatusKey),
-      inverterTemperatureEntityId: prefs.getString(_inverterTemperatureKey),
-      inverterEfficiencyEntityId: prefs.getString(_inverterEfficiencyKey),
-      weatherEntityId: prefs.getString(_weatherKey),
-      lastCleaningDate: _parseDate(prefs.getString(_lastCleaningKey)),
-      nextCleaningDate: _parseDate(prefs.getString(_nextCleaningKey)),
-      forecastDayEntityIds: [for (var i = 0; i < 7; i++) prefs.getString('$_forecastDayKeyPrefix$i')],
-    );
+    final raw = await _client.getSettings(_key);
+    if (raw is! Map) return const EnergyPageConfig();
+    return EnergyPageConfig.fromJson(raw.cast<String, dynamic>());
   }
 
   Future<void> save(EnergyPageConfig config) async {
-    final prefs = await SharedPreferences.getInstance();
-    await _setDoubleOrRemove(prefs, _installedKwpKey, config.installedKwp);
-    await _setIntOrRemove(prefs, _panelCountKey, config.panelCount);
-    await _setStringOrRemove(prefs, _panelOrientationKey, config.panelOrientation);
-    await _setDoubleOrRemove(prefs, _importPriceKey, config.importPricePerKwh);
-    await _setDoubleOrRemove(prefs, _exportPriceKey, config.exportPricePerKwh);
-    await _setStringOrRemove(prefs, _inverterStatusKey, config.inverterStatusEntityId);
-    await _setStringOrRemove(prefs, _inverterTemperatureKey, config.inverterTemperatureEntityId);
-    await _setStringOrRemove(prefs, _inverterEfficiencyKey, config.inverterEfficiencyEntityId);
-    await _setStringOrRemove(prefs, _weatherKey, config.weatherEntityId);
-    await _setStringOrRemove(prefs, _lastCleaningKey, config.lastCleaningDate?.toIso8601String());
-    await _setStringOrRemove(prefs, _nextCleaningKey, config.nextCleaningDate?.toIso8601String());
-    for (var i = 0; i < 7; i++) {
-      await _setStringOrRemove(prefs, '$_forecastDayKeyPrefix$i', config.forecastDayEntityIds[i]);
-    }
-  }
-
-  DateTime? _parseDate(String? raw) => raw == null ? null : DateTime.tryParse(raw);
-
-  Future<void> _setStringOrRemove(SharedPreferences prefs, String key, String? value) {
-    final trimmed = value?.trim();
-    return (trimmed == null || trimmed.isEmpty) ? prefs.remove(key) : prefs.setString(key, trimmed);
-  }
-
-  Future<void> _setDoubleOrRemove(SharedPreferences prefs, String key, double? value) {
-    return value == null ? prefs.remove(key) : prefs.setDouble(key, value);
-  }
-
-  Future<void> _setIntOrRemove(SharedPreferences prefs, String key, int? value) {
-    return value == null ? prefs.remove(key) : prefs.setInt(key, value);
+    await _client.setSettings(_key, blankStringsToNull(config.toJson()));
   }
 }

@@ -1,4 +1,5 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import '../ha_client/ha_websocket_client.dart';
+import 'settings_json_utils.dart';
 
 /// Which HA entities feed the Temperatures sheet. All optional — an unset
 /// field just makes that metric show "--" until configured. The two
@@ -73,74 +74,58 @@ class TemperatureEntityConfig {
       weatherStateEntityId: weatherStateEntityId ?? this.weatherStateEntityId,
     );
   }
-}
 
-/// Persists [TemperatureEntityConfig] via `shared_preferences` — same
-/// storage and reasoning as `EnergyEntitiesStore`.
-class TemperatureEntitiesStore {
-  TemperatureEntitiesStore();
-
-  static const _defaults = TemperatureEntityConfig();
-
-  static const _keys = {
-    'interiorTempEntityId': 'temp_interior_temp_entity_id',
-    'interiorHumidityEntityId': 'temp_interior_humidity_entity_id',
-    'co2EntityId': 'temp_co2_entity_id',
-    'pm25EntityId': 'temp_pm25_entity_id',
-    'vocEntityId': 'temp_voc_entity_id',
-    'radonEntityId': 'temp_radon_entity_id',
-    'exteriorTempEntityId': 'temp_exterior_temp_entity_id',
-    'exteriorHumidityEntityId': 'temp_exterior_humidity_entity_id',
-    'rainEntityId': 'temp_rain_entity_id',
-    'windEntityId': 'temp_wind_entity_id',
-    'gustEntityId': 'temp_gust_entity_id',
-    'pressureEntityId': 'temp_pressure_entity_id',
-    'uvEntityId': 'temp_uv_entity_id',
-    'weatherStateEntityId': 'temp_weather_state_entity_id',
+  Map<String, dynamic> toJson() => {
+    'interiorTempEntityId': interiorTempEntityId,
+    'interiorHumidityEntityId': interiorHumidityEntityId,
+    'co2EntityId': co2EntityId,
+    'pm25EntityId': pm25EntityId,
+    'vocEntityId': vocEntityId,
+    'radonEntityId': radonEntityId,
+    'exteriorTempEntityId': exteriorTempEntityId,
+    'exteriorHumidityEntityId': exteriorHumidityEntityId,
+    'rainEntityId': rainEntityId,
+    'windEntityId': windEntityId,
+    'gustEntityId': gustEntityId,
+    'pressureEntityId': pressureEntityId,
+    'uvEntityId': uvEntityId,
+    'weatherStateEntityId': weatherStateEntityId,
   };
 
-  Future<TemperatureEntityConfig> read() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? get(String field, String? fallback) => prefs.getString(_keys[field]!) ?? fallback;
+  factory TemperatureEntityConfig.fromJson(Map<String, dynamic> json) => TemperatureEntityConfig(
+    interiorTempEntityId: json['interiorTempEntityId'] as String? ?? const TemperatureEntityConfig().interiorTempEntityId,
+    interiorHumidityEntityId: json['interiorHumidityEntityId'] as String?,
+    co2EntityId: json['co2EntityId'] as String?,
+    pm25EntityId: json['pm25EntityId'] as String?,
+    vocEntityId: json['vocEntityId'] as String?,
+    radonEntityId: json['radonEntityId'] as String?,
+    exteriorTempEntityId: json['exteriorTempEntityId'] as String? ?? const TemperatureEntityConfig().exteriorTempEntityId,
+    exteriorHumidityEntityId: json['exteriorHumidityEntityId'] as String?,
+    rainEntityId: json['rainEntityId'] as String?,
+    windEntityId: json['windEntityId'] as String?,
+    gustEntityId: json['gustEntityId'] as String?,
+    pressureEntityId: json['pressureEntityId'] as String?,
+    uvEntityId: json['uvEntityId'] as String?,
+    weatherStateEntityId: json['weatherStateEntityId'] as String?,
+  );
+}
 
-    return TemperatureEntityConfig(
-      interiorTempEntityId: get('interiorTempEntityId', _defaults.interiorTempEntityId),
-      interiorHumidityEntityId: get('interiorHumidityEntityId', null),
-      co2EntityId: get('co2EntityId', null),
-      pm25EntityId: get('pm25EntityId', null),
-      vocEntityId: get('vocEntityId', null),
-      radonEntityId: get('radonEntityId', null),
-      exteriorTempEntityId: get('exteriorTempEntityId', _defaults.exteriorTempEntityId),
-      exteriorHumidityEntityId: get('exteriorHumidityEntityId', null),
-      rainEntityId: get('rainEntityId', null),
-      windEntityId: get('windEntityId', null),
-      gustEntityId: get('gustEntityId', null),
-      pressureEntityId: get('pressureEntityId', null),
-      uvEntityId: get('uvEntityId', null),
-      weatherStateEntityId: get('weatherStateEntityId', null),
-    );
+/// Persists [TemperatureEntityConfig] via the `flutter_homeassistant` HA
+/// integration, so any device running this app shares the same entities.
+class TemperatureEntitiesStore {
+  TemperatureEntitiesStore(this._client);
+
+  final HaWebSocketClient _client;
+
+  static const _key = 'temperature_entities';
+
+  Future<TemperatureEntityConfig> read() async {
+    final raw = await _client.getSettings(_key);
+    if (raw is! Map) return const TemperatureEntityConfig();
+    return TemperatureEntityConfig.fromJson(raw.cast<String, dynamic>());
   }
 
   Future<void> save(TemperatureEntityConfig config) async {
-    final prefs = await SharedPreferences.getInstance();
-    await _setOrRemove(prefs, _keys['interiorTempEntityId']!, config.interiorTempEntityId);
-    await _setOrRemove(prefs, _keys['interiorHumidityEntityId']!, config.interiorHumidityEntityId);
-    await _setOrRemove(prefs, _keys['co2EntityId']!, config.co2EntityId);
-    await _setOrRemove(prefs, _keys['pm25EntityId']!, config.pm25EntityId);
-    await _setOrRemove(prefs, _keys['vocEntityId']!, config.vocEntityId);
-    await _setOrRemove(prefs, _keys['radonEntityId']!, config.radonEntityId);
-    await _setOrRemove(prefs, _keys['exteriorTempEntityId']!, config.exteriorTempEntityId);
-    await _setOrRemove(prefs, _keys['exteriorHumidityEntityId']!, config.exteriorHumidityEntityId);
-    await _setOrRemove(prefs, _keys['rainEntityId']!, config.rainEntityId);
-    await _setOrRemove(prefs, _keys['windEntityId']!, config.windEntityId);
-    await _setOrRemove(prefs, _keys['gustEntityId']!, config.gustEntityId);
-    await _setOrRemove(prefs, _keys['pressureEntityId']!, config.pressureEntityId);
-    await _setOrRemove(prefs, _keys['uvEntityId']!, config.uvEntityId);
-    await _setOrRemove(prefs, _keys['weatherStateEntityId']!, config.weatherStateEntityId);
-  }
-
-  Future<void> _setOrRemove(SharedPreferences prefs, String key, String? value) {
-    final trimmed = value?.trim();
-    return (trimmed == null || trimmed.isEmpty) ? prefs.remove(key) : prefs.setString(key, trimmed);
+    await _client.setSettings(_key, blankStringsToNull(config.toJson()));
   }
 }

@@ -154,6 +154,17 @@ class PlaceholderEntitiesNotifier extends EntitiesNotifier {
 
 /// Provider overrides that swap in placeholder data instead of a real HA
 /// connection. Apply via `ProviderScope(overrides: placeholderOverrides)`.
+///
+/// Deliberately does NOT override `haWebSocketClientProvider`: each
+/// `xProvider` below is overridden directly, and `savedXProvider`/
+/// `settingsHydrationProvider` (which would otherwise call the real,
+/// never-connected client, throw, and get silently swallowed by their own
+/// per-domain try/catch) never get a chance to matter since `entitiesProvider`
+/// is overridden with `PlaceholderEntitiesNotifier`, which never calls
+/// `connect()`. This is a real dependency, not a coincidence — adding
+/// `haWebSocketClientProvider` here "for consistency" would still work (the
+/// per-domain try/catch still saves it), but don't remove the `xProvider`
+/// overrides below assuming the hydration path will pick up the slack.
 final placeholderOverrides = [
   entitiesProvider.overrideWith(PlaceholderEntitiesNotifier.new),
   areaByEntityIdProvider.overrideWith((ref) async => const {}),

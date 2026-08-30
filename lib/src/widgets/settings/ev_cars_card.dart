@@ -35,7 +35,13 @@ class _EvCarsCardState extends ConsumerState<EvCarsCard> {
   void _setSaved(bool value) => widget.saveController?.saved.value = value;
 
   Future<void> _save() async {
-    await ref.read(evCarsStoreProvider).save(_draft);
+    try {
+      await ref.read(evCarsStoreProvider).save(_draft);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao guardar: $error'), backgroundColor: NocturneColors.red));
+      return;
+    }
     ref.read(evCarsConfigProvider.notifier).state = _draft;
     if (!mounted) return;
     _setSaved(true);

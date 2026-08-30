@@ -7,8 +7,11 @@ import '../mass_client/mass_credentials_store.dart';
 import '../mass_client/mass_models.dart';
 import '../mass_client/mass_websocket_client.dart';
 import '../services/screen_power_controller.dart';
+import 'ha_providers.dart';
 
-final massCredentialsStoreProvider = Provider<MassCredentialsStore>((ref) => MassCredentialsStore());
+final massCredentialsStoreProvider = Provider<MassCredentialsStore>(
+  (ref) => MassCredentialsStore(ref.watch(haWebSocketClientProvider)),
+);
 
 /// Single long-lived Music Assistant websocket client, shared app-wide —
 /// same shape as `haWebSocketClientProvider`.
@@ -18,8 +21,13 @@ final massWebSocketClientProvider = Provider<MassWebSocketClient>((ref) {
   return client;
 });
 
-/// Credentials persisted from a previous session, read once at startup.
-final savedMassConnectionConfigProvider = FutureProvider<MassConnectionConfig?>((ref) {
+/// Credentials persisted from a previous session, read once at startup —
+/// waits for the HA connection first (this store now lives behind it, same
+/// idiom as `areaByEntityIdProvider`). Note: this means Music Assistant no
+/// longer starts connecting until the HA websocket connects first — see the
+/// settings-migration plan's scope decision 3.
+final savedMassConnectionConfigProvider = FutureProvider<MassConnectionConfig?>((ref) async {
+  await ref.watch(entitiesProvider.future);
   return ref.watch(massCredentialsStoreProvider).read();
 });
 

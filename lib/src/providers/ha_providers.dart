@@ -8,6 +8,14 @@ import '../ha_client/ha_credentials_store.dart';
 import '../ha_client/ha_websocket_client.dart';
 import '../models/ha_entity.dart';
 import '../services/screen_power_controller.dart';
+import 'calendar_entities_provider.dart';
+import 'energy_entities_provider.dart';
+import 'energy_page_settings_provider.dart';
+import 'ev_cars_provider.dart';
+import 'individual_sensors_provider.dart';
+import 'mass_providers.dart';
+import 'rooms_provider.dart';
+import 'temperature_entities_provider.dart';
 
 final haCredentialsStoreProvider = Provider<HaCredentialsStore>((ref) => HaCredentialsStore());
 
@@ -222,5 +230,91 @@ final areaByEntityIdProvider = FutureProvider<Map<String, String>>((ref) async {
 
   await ref.read(entitiesProvider.future);
   return ref.read(haWebSocketClientProvider).getAreaByEntityId();
+});
+
+/// Loads all 8 dashboard-config settings from HA once the connection is up,
+/// hydrating each domain's "live" `StateProvider` — the one-time job
+/// `RootScreen._bootstrap` used to do directly against `SharedPreferences`
+/// before settings moved behind the HA connection. Watched by `MainShell`
+/// alongside [entitiesProvider] so both gate behind the same loading/error/
+/// retry UI, rather than `RootScreen`'s own bare spinner waiting on a
+/// network call it has no retry affordance for.
+///
+/// Each domain's read is independently try/caught, same as the blocks this
+/// replaced — one bad/unreachable domain shouldn't block the whole
+/// dashboard. Every `xProvider.notifier.state = ...` assignment below is
+/// safe specifically because it happens after the `await` above: Riverpod
+/// only forbids a provider from modifying another provider's state during
+/// its own *synchronous* build phase, which ends the moment this function
+/// first suspends. Don't hoist any of these assignments earlier.
+final settingsHydrationProvider = FutureProvider<void>((ref) async {
+  await ref.watch(entitiesProvider.future);
+
+  try {
+    final savedEnergyEntities = await ref.read(savedEnergyEntityConfigProvider.future);
+    if (!savedEnergyEntities.isEmpty) {
+      ref.read(energyEntityConfigProvider.notifier).state = savedEnergyEntities;
+    }
+  } catch (_) {
+    // Proceed with the energy card's own "--" fallback for every field.
+  }
+  try {
+    final savedEnergyPageConfig = await ref.read(savedEnergyPageConfigProvider.future);
+    if (!savedEnergyPageConfig.isEmpty) {
+      ref.read(energyPageConfigProvider.notifier).state = savedEnergyPageConfig;
+    }
+  } catch (_) {
+    // Proceed with the Energia page's own "--" fallback for every field.
+  }
+  try {
+    final savedTemperatureEntities = await ref.read(savedTemperatureEntityConfigProvider.future);
+    ref.read(temperatureEntityConfigProvider.notifier).state = savedTemperatureEntities;
+  } catch (_) {
+    // Proceed with the Temperatures sheet's own hardcoded/"--" defaults.
+  }
+  try {
+    final savedCalendars = await ref.read(savedCalendarEntriesProvider.future);
+    if (savedCalendars.isNotEmpty) {
+      ref.read(calendarEntriesProvider.notifier).state = savedCalendars;
+    }
+  } catch (_) {
+    // Proceed with no calendars configured — the card/sheet show an empty state.
+  }
+  try {
+    final savedMass = await ref.read(savedMassConnectionConfigProvider.future);
+    if (savedMass != null) {
+      ref.read(massConnectionConfigProvider.notifier).state = savedMass;
+    }
+  } catch (_) {
+    // Proceed with no Music Assistant server configured — the Music sheet shows an empty state.
+  }
+  try {
+    final savedEvCars = await ref.read(savedEvCarsConfigProvider.future);
+    if (!savedEvCars.isEmpty) {
+      ref.read(evCarsConfigProvider.notifier).state = savedEvCars;
+    }
+  } catch (_) {
+    // Proceed with the EV cards' own default names and "--" readings.
+  }
+  try {
+    final savedIndividualSensors = await ref.read(savedIndividualSensorsProvider.future);
+    // An empty read (nothing saved yet) must not clobber whatever
+    // individualSensorsProvider was set to at ProviderScope creation —
+    // including a demo-mode override.
+    if (savedIndividualSensors.isNotEmpty) {
+      ref.read(individualSensorsProvider.notifier).state = savedIndividualSensors;
+    }
+  } catch (_) {
+    // Proceed with the energy card's device slots left empty.
+  }
+  try {
+    final savedRooms = await ref.read(savedRoomsProvider.future);
+    // Same guard as calendars/individual sensors above.
+    if (savedRooms.isNotEmpty) {
+      ref.read(roomsProvider.notifier).state = savedRooms;
+    }
+  } catch (_) {
+    // Proceed with the Divisões page's own empty state.
+  }
 });
 

@@ -1,11 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'ev_cars_store.dart';
+import 'ha_providers.dart';
 
-final evCarsStoreProvider = Provider<EvCarsStore>((ref) => EvCarsStore());
+final evCarsStoreProvider = Provider<EvCarsStore>((ref) => EvCarsStore(ref.watch(haWebSocketClientProvider)));
 
-/// Config persisted from a previous session, read once at startup.
-final savedEvCarsConfigProvider = FutureProvider<EvCarsConfig>((ref) {
+/// Config persisted from a previous session, read once at startup — waits
+/// for the HA connection first, same idiom as `areaByEntityIdProvider`.
+final savedEvCarsConfigProvider = FutureProvider<EvCarsConfig>((ref) async {
+  await ref.watch(entitiesProvider.future);
   return ref.watch(evCarsStoreProvider).read();
 });
 

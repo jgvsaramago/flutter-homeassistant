@@ -1,6 +1,5 @@
-import 'dart:convert';
-
-import 'package:shared_preferences/shared_preferences.dart';
+import '../ha_client/ha_websocket_client.dart';
+import 'settings_json_utils.dart';
 
 /// One room card on the Divisões page — a household picks its own rooms and
 /// wires each one to whatever real HA entities it has (all optional; an
@@ -96,31 +95,25 @@ class RoomConfig {
   );
 }
 
-/// Persists the Divisões room list as a single JSON-encoded string — same
-/// reasoning as `CalendarEntitiesStore`/`IndividualSensorsStore`: a
-/// user-grown list has no fixed set of `shared_preferences` keys to
-/// enumerate. Unlike the energy card's 4 device slots, rooms have no fixed
-/// physical layout to cap against, so the list is uncapped.
+/// Persists the Divisões room list via the `flutter_homeassistant` HA
+/// integration, so any device running this app shares the same room list.
+/// Unlike the energy card's 4 device slots, rooms have no fixed physical
+/// layout to cap against, so the list is uncapped.
 class RoomsStore {
-  RoomsStore();
+  RoomsStore(this._client);
 
-  static const _key = 'rooms_config';
+  final HaWebSocketClient _client;
+
+  static const _key = 'rooms';
 
   Future<List<RoomConfig>> read() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
-    if (raw == null || raw.isEmpty) return const [];
-    final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
-    return list.map(RoomConfig.fromJson).toList();
+    final raw = await _client.getSettings(_key);
+    if (raw is! List) return const [];
+    return raw.cast<Map<String, dynamic>>().map(RoomConfig.fromJson).toList();
   }
 
   Future<void> save(List<RoomConfig> rooms) async {
-    final prefs = await SharedPreferences.getInstance();
     final valid = rooms.where((r) => r.name.trim().isNotEmpty).toList();
-    if (valid.isEmpty) {
-      await prefs.remove(_key);
-      return;
-    }
-    await prefs.setString(_key, jsonEncode(valid.map((r) => r.toJson()).toList()));
+    await _client.setSettings(_key, blankStringsToNull(valid.map((r) => r.toJson()).toList()));
   }
 }

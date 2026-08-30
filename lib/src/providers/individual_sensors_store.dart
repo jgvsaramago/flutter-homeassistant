@@ -1,6 +1,5 @@
-import 'dart:convert';
-
-import 'package:shared_preferences/shared_preferences.dart';
+import '../ha_client/ha_websocket_client.dart';
+import 'settings_json_utils.dart';
 
 /// Which built-in glyph an individual-sensor node draws — a closed set
 /// matching the energy-flow card's own icon inventory (see
@@ -73,32 +72,26 @@ class IndividualSensorConfig {
   );
 }
 
-/// Persists the energy-flow card's individual-sensor list as a single
-/// JSON-encoded string — same reasoning as `CalendarEntitiesStore`: a
-/// user-grown list (0-4 entries) has no fixed set of `shared_preferences`
-/// keys to enumerate.
+/// Persists the energy-flow card's individual-sensor list via the
+/// `flutter_homeassistant` HA integration, so any device running this app
+/// shares the same list.
 class IndividualSensorsStore {
-  IndividualSensorsStore();
+  IndividualSensorsStore(this._client);
 
-  static const _key = 'energy_individual_sensors';
+  final HaWebSocketClient _client;
+
+  static const _key = 'individual_sensors';
 
   Future<List<IndividualSensorConfig>> read() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
-    if (raw == null || raw.isEmpty) return const [];
-    final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
-    return list.map(IndividualSensorConfig.fromJson).toList();
+    final raw = await _client.getSettings(_key);
+    if (raw is! List) return const [];
+    return raw.cast<Map<String, dynamic>>().map(IndividualSensorConfig.fromJson).toList();
   }
 
   /// Capped at 4 — the energy-flow card has exactly 4 device node slots, so
   /// anything beyond that could never be shown.
   Future<void> save(List<IndividualSensorConfig> sensors) async {
-    final prefs = await SharedPreferences.getInstance();
     final valid = sensors.where((s) => s.name.trim().isNotEmpty).take(4).toList();
-    if (valid.isEmpty) {
-      await prefs.remove(_key);
-      return;
-    }
-    await prefs.setString(_key, jsonEncode(valid.map((s) => s.toJson()).toList()));
+    await _client.setSettings(_key, blankStringsToNull(valid.map((s) => s.toJson()).toList()));
   }
 }

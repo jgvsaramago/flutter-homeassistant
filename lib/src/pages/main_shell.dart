@@ -126,13 +126,23 @@ class _MainShellState extends ConsumerState<MainShell> {
     final loadState = ref.watch(
       entitiesProvider.select((async) => (isLoading: async.isLoading && !async.hasValue, error: async.hasError ? async.error : null)),
     );
+    // Settings (rooms, EV cars, energy config, ...) load behind the same HA
+    // connection — see `settingsHydrationProvider`. Every per-domain read in
+    // there is independently try/caught, so this only ever reflects
+    // `entitiesProvider.future` itself failing; the existing Retry button
+    // below fixes both since it re-triggers that same future.
+    final settingsLoadState = ref.watch(
+      settingsHydrationProvider.select((async) => (isLoading: async.isLoading && !async.hasValue, error: async.hasError ? async.error : null)),
+    );
+    final isLoading = loadState.isLoading || settingsLoadState.isLoading;
+    final error = loadState.error ?? settingsLoadState.error;
 
     return Scaffold(
-      body: loadState.isLoading
+      body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : loadState.error != null
+          : error != null
           ? _ErrorView(
-              message: loadState.error.toString(),
+              message: error.toString(),
               onRetry: () => ref.invalidate(entitiesProvider),
             )
           : Stack(

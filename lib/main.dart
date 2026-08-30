@@ -10,8 +10,6 @@ import 'src/app.dart';
 import 'src/dev/placeholder_entities.dart';
 import 'src/ha_client/ha_connection_config.dart';
 import 'src/ha_client/ha_credentials_store.dart';
-import 'src/mass_client/mass_connection_config.dart';
-import 'src/mass_client/mass_credentials_store.dart';
 import 'src/mqtt/mqtt_config.dart';
 import 'src/mqtt/mqtt_credentials_store.dart';
 import 'src/mqtt/pi_telemetry_publisher.dart';
@@ -72,19 +70,6 @@ void main(List<String> args) async {
     }
     if (await HaCredentialsStore().read() == null) {
       debugPrint('[ha websocket] no HA_URL/HA_TOKEN given or previously saved — dashboard will show no data');
-    }
-
-    // MASS_URL/MASS_TOKEN follow the exact same launch-config convention as
-    // HA_URL/HA_TOKEN above — Music Assistant is a separate service (even
-    // when it runs as a HA add-on) with its own long-lived token, minted
-    // from its own web UI rather than HA's.
-    final massUrl = config('MASS_URL', 'mass-url');
-    final massToken = config('MASS_TOKEN', 'mass-token');
-    if (massUrl != null && massToken != null) {
-      await MassCredentialsStore().save(MassConnectionConfig(baseUrl: massUrl, accessToken: massToken));
-    }
-    if (await MassCredentialsStore().read() == null) {
-      debugPrint('[mass websocket] no MASS_URL/MASS_TOKEN given or previously saved — Music sheet will show no data');
     }
 
     final mqttHost = config('MQTT_HOST', 'mqtt-host');

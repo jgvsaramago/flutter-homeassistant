@@ -36,7 +36,13 @@ class _TemperatureEntitiesCardState extends ConsumerState<TemperatureEntitiesCar
   void _setSaved(bool value) => widget.saveController?.saved.value = value;
 
   Future<void> _save() async {
-    await ref.read(temperatureEntitiesStoreProvider).save(_draft);
+    try {
+      await ref.read(temperatureEntitiesStoreProvider).save(_draft);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao guardar: $error'), backgroundColor: NocturneColors.red));
+      return;
+    }
     ref.read(temperatureEntityConfigProvider.notifier).state = _draft;
     if (!mounted) return;
     _setSaved(true);

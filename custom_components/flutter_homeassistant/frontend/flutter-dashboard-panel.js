@@ -4,9 +4,11 @@
 // `flutter_homeassistant/set_settings` websocket commands (see
 // custom_components/flutter_homeassistant/__init__.py). No build step, no
 // external dependencies — reuses Home Assistant's own already-loaded
-// custom elements (ha-card, ha-textfield, ha-entity-picker, ha-icon,
-// ha-button), which are globally registered by HA's frontend before any
-// panel loads.
+// custom elements (ha-card, ha-entity-picker, ha-icon, ha-button), which are
+// globally registered by HA's frontend before any panel loads. Plain text/
+// number/password/date fields use native <input> instead of ha-textfield -
+// deliberately, so they can never silently fail to render (see the note on
+// nativeInputField below).
 
 (() => {
   "use strict";
@@ -147,6 +149,27 @@
         field("nextCleaningDate", "date", "Próxima limpeza"),
       ],
     },
+    mqtt: {
+      shape: "singleton",
+      fields: [
+        field("host", "text", "Anfitrião (host)", { hint: "192.168.1.10" }),
+        field("port", "number", "Porta", { hint: "1883" }),
+        field("username", "text", "Utilizador (opcional)"),
+        field("password", "password", "Palavra-passe (opcional)"),
+      ],
+    },
+    music_assistant: {
+      shape: "singleton",
+      fields: [
+        field("baseUrl", "text", "URL do servidor", {
+          hint: "http://192.168.1.130:8095",
+          desc: "Endereço do add-on/servidor Music Assistant na rede local.",
+        }),
+        field("accessToken", "password", "Token de acesso", {
+          desc: "Token de longa duração, criado em Definições → Perfil no Music Assistant — não é a mesma credencial do Home Assistant.",
+        }),
+      ],
+    },
   };
 
   const MENU = [
@@ -156,6 +179,8 @@
     { title: "Energia", icon: "mdi:lightning-bolt", keys: ["energy_entities", "individual_sensors"] },
     { title: "Carros elétricos", icon: "mdi:car-electric", keys: ["ev_cars"] },
     { title: "Página de Energia", icon: "mdi:solar-power", keys: ["energy_page_settings"] },
+    { title: "MQTT", icon: "mdi:swap-horizontal", keys: ["mqtt"] },
+    { title: "Music Assistant", icon: "mdi:speaker-wireless", keys: ["music_assistant"] },
   ];
 
   async function wsGet(hass, key) {
@@ -208,27 +233,32 @@
     return btn;
   }
 
+  // Native <input> instead of ha-textfield: guarantees a visible, working
+  // text box regardless of exact HA frontend version/element registration
+  // (unlike ha-textfield, a plain <input> can't silently fail to render).
+  function nativeInputField(fieldDef, value, onChange, inputType) {
+    const wrap = document.createElement("div");
+    wrap.className = "text-field";
+    const label = document.createElement("div");
+    label.className = "text-field-label";
+    label.textContent = fieldDef.label;
+    const input = document.createElement("input");
+    input.type = inputType;
+    if (fieldDef.hint) input.placeholder = fieldDef.hint;
+    input.value = value === null || value === undefined ? "" : String(value);
+    input.addEventListener("input", () => onChange(input.value));
+    wrap.append(label, input);
+    return wrap;
+  }
+
   function buildFieldInput(hass, fieldDef, value, onChange) {
     switch (fieldDef.type) {
-      case "text": {
-        const el = document.createElement("ha-textfield");
-        el.label = fieldDef.label;
-        if (fieldDef.hint) el.placeholder = fieldDef.hint;
-        el.value = value ?? "";
-        el.style.width = "100%";
-        el.addEventListener("input", () => onChange(el.value));
-        return el;
-      }
-      case "number": {
-        const el = document.createElement("ha-textfield");
-        el.label = fieldDef.label;
-        el.type = "number";
-        if (fieldDef.hint) el.placeholder = fieldDef.hint;
-        el.value = value === null || value === undefined ? "" : String(value);
-        el.style.width = "100%";
-        el.addEventListener("input", () => onChange(el.value));
-        return el;
-      }
+      case "text":
+        return nativeInputField(fieldDef, value, onChange, "text");
+      case "number":
+        return nativeInputField(fieldDef, value, onChange, "number");
+      case "password":
+        return nativeInputField(fieldDef, value, onChange, "password");
       case "entity": {
         const el = document.createElement("ha-entity-picker");
         el.hass = hass;
@@ -528,11 +558,11 @@
     .icon-btn { background:none; border:none; cursor:pointer; color: var(--secondary-text-color); padding:4px; display:flex; border-radius:50%; }
     .icon-btn:hover { color: var(--primary-text-color); background: var(--secondary-background-color); }
     .item-body { display:flex; flex-direction:column; gap:12px; }
-    .field-row ha-textfield, .field-row ha-entity-picker { width:100%; }
+    .field-row ha-entity-picker { width:100%; }
     .field-desc { font-size:12px; color: var(--secondary-text-color); margin-top:2px; }
-    .date-field { display:flex; flex-direction:column; gap:4px; }
-    .date-label { font-size:12px; color: var(--secondary-text-color); }
-    .date-field input[type=date] { padding:8px; border-radius:4px; border:1px solid var(--divider-color); background: var(--card-background-color); color: var(--primary-text-color); }
+    .date-field, .text-field { display:flex; flex-direction:column; gap:4px; }
+    .date-label, .text-field-label { font-size:12px; color: var(--secondary-text-color); }
+    .date-field input, .text-field input { padding:8px; border-radius:4px; border:1px solid var(--divider-color); background: var(--card-background-color); color: var(--primary-text-color); font-size:15px; width:100%; box-sizing:border-box; }
     .swatch-row { display:flex; gap:8px; flex-wrap:wrap; }
     .swatch-btn, .color-btn { width:36px; height:36px; border-radius:50%; border:2px solid transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; background: var(--card-background-color); }
     .swatch-btn.selected, .color-btn.selected { border-color: var(--primary-color); }

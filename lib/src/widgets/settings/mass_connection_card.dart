@@ -63,7 +63,13 @@ class _MassConnectionCardState extends ConsumerState<MassConnectionCard> {
     if (url.isEmpty || token.isEmpty) return;
 
     final config = MassConnectionConfig(baseUrl: url, accessToken: token);
-    await ref.read(massCredentialsStoreProvider).save(config);
+    try {
+      await ref.read(massCredentialsStoreProvider).save(config);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao guardar: $error'), backgroundColor: NocturneColors.red));
+      return;
+    }
     ref.read(massConnectionConfigProvider.notifier).state = config;
     if (!mounted) return;
     widget.saveController?.saved.value = true;

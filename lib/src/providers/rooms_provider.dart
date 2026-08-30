@@ -1,11 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'ha_providers.dart';
 import 'rooms_store.dart';
 
-final roomsStoreProvider = Provider<RoomsStore>((ref) => RoomsStore());
+final roomsStoreProvider = Provider<RoomsStore>((ref) => RoomsStore(ref.watch(haWebSocketClientProvider)));
 
-/// Config persisted from a previous session, read once at startup.
-final savedRoomsProvider = FutureProvider<List<RoomConfig>>((ref) {
+/// Config persisted from a previous session, read once at startup — waits
+/// for the HA connection to actually be up first (`getSettings` needs an
+/// authenticated websocket), same idiom as `areaByEntityIdProvider`.
+final savedRoomsProvider = FutureProvider<List<RoomConfig>>((ref) async {
+  await ref.watch(entitiesProvider.future);
   return ref.watch(roomsStoreProvider).read();
 });
 

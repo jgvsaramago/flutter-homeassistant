@@ -1,4 +1,5 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import '../ha_client/ha_websocket_client.dart';
+import 'settings_json_utils.dart';
 
 /// One EV card's entity mapping — a display name plus the three HA entities
 /// that make it live. All entity fields are optional; an unset one just
@@ -109,6 +110,32 @@ class EvCarConfig {
       photoUrl: photoUrl ?? this.photoUrl,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'batterySocEntityId': batterySocEntityId,
+    'rangeEntityId': rangeEntityId,
+    'chargingEntityId': chargingEntityId,
+    'plugConnectedEntityId': plugConnectedEntityId,
+    'monthEnergyEntityId': monthEnergyEntityId,
+    'monthEnergyDeltaEntityId': monthEnergyDeltaEntityId,
+    'monthCostEntityId': monthCostEntityId,
+    'monthCostDeltaEntityId': monthCostDeltaEntityId,
+    'photoUrl': photoUrl,
+  };
+
+  factory EvCarConfig.fromJson(Map<String, dynamic> json, {required String fallbackName}) => EvCarConfig(
+    name: json['name'] as String? ?? fallbackName,
+    batterySocEntityId: json['batterySocEntityId'] as String?,
+    rangeEntityId: json['rangeEntityId'] as String?,
+    chargingEntityId: json['chargingEntityId'] as String?,
+    plugConnectedEntityId: json['plugConnectedEntityId'] as String?,
+    monthEnergyEntityId: json['monthEnergyEntityId'] as String?,
+    monthEnergyDeltaEntityId: json['monthEnergyDeltaEntityId'] as String?,
+    monthCostEntityId: json['monthCostEntityId'] as String?,
+    monthCostDeltaEntityId: json['monthCostDeltaEntityId'] as String?,
+    photoUrl: json['photoUrl'] as String?,
+  );
 }
 
 /// The Homepage's two EV cards, left and right — a fixed pair (this design
@@ -136,137 +163,35 @@ class EvCarsConfig {
 
   EvCarsConfig copyWith({EvCarConfig? left, EvCarConfig? right}) =>
       EvCarsConfig(left: left ?? this.left, right: right ?? this.right);
+
+  Map<String, dynamic> toJson() => {'left': left.toJson(), 'right': right.toJson()};
+
+  factory EvCarsConfig.fromJson(Map<String, dynamic> json) {
+    final leftJson = (json['left'] as Map?)?.cast<String, dynamic>();
+    final rightJson = (json['right'] as Map?)?.cast<String, dynamic>();
+    return EvCarsConfig(
+      left: leftJson == null ? defaults.left : EvCarConfig.fromJson(leftJson, fallbackName: defaults.left.name),
+      right: rightJson == null ? defaults.right : EvCarConfig.fromJson(rightJson, fallbackName: defaults.right.name),
+    );
+  }
 }
 
-/// Persists [EvCarsConfig] via `shared_preferences` — same storage and
-/// reasoning as `EnergyEntitiesStore`.
+/// Persists [EvCarsConfig] via the `flutter_homeassistant` HA integration,
+/// so any device running this app shares the same two cars.
 class EvCarsStore {
-  EvCarsStore();
+  EvCarsStore(this._client);
 
-  static const _leftNameKey = 'ev_car_left_name';
-  static const _leftBatteryKey = 'ev_car_left_battery_entity_id';
-  static const _leftRangeKey = 'ev_car_left_range_entity_id';
-  static const _leftChargingKey = 'ev_car_left_charging_entity_id';
-  static const _leftPlugKey = 'ev_car_left_plug_entity_id';
-  static const _leftMonthEnergyKey = 'ev_car_left_month_energy_entity_id';
-  static const _leftMonthEnergyDeltaKey =
-      'ev_car_left_month_energy_delta_entity_id';
-  static const _leftMonthCostKey = 'ev_car_left_month_cost_entity_id';
-  static const _leftMonthCostDeltaKey =
-      'ev_car_left_month_cost_delta_entity_id';
-  static const _leftPhotoUrlKey = 'ev_car_left_photo_url';
-  static const _rightNameKey = 'ev_car_right_name';
-  static const _rightBatteryKey = 'ev_car_right_battery_entity_id';
-  static const _rightRangeKey = 'ev_car_right_range_entity_id';
-  static const _rightChargingKey = 'ev_car_right_charging_entity_id';
-  static const _rightPlugKey = 'ev_car_right_plug_entity_id';
-  static const _rightMonthEnergyKey = 'ev_car_right_month_energy_entity_id';
-  static const _rightMonthEnergyDeltaKey =
-      'ev_car_right_month_energy_delta_entity_id';
-  static const _rightMonthCostKey = 'ev_car_right_month_cost_entity_id';
-  static const _rightMonthCostDeltaKey =
-      'ev_car_right_month_cost_delta_entity_id';
-  static const _rightPhotoUrlKey = 'ev_car_right_photo_url';
+  final HaWebSocketClient _client;
+
+  static const _key = 'ev_cars';
 
   Future<EvCarsConfig> read() async {
-    final prefs = await SharedPreferences.getInstance();
-    final defaults = EvCarsConfig.defaults;
-    return EvCarsConfig(
-      left: EvCarConfig(
-        name: prefs.getString(_leftNameKey) ?? defaults.left.name,
-        batterySocEntityId: prefs.getString(_leftBatteryKey),
-        rangeEntityId: prefs.getString(_leftRangeKey),
-        chargingEntityId: prefs.getString(_leftChargingKey),
-        plugConnectedEntityId: prefs.getString(_leftPlugKey),
-        monthEnergyEntityId: prefs.getString(_leftMonthEnergyKey),
-        monthEnergyDeltaEntityId: prefs.getString(_leftMonthEnergyDeltaKey),
-        monthCostEntityId: prefs.getString(_leftMonthCostKey),
-        monthCostDeltaEntityId: prefs.getString(_leftMonthCostDeltaKey),
-        photoUrl: prefs.getString(_leftPhotoUrlKey),
-      ),
-      right: EvCarConfig(
-        name: prefs.getString(_rightNameKey) ?? defaults.right.name,
-        batterySocEntityId: prefs.getString(_rightBatteryKey),
-        rangeEntityId: prefs.getString(_rightRangeKey),
-        chargingEntityId: prefs.getString(_rightChargingKey),
-        plugConnectedEntityId: prefs.getString(_rightPlugKey),
-        monthEnergyEntityId: prefs.getString(_rightMonthEnergyKey),
-        monthEnergyDeltaEntityId: prefs.getString(_rightMonthEnergyDeltaKey),
-        monthCostEntityId: prefs.getString(_rightMonthCostKey),
-        monthCostDeltaEntityId: prefs.getString(_rightMonthCostDeltaKey),
-        photoUrl: prefs.getString(_rightPhotoUrlKey),
-      ),
-    );
+    final raw = await _client.getSettings(_key);
+    if (raw is! Map) return EvCarsConfig.defaults;
+    return EvCarsConfig.fromJson(raw.cast<String, dynamic>());
   }
 
   Future<void> save(EvCarsConfig config) async {
-    final prefs = await SharedPreferences.getInstance();
-    await _setOrRemove(prefs, _leftNameKey, config.left.name);
-    await _setOrRemove(prefs, _leftBatteryKey, config.left.batterySocEntityId);
-    await _setOrRemove(prefs, _leftRangeKey, config.left.rangeEntityId);
-    await _setOrRemove(prefs, _leftChargingKey, config.left.chargingEntityId);
-    await _setOrRemove(prefs, _leftPlugKey, config.left.plugConnectedEntityId);
-    await _setOrRemove(
-      prefs,
-      _leftMonthEnergyKey,
-      config.left.monthEnergyEntityId,
-    );
-    await _setOrRemove(
-      prefs,
-      _leftMonthEnergyDeltaKey,
-      config.left.monthEnergyDeltaEntityId,
-    );
-    await _setOrRemove(prefs, _leftMonthCostKey, config.left.monthCostEntityId);
-    await _setOrRemove(
-      prefs,
-      _leftMonthCostDeltaKey,
-      config.left.monthCostDeltaEntityId,
-    );
-    await _setOrRemove(prefs, _leftPhotoUrlKey, config.left.photoUrl);
-    await _setOrRemove(prefs, _rightNameKey, config.right.name);
-    await _setOrRemove(
-      prefs,
-      _rightBatteryKey,
-      config.right.batterySocEntityId,
-    );
-    await _setOrRemove(prefs, _rightRangeKey, config.right.rangeEntityId);
-    await _setOrRemove(prefs, _rightChargingKey, config.right.chargingEntityId);
-    await _setOrRemove(
-      prefs,
-      _rightPlugKey,
-      config.right.plugConnectedEntityId,
-    );
-    await _setOrRemove(
-      prefs,
-      _rightMonthEnergyKey,
-      config.right.monthEnergyEntityId,
-    );
-    await _setOrRemove(
-      prefs,
-      _rightMonthEnergyDeltaKey,
-      config.right.monthEnergyDeltaEntityId,
-    );
-    await _setOrRemove(
-      prefs,
-      _rightMonthCostKey,
-      config.right.monthCostEntityId,
-    );
-    await _setOrRemove(
-      prefs,
-      _rightMonthCostDeltaKey,
-      config.right.monthCostDeltaEntityId,
-    );
-    await _setOrRemove(prefs, _rightPhotoUrlKey, config.right.photoUrl);
-  }
-
-  Future<void> _setOrRemove(
-    SharedPreferences prefs,
-    String key,
-    String? value,
-  ) {
-    final trimmed = value?.trim();
-    return (trimmed == null || trimmed.isEmpty)
-        ? prefs.remove(key)
-        : prefs.setString(key, trimmed);
+    await _client.setSettings(_key, blankStringsToNull(config.toJson()));
   }
 }

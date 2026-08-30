@@ -1,32 +1,28 @@
-import 'package:shared_preferences/shared_preferences.dart';
-
+import '../ha_client/ha_websocket_client.dart';
+import '../providers/settings_json_utils.dart';
 import 'mass_connection_config.dart';
 
-/// Persists the Music Assistant base URL and long-lived access token via
-/// `shared_preferences` — same storage and reasoning as `HaCredentialsStore`.
+/// Persists the Music Assistant server URL/token via the `flutter_homeassistant`
+/// HA integration, so any device running this app shares the same server —
+/// same reasoning as the other dashboard-config stores. Unlike the HA
+/// connection itself, this can live in HA storage: by the time the app needs
+/// it, it's already connected to HA.
 class MassCredentialsStore {
-  MassCredentialsStore();
+  MassCredentialsStore(this._client);
 
-  static const _baseUrlKey = 'mass_base_url';
-  static const _accessTokenKey = 'mass_access_token';
+  final HaWebSocketClient _client;
+
+  static const _key = 'music_assistant';
 
   Future<MassConnectionConfig?> read() async {
-    final prefs = await SharedPreferences.getInstance();
-    final baseUrl = prefs.getString(_baseUrlKey);
-    final accessToken = prefs.getString(_accessTokenKey);
-    if (baseUrl == null || accessToken == null) return null;
-    return MassConnectionConfig(baseUrl: baseUrl, accessToken: accessToken);
+    final raw = await _client.getSettings(_key);
+    if (raw is! Map) return null;
+    final json = raw.cast<String, dynamic>();
+    if (json['baseUrl'] == null || json['accessToken'] == null) return null;
+    return MassConnectionConfig.fromJson(json);
   }
 
   Future<void> save(MassConnectionConfig config) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_baseUrlKey, config.baseUrl);
-    await prefs.setString(_accessTokenKey, config.accessToken);
-  }
-
-  Future<void> clear() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_baseUrlKey);
-    await prefs.remove(_accessTokenKey);
+    await _client.setSettings(_key, blankStringsToNull(config.toJson()));
   }
 }

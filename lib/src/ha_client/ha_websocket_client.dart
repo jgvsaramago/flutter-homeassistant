@@ -309,6 +309,21 @@ class HaWebSocketClient {
     }
   }
 
+  /// Reads one settings key stored by the `flutter_homeassistant` custom
+  /// integration (see custom_components/flutter_homeassistant/__init__.py).
+  /// Returns `null` if that key was never set.
+  Future<dynamic> getSettings(String key) async {
+    final result = await _sendCommand({'type': 'flutter_homeassistant/get_settings', 'key': key});
+    return (result['result'] as Map)['value'];
+  }
+
+  /// Persists one settings key via the `flutter_homeassistant` custom
+  /// integration. [value] must be JSON-serializable (dict/list/String/num/
+  /// bool/null) — passed through as-is, no pre-encoding needed.
+  Future<void> setSettings(String key, dynamic value) async {
+    await _sendCommand({'type': 'flutter_homeassistant/set_settings', 'key': key, 'value': value});
+  }
+
   /// Calls a Home Assistant service, e.g. domain `light`, service `turn_on`,
   /// target `{'entity_id': 'light.kitchen'}`.
   Future<void> callService(

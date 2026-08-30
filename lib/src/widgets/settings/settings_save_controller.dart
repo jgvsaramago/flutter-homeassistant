@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart';
 /// controller per page, created by the page and handed to both its card and
 /// its `SettingsSubPageScaffold`, is enough.
 class SettingsSaveController {
-  VoidCallback? _onSave;
+  Future<void> Function()? _onSave;
 
   /// Whether the card's draft currently matches what's last been saved —
   /// the floating button reads this to show "Guardado" instead of
@@ -18,12 +18,30 @@ class SettingsSaveController {
   /// before this existed.
   final ValueNotifier<bool> saved = ValueNotifier(false);
 
+  /// Whether a save triggered by [requestSave] is still in flight — now
+  /// that saving means a real HA websocket round trip (not an instant local
+  /// write), the floating button uses this to show a third "a guardar..."
+  /// state and to guard against a second tap firing a concurrent save.
+  final ValueNotifier<bool> saving = ValueNotifier(false);
+
   /// Called by the settings card's own State in `initState`, wiring its
   /// private `_save` method up to this controller.
-  void bind(VoidCallback onSave) => _onSave = onSave;
+  void bind(Future<void> Function() onSave) => _onSave = onSave;
 
-  /// Called by the floating save button when tapped.
-  void requestSave() => _onSave?.call();
+  /// Called by the floating save button when tapped. No-ops while a save is
+  /// already in flight.
+  Future<void> requestSave() async {
+    if (saving.value || _onSave == null) return;
+    saving.value = true;
+    try {
+      await _onSave!();
+    } finally {
+      saving.value = false;
+    }
+  }
 
-  void dispose() => saved.dispose();
+  void dispose() {
+    saved.dispose();
+    saving.dispose();
+  }
 }
