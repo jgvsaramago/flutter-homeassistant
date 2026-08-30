@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Flutter Home Assistant App",
+        "description": "Sets up shared storage for the Flutter Home Assistant App's dashboard settings, so any device running the app reads and writes the same settings instead of keeping its own local copy. No configuration needed."
+      }
+    },
+    "abort": {
+      "already_configured": "Already configured. Only a single instance is needed."
+    }
+  }
+}
