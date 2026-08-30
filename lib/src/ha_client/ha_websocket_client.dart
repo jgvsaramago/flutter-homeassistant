@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../models/ha_calendar_event.dart';
@@ -281,8 +281,12 @@ class HaWebSocketClient {
   /// the websocket — Home Assistant has no websocket command for calendar
   /// events, only the REST `/api/calendars/<entity_id>` endpoint (confirmed
   /// directly against a real instance; see the calendar feature's own
-  /// commit). Reuses the same base URL and long-lived token the websocket
-  /// connection was made with, so callers don't need a second config.
+  /// commit). Uses `package:http` rather than dart:io's `HttpClient` —
+  /// the latter is unsupported on Flutter web (it throws at runtime, since
+  /// the web platform has no raw socket access), which silently broke every
+  /// calendar's events as soon as one was configured on the web build.
+  /// Reuses the same base URL and long-lived token the websocket connection
+  /// was made with, so callers don't need a second config.
   Future<List<HaCalendarEvent>> getCalendarEvents(String entityId, {required DateTime start, required DateTime end}) async {
     final config = _config;
     if (config == null) return const [];
@@ -292,21 +296,10 @@ class HaWebSocketClient {
       queryParameters: {'start': start.toUtc().toIso8601String(), 'end': end.toUtc().toIso8601String()},
     );
 
-    final client = HttpClient();
-    try {
-      final request = await client.getUrl(uri);
-      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer ${config.accessToken}');
-      final response = await request.close();
-      if (response.statusCode != 200) {
-        await response.drain<void>();
-        return const [];
-      }
-      final body = await response.transform(utf8.decoder).join();
-      final events = (jsonDecode(body) as List).cast<Map<String, dynamic>>();
-      return events.map(HaCalendarEvent.fromJson).toList();
-    } finally {
-      client.close();
-    }
+    final response = await http.get(uri, headers: {'Authorization': 'Bearer ${config.accessToken}'});
+    if (response.statusCode != 200) return const [];
+    final events = (jsonDecode(response.body) as List).cast<Map<String, dynamic>>();
+    return events.map(HaCalendarEvent.fromJson).toList();
   }
 
   /// Reads one settings key stored by the `flutter_homeassistant` custom

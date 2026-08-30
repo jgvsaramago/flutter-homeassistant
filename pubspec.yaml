@@ -44,6 +44,11 @@ dependencies:
   # Home Assistant WebSocket API transport
   web_socket_channel: ^3.0.2
 
+  # Plain REST call for calendar events (HA has no websocket command for
+  # those) — dart:io's HttpClient doesn't work on Flutter web, so this
+  # needs a cross-platform HTTP client instead.
+  http: ^1.6.0
+
   # Local storage for the HA base URL + long-lived access token. Not
   # flutter_secure_storage: its Linux backend needs a D-Bus secret-service
   # daemon (gnome-keyring et al.) that isn't present on a headless Raspberry
