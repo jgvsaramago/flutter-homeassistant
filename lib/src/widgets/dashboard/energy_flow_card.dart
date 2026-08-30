@@ -513,23 +513,29 @@ class _MeshPainter extends CustomPainter {
     // Column A: single straight bus behind the home node, shared by both
     // its devices — its dot speed reflects their combined draw, since the
     // reference flow-rate model has no notion of two loads on one
-    // connector. Only drawn once both slots it spans actually have a
-    // sensor — sensors fill slots 0..count-1 in order, so a lone slot-0
-    // sensor with no slot-1 partner gets no dangling line into an empty
-    // position.
+    // connector. Two dots both travel outward from home (appliances only
+    // ever receive power, never supply it), not a single dot sweeping
+    // straight across from one device to the other. Only drawn once both
+    // slots it spans actually have a sensor — sensors fill slots 0..count-1
+    // in order, so a lone slot-0 sensor with no slot-1 partner gets no
+    // dangling line into an empty position.
     if (individualSensorCount >= 2) {
-      _ambientLine(canvas, _individualSensorSlots[0], _individualSensorSlots[1], dur: _flowRate(individualSensorKw[0] + individualSensorKw[1]));
+      _ambientBusFromHome(canvas, _individualSensorSlots[0], _individualSensorSlots[1], dur: _flowRate(individualSensorKw[0] + individualSensorKw[1]));
     }
 
     // Column B: each device curves straight into home (mirrors the
     // battery/solar -> home curves above, reflected about the home column)
-    // — one line per device, so each dot speed is that device's own kW,
-    // and each is only drawn once its own slot has a sensor.
+    // — one line per device, so each dot speed is that device's own kW.
+    // The dot travels home -> device (an appliance only ever receives
+    // power), so `_ambientCurve` is called with home first and the device
+    // slot last even though the curve's own shape (defined by the fixed
+    // control point) is identical either way. Each is only drawn once its
+    // own slot has a sensor.
     if (individualSensorCount >= 3) {
-      _ambientCurve(canvas, _individualSensorSlots[2], const Offset(0.8875, 0.481), _homePos, dur: _flowRate(individualSensorKw[2]));
+      _ambientCurve(canvas, _homePos, const Offset(0.8875, 0.481), _individualSensorSlots[2], dur: _flowRate(individualSensorKw[2]));
     }
     if (individualSensorCount >= 4) {
-      _ambientCurve(canvas, _individualSensorSlots[3], const Offset(0.8875, 0.519), _homePos, dur: _flowRate(individualSensorKw[3]));
+      _ambientCurve(canvas, _homePos, const Offset(0.8875, 0.519), _individualSensorSlots[3], dur: _flowRate(individualSensorKw[3]));
     }
   }
 
@@ -581,22 +587,30 @@ class _MeshPainter extends CustomPainter {
     );
   }
 
-  /// A grey link whose dot loops continuously along it (no fade at the
-  /// ends, unlike the old spine) — used for the appliance-column links,
-  /// which never carry live data on this card, unlike `_flowLine`/
+  /// Column A's shared bus: one static line drawn straight through the home
+  /// node between the top and bottom device slots, but two independent
+  /// dots — one traveling from home up to [topF], one from home down to
+  /// [bottomF] — since both appliances only ever receive power from the
+  /// house, never the reverse. No fade at the ends (unlike the old spine);
+  /// this link never carries live data on this card, unlike `_flowLine`/
   /// `_flowCurve`'s dot that only appears while a real transfer is active.
-  void _ambientLine(Canvas canvas, Offset fromF, Offset toF, {required Duration dur}) {
-    final from = _p(fromF);
-    final to = _p(toF);
+  void _ambientBusFromHome(Canvas canvas, Offset topF, Offset bottomF, {required Duration dur}) {
+    final top = _p(topF);
+    final bottom = _p(bottomF);
+    final home = _p(_homePos);
     canvas.drawLine(
-      from,
-      to,
+      top,
+      bottom,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
         ..color = NocturneColors.neutral800,
     );
-    canvas.drawCircle(Offset.lerp(from, to, _phase(dur))!, 1.35 * (size.height / 100), Paint()..color = NocturneColors.neutral500);
+    final phase = _phase(dur);
+    final dotPaint = Paint()..color = NocturneColors.neutral500;
+    final dotRadius = 1.35 * (size.height / 100);
+    canvas.drawCircle(Offset.lerp(home, top, phase)!, dotRadius, dotPaint);
+    canvas.drawCircle(Offset.lerp(home, bottom, phase)!, dotRadius, dotPaint);
   }
 
   void _ambientCurve(Canvas canvas, Offset fromF, Offset controlF, Offset toF, {required Duration dur}) {
