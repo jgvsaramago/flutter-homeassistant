@@ -42,6 +42,7 @@
     rooms: {
       shape: "list",
       requiredField: "name",
+      collapsible: true,
       itemLabel: (item) => item.name || "(sem nome)",
       fields: [
         field("name", "text", "Nome", { hint: "Sala" }),
@@ -339,6 +340,10 @@
   async function renderListDomain(root, hass, key, domainDef) {
     const loaded = (await wsGet(hass, key)) || [];
     let items = deepClone(loaded);
+    // Newly loaded (already-configured) rooms start collapsed so a long
+    // list doesn't open as a wall of fields; a freshly added one starts
+    // expanded since the user is about to fill it in.
+    if (domainDef.collapsible) items.forEach((it) => (it._expanded = false));
 
     const wrap = document.createElement("div");
     wrap.className = "domain-section";
@@ -359,6 +364,14 @@
 
         const controls = document.createElement("div");
         controls.className = "item-controls";
+        if (domainDef.collapsible) {
+          controls.appendChild(
+            mkIconButton(item._expanded ? "mdi:chevron-up" : "mdi:chevron-down", item._expanded ? "Colapsar" : "Expandir", () => {
+              item._expanded = !item._expanded;
+              paintCards();
+            })
+          );
+        }
         if (index > 0) {
           controls.appendChild(
             mkIconButton("mdi:arrow-up", "Mover para cima", () => {
@@ -385,15 +398,24 @@
         header.appendChild(controls);
         card.appendChild(header);
 
-        const body = document.createElement("div");
-        body.className = "item-body";
-        domainDef.fields.forEach((f) => {
-          renderFieldRow(body, hass, f, item[f.key], (v) => {
-            item[f.key] = v;
-            if (f.key === domainDef.requiredField) title.textContent = domainDef.itemLabel(item);
+        if (domainDef.collapsible && !item._expanded) {
+          const filledCount = domainDef.fields.filter((f) => f.key !== domainDef.requiredField && item[f.key]).length;
+          const total = domainDef.fields.length - 1;
+          const summary = document.createElement("div");
+          summary.className = "item-summary";
+          summary.textContent = filledCount === 0 ? "Nenhum campo configurado" : `${filledCount} de ${total} campos configurados`;
+          card.appendChild(summary);
+        } else {
+          const body = document.createElement("div");
+          body.className = "item-body";
+          domainDef.fields.forEach((f) => {
+            renderFieldRow(body, hass, f, item[f.key], (v) => {
+              item[f.key] = v;
+              if (f.key === domainDef.requiredField) title.textContent = domainDef.itemLabel(item);
+            });
           });
-        });
-        card.appendChild(body);
+          card.appendChild(body);
+        }
         cardsWrap.appendChild(card);
       });
     }
@@ -405,7 +427,7 @@
       addBtn.textContent = atMax ? `Máximo de ${domainDef.maxItems} atingido` : "Adicionar";
     }
     addBtn.addEventListener("click", () => {
-      items.push({});
+      items.push(domainDef.collapsible ? { _expanded: true } : {});
       paintCards();
       updateAddState();
     });
@@ -558,6 +580,7 @@
     .icon-btn { background:none; border:none; cursor:pointer; color: var(--secondary-text-color); padding:4px; display:flex; border-radius:50%; }
     .icon-btn:hover { color: var(--primary-text-color); background: var(--secondary-background-color); }
     .item-body { display:flex; flex-direction:column; gap:12px; }
+    .item-summary { font-size:12px; color: var(--secondary-text-color); }
     .field-row ha-entity-picker { width:100%; }
     .field-desc { font-size:12px; color: var(--secondary-text-color); margin-top:2px; }
     .date-field, .text-field { display:flex; flex-direction:column; gap:4px; }

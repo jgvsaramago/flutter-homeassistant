@@ -49,3 +49,6 @@ app.*.map.json
 
 # Python (custom_components/)
 __pycache__/
+
+# Local-only dev config (real HA credentials) — never committed
+lib/src/dev/local_ha_preview.dart
