@@ -23,6 +23,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN, EVENT_SETTINGS_UPDATED, STORAGE_KEY, STORAGE_VERSION
+from .panel import async_register_panel, async_remove_panel
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
@@ -44,10 +45,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
     hass.data[DOMAIN]["store"] = store
     hass.data[DOMAIN]["data"] = await store.async_load() or {}
+
+    await async_register_panel(hass)
+
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    async_remove_panel(hass)
+
     hass.data[DOMAIN].pop("store", None)
     hass.data[DOMAIN].pop("data", None)
     return True

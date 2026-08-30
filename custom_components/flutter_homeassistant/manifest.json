@@ -5,6 +5,6 @@
   "iot_class": "local_push",
   "version": "0.1.0",
   "requirements": [],
-  "dependencies": [],
+  "dependencies": ["panel_custom"],
   "codeowners": []
 }
