@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../models/ha_calendar_event.dart';
@@ -24,7 +23,6 @@ class HaWebSocketClient {
 
   WebSocketChannel? _channel;
   StreamSubscription? _channelSubscription;
-  HaConnectionConfig? _config;
 
   int _messageId = 1;
   final Map<int, Completer<Map<String, dynamic>>> _pendingCommands = {};
@@ -59,7 +57,6 @@ class HaWebSocketClient {
 
   Future<void> connect(HaConnectionConfig config) async {
     await disconnect();
-    _config = config;
     _setState(HaConnectionState.connecting);
     debugPrint('[ha websocket] connecting to ${config.webSocketUri}...');
 
@@ -277,28 +274,25 @@ class HaWebSocketClient {
 
   /// Fetches events for one calendar entity between [start] and [end].
   ///
-  /// Unlike everything else in this client, this goes over plain HTTP, not
-  /// the websocket — Home Assistant has no websocket command for calendar
-  /// events, only the REST `/api/calendars/<entity_id>` endpoint (confirmed
-  /// directly against a real instance; see the calendar feature's own
-  /// commit). Uses `package:http` rather than dart:io's `HttpClient` —
-  /// the latter is unsupported on Flutter web (it throws at runtime, since
-  /// the web platform has no raw socket access), which silently broke every
-  /// calendar's events as soon as one was configured on the web build.
-  /// Reuses the same base URL and long-lived token the websocket connection
-  /// was made with, so callers don't need a second config.
+  /// Goes through the `flutter_homeassistant` custom integration's own
+  /// `get_calendar_events` websocket command (see
+  /// custom_components/flutter_homeassistant/__init__.py) rather than HA's
+  /// REST `/api/calendars/<entity_id>` endpoint directly. Two dead ends
+  /// led here: dart:io's `HttpClient` is unsupported on Flutter web (throws
+  /// at runtime), and switching to `package:http` traded that for a browser
+  /// CORS block on the cross-origin REST call — either way, every
+  /// calendar's events broke as soon as one was configured on the web
+  /// build. Routing through this integration's own websocket command
+  /// (already open and authenticated for every other call this client
+  /// makes) sidesteps CORS entirely, since it's not a REST fetch at all.
   Future<List<HaCalendarEvent>> getCalendarEvents(String entityId, {required DateTime start, required DateTime end}) async {
-    final config = _config;
-    if (config == null) return const [];
-
-    final base = config.baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
-    final uri = Uri.parse('$base/api/calendars/$entityId').replace(
-      queryParameters: {'start': start.toUtc().toIso8601String(), 'end': end.toUtc().toIso8601String()},
-    );
-
-    final response = await http.get(uri, headers: {'Authorization': 'Bearer ${config.accessToken}'});
-    if (response.statusCode != 200) return const [];
-    final events = (jsonDecode(response.body) as List).cast<Map<String, dynamic>>();
+    final result = await _sendCommand({
+      'type': 'flutter_homeassistant/get_calendar_events',
+      'entity_id': entityId,
+      'start': start.toUtc().toIso8601String(),
+      'end': end.toUtc().toIso8601String(),
+    });
+    final events = ((result['result'] as Map)['events'] as List).cast<Map<String, dynamic>>();
     return events.map(HaCalendarEvent.fromJson).toList();
   }
 

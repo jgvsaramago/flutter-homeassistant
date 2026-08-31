@@ -25,7 +25,13 @@ class CalendarCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
     final monthAnchor = monthAnchorForOffset(now, 0);
-    final eventsByDate = groupByDate(ref.watch(calendarMonthEventsProvider(monthAnchor)).value ?? const []);
+    // `.valueOrNull`, not `.value` — `AsyncValue.value` rethrows the
+    // underlying error when the provider has errored and never had a prior
+    // value (e.g. the calendar REST fetch failing, whether from a CORS
+    // block on web or HA being briefly unreachable), which would crash this
+    // whole card into a release-mode grey error box instead of just
+    // showing an empty grid.
+    final eventsByDate = groupByDate(ref.watch(calendarMonthEventsProvider(monthAnchor)).valueOrNull ?? const []);
 
     final grid = buildMonthGrid(monthAnchor);
     final days = [

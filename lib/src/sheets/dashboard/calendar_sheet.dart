@@ -69,7 +69,8 @@ class _CalendarSheetBodyState extends ConsumerState<_CalendarSheetBody> {
   Widget build(BuildContext context) {
     final entries = ref.watch(calendarEntriesProvider);
     final entities = ref.watch(entitiesProvider).value ?? const {};
-    final allInstances = ref.watch(calendarMonthEventsProvider(_monthAnchor)).value ?? const [];
+    // `.valueOrNull`, not `.value` — see the same note in `CalendarCard`.
+    final allInstances = ref.watch(calendarMonthEventsProvider(_monthAnchor)).valueOrNull ?? const [];
     final visibleInstances = [for (final i in allInstances) if (!_hiddenCals.contains(i.entityId)) i];
     final byDate = groupByDate(visibleInstances);
 
