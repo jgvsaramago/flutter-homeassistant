@@ -51,7 +51,7 @@ class SettingsSubPageScaffold extends StatelessWidget {
                         // room to land precisely.
                         IconButton(
                           onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.arrow_back, color: NocturneColors.text, size: 34),
+                          icon: Icon(Icons.arrow_back, color: NocturneColors.text, size: 34),
                           iconSize: 34,
                           padding: const EdgeInsets.all(20),
                           constraints: const BoxConstraints(minWidth: 80, minHeight: 80),

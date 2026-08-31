@@ -54,8 +54,8 @@ class EnergyProductionChart extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Expanded(child: Text('PRODUÇÃO HOJE · HORA A HORA', style: NocturneText.cardKicker)),
-              const _LegendSwatch(color: NocturneColors.solarMark, label: 'Produzido'),
+              Expanded(child: Text('PRODUÇÃO HOJE · HORA A HORA', style: NocturneText.cardKicker)),
+              _LegendSwatch(color: NocturneColors.solarMark, label: 'Produzido'),
               const SizedBox(width: 18),
               _LegendSwatch(color: Color.alphaBlend(NocturneColors.solarMark.withValues(alpha: 0.26), NocturneColors.surface), label: 'Previsto'),
             ],
@@ -112,9 +112,9 @@ class EnergyProductionChart extends ConsumerWidget {
             padding: const EdgeInsets.only(left: 52),
             child: Row(
               children: [
-                Text(peakText ?? '--', style: const TextStyle(fontSize: 15, color: NocturneColors.neutral400, decoration: TextDecoration.none)),
+                Text(peakText ?? '--', style: TextStyle(fontSize: 15, color: NocturneColors.neutral400, decoration: TextDecoration.none)),
                 const SizedBox(width: 26),
-                Text(deviationText ?? '--', style: const TextStyle(fontSize: 15, color: NocturneColors.neutral400, decoration: TextDecoration.none)),
+                Text(deviationText ?? '--', style: TextStyle(fontSize: 15, color: NocturneColors.neutral400, decoration: TextDecoration.none)),
               ],
             ),
           ),
@@ -151,7 +151,7 @@ class _YAxis extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(fontSize: 13, color: NocturneColors.neutral600, decoration: TextDecoration.none);
+    final style = TextStyle(fontSize: 13, color: NocturneColors.neutral600, decoration: TextDecoration.none);
     return SizedBox(
       height: _plotHeight,
       child: Column(
@@ -160,7 +160,7 @@ class _YAxis extends StatelessWidget {
         children: [
           Text('${ptNumber(axisMax, decimals: axisMax < 2 ? 1 : 0)} kW', style: style),
           for (var i = 3; i >= 1; i--) Text(ptNumber(axisMax * i / 4, decimals: axisMax < 2 ? 1 : 0), style: style),
-          const Text('0', style: style),
+          Text('0', style: style),
         ],
       ),
     );
@@ -197,7 +197,7 @@ class _Bar extends StatelessWidget {
               FractionallySizedBox(
                 heightFactor: (actual! / axisMax).clamp(0.0, 1.0),
                 child: Container(
-                  decoration: const BoxDecoration(color: NocturneColors.solarMark, borderRadius: BorderRadius.vertical(top: Radius.circular(5))),
+                  decoration: BoxDecoration(color: NocturneColors.solarMark, borderRadius: BorderRadius.vertical(top: Radius.circular(5))),
                 ),
               ),
           ],
@@ -220,7 +220,7 @@ class _LegendSwatch extends StatelessWidget {
       children: [
         Container(width: 14, height: 14, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4))),
         const SizedBox(width: 7),
-        Text(label, style: const TextStyle(fontSize: 14, color: NocturneColors.neutral400, decoration: TextDecoration.none)),
+        Text(label, style: TextStyle(fontSize: 14, color: NocturneColors.neutral400, decoration: TextDecoration.none)),
       ],
     );
   }

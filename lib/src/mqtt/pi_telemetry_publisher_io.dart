@@ -12,8 +12,16 @@ import '../services/screen_brightness_service.dart';
 import '../services/screen_power_controller.dart';
 import '../services/system_control_service.dart';
 import '../sheets/sheet_registry.dart';
+import '../theme/theme_mode_controller.dart';
 import 'mqtt_config.dart';
 import 'mqtt_connection_status.dart';
+
+/// The HA `select` entity's two option labels — Portuguese, matching this
+/// app's copy convention, and also the wire values `_handleCommand` expects
+/// back on the command topic (HA's MQTT select integration always sends the
+/// exact option string chosen, never a separate machine value).
+const _themeOptionDark = 'Escuro';
+const _themeOptionLight = 'Claro';
 
 const _discoveryPrefix = 'homeassistant';
 const _statsInterval = Duration(seconds: 30);
@@ -34,6 +42,7 @@ class PiTelemetryPublisher {
   String _baseTopic = '';
   String _availabilityTopic = '';
   VoidCallback? _unlistenScreenIsOn;
+  VoidCallback? _unlistenThemeMode;
 
   Future<void> start(MqttConfig config) async {
     await stop();
@@ -102,6 +111,7 @@ class PiTelemetryPublisher {
     client.subscribe('$_baseTopic/button/reboot/set', MqttQos.atLeastOnce);
     client.subscribe('$_baseTopic/sheet/open', MqttQos.atLeastOnce);
     client.subscribe('$_baseTopic/sheet/close', MqttQos.atLeastOnce);
+    client.subscribe('$_baseTopic/select/theme/set', MqttQos.atLeastOnce);
     client.updates?.listen(_onMessage);
 
     void publishScreenState() {
@@ -113,6 +123,18 @@ class PiTelemetryPublisher {
     publishScreenState();
     unawaited(_publishBrightnessState());
 
+    void publishThemeState() {
+      _publish(
+        '$_baseTopic/select/theme/state',
+        ThemeModeController.instance.mode.value == Brightness.light ? _themeOptionLight : _themeOptionDark,
+        retain: true,
+      );
+    }
+
+    ThemeModeController.instance.mode.addListener(publishThemeState);
+    _unlistenThemeMode = () => ThemeModeController.instance.mode.removeListener(publishThemeState);
+    publishThemeState();
+
     await _publishStats();
     _statsTimer = Timer.periodic(_statsInterval, (_) => _publishStats());
   }
@@ -122,6 +144,8 @@ class PiTelemetryPublisher {
     _statsTimer = null;
     _unlistenScreenIsOn?.call();
     _unlistenScreenIsOn = null;
+    _unlistenThemeMode?.call();
+    _unlistenThemeMode = null;
     final client = _client;
     if (client != null) {
       _publish(_availabilityTopic, 'offline', retain: true);
@@ -225,6 +249,21 @@ class PiTelemetryPublisher {
       retain: true,
     );
 
+    _publish(
+      '$_discoveryPrefix/select/$deviceId/theme/config',
+      jsonEncode({
+        'name': 'Theme',
+        'unique_id': '${deviceId}_theme',
+        'options': [_themeOptionDark, _themeOptionLight],
+        'state_topic': '$_baseTopic/select/theme/state',
+        'command_topic': '$_baseTopic/select/theme/set',
+        'availability_topic': _availabilityTopic,
+        'device': device,
+        'icon': 'mdi:theme-light-dark',
+      }),
+      retain: true,
+    );
+
     void button(String objectId, {required String name, required String icon, String? deviceClass}) {
       final config = {
         'name': name,
@@ -286,6 +325,14 @@ class PiTelemetryPublisher {
       SheetRegistry.instance.open(payload);
     } else if (topic == '$_baseTopic/sheet/close') {
       SheetRegistry.instance.closeTop();
+    } else if (topic == '$_baseTopic/select/theme/set') {
+      if (payload == _themeOptionLight) {
+        ThemeModeController.instance.setMode(Brightness.light);
+      } else if (payload == _themeOptionDark) {
+        ThemeModeController.instance.setMode(Brightness.dark);
+      }
+      // The theme select's own listener (see `start`) re-publishes state
+      // off the resulting `mode` change — no need to do it here too.
     }
   }
 

@@ -438,12 +438,12 @@ class _SensorRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: _SensorNameField(initialValue: entry.name, onChanged: onNameChanged)),
-              IconButton(onPressed: onRemove, icon: const Icon(Icons.delete_outline, color: NocturneColors.neutral500), tooltip: 'Remover'),
+              IconButton(onPressed: onRemove, icon: Icon(Icons.delete_outline, color: NocturneColors.neutral500), tooltip: 'Remover'),
             ],
           ),
           if (entry.name.trim().isEmpty && entry.hasEntityData) ...[
             const SizedBox(height: 6),
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(left: 2),
               child: Text('Sem nome — este sensor não vai ser guardado.', style: TextStyle(fontSize: 14, color: NocturneColors.solarMark)),
             ),

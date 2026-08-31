@@ -115,13 +115,13 @@ class _CalendarEntitiesCardState extends ConsumerState<CalendarEntitiesCard> {
           children: [
             Row(
               children: [
-                const Icon(Icons.event_outlined, size: 20, color: NocturneColors.accent),
+                Icon(Icons.event_outlined, size: 20, color: NocturneColors.accent),
                 const SizedBox(width: 8),
                 Text('CALENDÁRIOS', style: NocturneText.cardKicker),
               ],
             ),
             const SizedBox(height: 6),
-            const Text('Escolha as entidades calendar.* a mostrar e a cor de cada uma.', style: NocturneText.body),
+            Text('Escolha as entidades calendar.* a mostrar e a cor de cada uma.', style: NocturneText.body),
             const SizedBox(height: 18),
             for (final entry in _draft) ...[
               _CalendarEntryRow(
@@ -174,7 +174,7 @@ class _CalendarEntryRow extends StatelessWidget {
                   onChanged: onEntityChanged,
                 ),
               ),
-              IconButton(onPressed: onRemove, icon: const Icon(Icons.delete_outline, color: NocturneColors.neutral500), tooltip: 'Remover'),
+              IconButton(onPressed: onRemove, icon: Icon(Icons.delete_outline, color: NocturneColors.neutral500), tooltip: 'Remover'),
             ],
           ),
           const SizedBox(height: 12),
@@ -227,7 +227,7 @@ class _Swatch extends StatelessWidget {
             color: colorKey.color,
             border: active ? Border.all(color: NocturneColors.text, width: 2.5) : null,
           ),
-          child: active ? const Icon(Icons.check, size: 16, color: NocturneColors.bg) : null,
+          child: active ? Icon(Icons.check, size: 16, color: NocturneColors.bg) : null,
         ),
       ),
     );

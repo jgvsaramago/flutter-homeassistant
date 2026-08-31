@@ -59,7 +59,7 @@ class _RebootButtonCardState extends State<RebootButtonCard> {
               children: [
                 Icon(Icons.restart_alt, color: theme.colorScheme.primary, size: 26),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -108,7 +108,7 @@ Future<bool?> _confirmReboot(BuildContext context) {
           children: [
             const Text('Reiniciar o Raspberry Pi?', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
             const SizedBox(height: 10),
-            const Text(
+            Text(
               'O dashboard fica indisponível durante o reinício.',
               style: TextStyle(fontSize: 16, color: NocturneColors.neutral400, height: 1.4),
             ),

@@ -55,14 +55,14 @@ class RoomCard extends StatelessWidget {
                           style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w600, letterSpacing: -1, height: 1),
                         ),
                         const SizedBox(width: 3),
-                        const Text('°C', style: TextStyle(fontSize: 16, color: NocturneColors.neutral500)),
+                        Text('°C', style: TextStyle(fontSize: 16, color: NocturneColors.neutral500)),
                       ],
                     ),
                     if (subText != null) ...[
                       const SizedBox(height: 6),
                       Text(
                         subText,
-                        style: const TextStyle(fontSize: 15, color: NocturneColors.neutral500),
+                        style: TextStyle(fontSize: 15, color: NocturneColors.neutral500),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

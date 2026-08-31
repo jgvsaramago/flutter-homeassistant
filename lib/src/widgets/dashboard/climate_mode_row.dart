@@ -24,7 +24,7 @@ class _ModeSpec {
   final Color hue;
 }
 
-const _modeSpecs = {
+final _modeSpecs = {
   _HomeMode.normal: _ModeSpec('Normal', Icons.home_outlined, NocturneColors.accent),
   _HomeMode.away: _ModeSpec('Ausente', Icons.logout, NocturneColors.amber),
   _HomeMode.sleep: _ModeSpec('Dormir', Icons.bedtime_outlined, NocturneColors.blue),
@@ -136,7 +136,7 @@ class _ClimateCard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
+                      Text(
                         'INTERIOR',
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: 1.4, color: NocturneColors.accent),
                       ),
@@ -150,7 +150,7 @@ class _ClimateCard extends ConsumerWidget {
                             style: const TextStyle(fontSize: 56, fontWeight: FontWeight.w600, height: 0.95, letterSpacing: -2),
                           ),
                           const SizedBox(width: 4),
-                          const Text('°C', style: TextStyle(fontSize: 21, color: NocturneColors.neutral500)),
+                          Text('°C', style: TextStyle(fontSize: 21, color: NocturneColors.neutral500)),
                         ],
                       ),
                     ],
@@ -173,25 +173,25 @@ class _ClimateCard extends ConsumerWidget {
               ),
               Container(
                 padding: const EdgeInsets.only(top: 14),
-                decoration: const BoxDecoration(border: Border(top: BorderSide(color: NocturneColors.divider))),
+                decoration: BoxDecoration(border: Border(top: BorderSide(color: NocturneColors.divider))),
                 child: Row(
                   children: [
-                    const Icon(Icons.wb_cloudy_outlined, size: 19, color: NocturneColors.neutral500),
+                    Icon(Icons.wb_cloudy_outlined, size: 19, color: NocturneColors.neutral500),
                     const SizedBox(width: 12),
                     Text.rich(
                       TextSpan(
-                        style: const TextStyle(fontSize: 16, color: NocturneColors.neutral300),
+                        style: TextStyle(fontSize: 16, color: NocturneColors.neutral300),
                         children: [
                           const TextSpan(text: 'Exterior '),
                           TextSpan(
                             text: '${_formatTemp(exterior)}°C',
-                            style: const TextStyle(fontWeight: FontWeight.w600, color: NocturneColors.text),
+                            style: TextStyle(fontWeight: FontWeight.w600, color: NocturneColors.text),
                           ),
                         ],
                       ),
                     ),
                     const Spacer(),
-                    const Text('Chuva fraca', style: TextStyle(fontSize: 16, color: NocturneColors.neutral500)),
+                    Text('Chuva fraca', style: TextStyle(fontSize: 16, color: NocturneColors.neutral500)),
                   ],
                 ),
               ),
@@ -242,7 +242,7 @@ class _ModeCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'MODO',
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, letterSpacing: 1.3, color: NocturneColors.accent),
             ),

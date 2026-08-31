@@ -136,7 +136,7 @@ class _Placeholder {
   final List<_Session> sessions;
 }
 
-const _placeholderLeft = _Placeholder(
+final _placeholderLeft = _Placeholder(
   energyKwh: 142,
   costEur: 21.30,
   energyDeltaPct: 17,
@@ -176,7 +176,7 @@ const _placeholderLeft = _Placeholder(
   ],
 );
 
-const _placeholderRight = _Placeholder(
+final _placeholderRight = _Placeholder(
   energyKwh: 64,
   costEur: 9.60,
   energyDeltaPct: -18,
@@ -349,7 +349,7 @@ class _EvSheetBody extends ConsumerWidget {
           ),
         ),
         SizedBox(height: 208, child: _BarChart(bars: bars)),
-        const Padding(
+        Padding(
           padding: EdgeInsets.fromLTRB(4, 30, 4, 14),
           child: Text(
             'Origem da carga',
@@ -369,7 +369,7 @@ class _EvSheetBody extends ConsumerWidget {
           padding: const EdgeInsets.only(bottom: 26),
           child: _OriginLegend(origin: placeholder.origin, kwh: originKwh),
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.fromLTRB(4, 0, 4, 6),
           child: Text(
             'Últimas sessões',
@@ -427,7 +427,7 @@ class _Header extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 40,
                     fontWeight: FontWeight.w500,
                     height: 1,
@@ -443,7 +443,7 @@ class _Header extends StatelessWidget {
                   children: [
                     Text(
                       '${soc.round()}%',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 34,
                         fontWeight: FontWeight.w600,
                         height: 1,
@@ -454,7 +454,7 @@ class _Header extends StatelessWidget {
                     const SizedBox(width: 14),
                     Text(
                       rangeLabel,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 17,
                         decoration: TextDecoration.none,
                         color: NocturneColors.neutral500,
@@ -525,7 +525,7 @@ class _PhotoPlaceholder extends StatelessWidget {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: const [
+        children: [
           Icon(
             Icons.image_outlined,
             size: 26,
@@ -597,7 +597,7 @@ class _StopChargeButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(NocturneRadii.pill),
           border: Border.all(color: NocturneColors.accent),
         ),
-        child: const Text(
+        child: Text(
           'Parar carga',
           style: TextStyle(
             fontSize: 19,
@@ -637,7 +637,7 @@ class _StatCard extends StatelessWidget {
         children: [
           Text(
             label.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               letterSpacing: 1.5,
               decoration: TextDecoration.none,
@@ -647,7 +647,7 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 36,
               fontWeight: FontWeight.w600,
               height: 1,
@@ -814,7 +814,7 @@ class _OriginLegend extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             '${origin[i].label} ${origin[i].share}% · ${kwh[i].round()} kWh',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 17,
               decoration: TextDecoration.none,
               color: NocturneColors.neutral400,
@@ -856,7 +856,7 @@ class _SessionRow extends StatelessWidget {
             width: 120,
             child: Text(
               session.date,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 decoration: TextDecoration.none,
                 color: NocturneColors.neutral300,
@@ -867,7 +867,7 @@ class _SessionRow extends StatelessWidget {
             width: 120,
             child: Text(
               session.kwh,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 decoration: TextDecoration.none,
                 color: NocturneColors.text,
@@ -878,7 +878,7 @@ class _SessionRow extends StatelessWidget {
             width: 110,
             child: Text(
               session.eur,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 decoration: TextDecoration.none,
                 color: NocturneColors.text,
@@ -888,7 +888,7 @@ class _SessionRow extends StatelessWidget {
           Expanded(
             child: Text(
               session.src,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 decoration: TextDecoration.none,
                 color: NocturneColors.neutral500,

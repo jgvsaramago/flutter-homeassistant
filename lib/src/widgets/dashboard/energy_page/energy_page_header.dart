@@ -74,9 +74,9 @@ class _EnergyPageHeaderState extends ConsumerState<EnergyPageHeader> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Energia', style: NocturneText.pageTitle),
+              Text('Energia', style: NocturneText.pageTitle),
               const SizedBox(height: 8),
-              Text(subtitle, style: const TextStyle(fontSize: 18, color: NocturneColors.neutral400)),
+              Text(subtitle, style: TextStyle(fontSize: 18, color: NocturneColors.neutral400)),
             ],
           ),
         ),
@@ -106,7 +106,7 @@ class _AutoconsumoPill extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             'Autoconsumo ${percent.round()}%',
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: NocturneColors.batteryMark),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: NocturneColors.batteryMark),
           ),
         ],
       ),
@@ -134,7 +134,7 @@ class _BlinkDotState extends State<_BlinkDot> with SingleTickerProviderStateMixi
   Widget build(BuildContext context) {
     return FadeTransition(
       opacity: CurvedAnimation(parent: _controller, curve: Curves.easeInOut).drive(Tween(begin: 1.0, end: 0.2)),
-      child: const DecoratedBox(
+      child: DecoratedBox(
         decoration: BoxDecoration(shape: BoxShape.circle, color: NocturneColors.batteryMark),
         child: SizedBox(width: 9, height: 9),
       ),

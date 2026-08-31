@@ -159,7 +159,7 @@ class _OnScreenKeyboardState extends State<_OnScreenKeyboard> {
         // borders. Top is left tight: it isn't near a physical edge, it just
         // borders whatever's above the keyboard on screen.
         padding: const EdgeInsets.fromLTRB(22, 12, 22, 26),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: NocturneColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(NocturneRadii.smallCard)),
           boxShadow: [BoxShadow(color: Color(0x8C000000), blurRadius: 24, offset: Offset(0, -4))],

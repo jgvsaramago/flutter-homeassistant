@@ -71,7 +71,7 @@ class _BrightnessSliderCardState extends State<BrightnessSliderCard> {
               children: [
                 Icon(Icons.brightness_6_outlined, color: theme.colorScheme.primary, size: 26),
                 const SizedBox(width: 10),
-                const Text('Brilho do ecrã', style: NocturneText.itemTitle),
+                Text('Brilho do ecrã', style: NocturneText.itemTitle),
                 const Spacer(),
                 Text(percent == null ? '--' : '${percent.round()}%', style: NocturneText.itemTitle),
               ],

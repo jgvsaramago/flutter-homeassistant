@@ -6,6 +6,7 @@ import 'dev/placeholder_entities.dart';
 import 'pages/main_shell.dart';
 import 'providers/ha_providers.dart';
 import 'theme/nocturne_theme.dart';
+import 'theme/theme_mode_controller.dart';
 import 'widgets/on_screen_keyboard.dart';
 import 'widgets/screen_power_guard.dart';
 
@@ -19,18 +20,32 @@ class HomeAssistantApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Home Assistant',
-      debugShowCheckedModeBanner: false,
-      theme: buildNocturneTheme(),
-      darkTheme: buildNocturneTheme(),
-      themeMode: ThemeMode.dark,
-      // Wraps the Navigator (dialogs included) so the auto-off overlay and
-      // the on-screen keyboard both sit above literally everything the app
-      // can show. Keyboard nested inside the power guard so tapping it
-      // still counts as activity for the auto-off idle timer.
-      builder: (context, child) => ScreenPowerGuard(child: OnScreenKeyboardHost(child: child!)),
-      home: const RootScreen(),
+    // `NocturneColors`/`NocturneText`/`NocturneElevation` are plain
+    // `static Color get`s reading `ThemeModeController.instance.mode` at
+    // call time — they aren't `Listenable` themselves, so nothing rebuilds
+    // just because that value changed. Rebuilding `MaterialApp` under a
+    // `ValueKey` on the mode forces Flutter to tear down and remount the
+    // *entire* subtree on a theme switch, which is what actually makes
+    // every widget re-read those getters with the new mode — the
+    // alternative (wiring every single one of this app's ~500 token call
+    // sites to its own listener) isn't remotely worth it for something a
+    // person changes a few times a year, not per frame.
+    return ValueListenableBuilder<Brightness>(
+      valueListenable: ThemeModeController.instance.mode,
+      builder: (context, mode, _) => MaterialApp(
+        key: ValueKey(mode),
+        title: 'Home Assistant',
+        debugShowCheckedModeBanner: false,
+        theme: buildNocturneTheme(),
+        darkTheme: buildNocturneTheme(),
+        themeMode: mode == Brightness.light ? ThemeMode.light : ThemeMode.dark,
+        // Wraps the Navigator (dialogs included) so the auto-off overlay and
+        // the on-screen keyboard both sit above literally everything the app
+        // can show. Keyboard nested inside the power guard so tapping it
+        // still counts as activity for the auto-off idle timer.
+        builder: (context, child) => ScreenPowerGuard(child: OnScreenKeyboardHost(child: child!)),
+        home: const RootScreen(),
+      ),
     );
   }
 }

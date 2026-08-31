@@ -94,16 +94,16 @@ class _Cell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6),
-      decoration: borderLeft ? const BoxDecoration(border: Border(left: BorderSide(color: NocturneColors.neutral800))) : null,
+      decoration: borderLeft ? BoxDecoration(border: Border(left: BorderSide(color: NocturneColors.neutral800))) : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, color: NocturneColors.neutral500)),
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: NocturneColors.neutral500)),
           const SizedBox(height: 2),
           Text(main, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w600)),
           const SizedBox(height: 2),
-          Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, color: NocturneColors.neutral500)),
+          Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: NocturneColors.neutral500)),
         ],
       ),
     );

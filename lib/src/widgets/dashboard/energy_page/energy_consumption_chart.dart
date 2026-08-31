@@ -34,15 +34,15 @@ class EnergyConsumptionChart extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              const Expanded(child: Text('CONSUMO POR HORA · POR FONTE', style: NocturneText.cardKicker)),
+              Expanded(child: Text('CONSUMO POR HORA · POR FONTE', style: NocturneText.cardKicker)),
               RichText(
                 text: TextSpan(
-                  style: const TextStyle(fontSize: 15, color: NocturneColors.neutral500, decoration: TextDecoration.none),
+                  style: TextStyle(fontSize: 15, color: NocturneColors.neutral500, decoration: TextDecoration.none),
                   children: [
                     const TextSpan(text: 'Casa '),
                     TextSpan(
                       text: formatKwh(history.hasHome ? history.consumedTodayKwh : null) ?? '--',
-                      style: const TextStyle(color: NocturneColors.text, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: NocturneColors.text, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -88,8 +88,8 @@ class _AxisLabels extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(fontSize: 13, color: NocturneColors.neutral600, decoration: TextDecoration.none);
-    const zeroStyle = TextStyle(fontSize: 13, color: NocturneColors.neutral500, decoration: TextDecoration.none);
+    final style = TextStyle(fontSize: 13, color: NocturneColors.neutral600, decoration: TextDecoration.none);
+    final zeroStyle = TextStyle(fontSize: 13, color: NocturneColors.neutral500, decoration: TextDecoration.none);
     Widget tick(double top, String text, TextStyle textStyle) {
       return Positioned(right: 0, top: top, child: FractionalTranslation(translation: const Offset(0, -0.5), child: Text(text, style: textStyle)));
     }
@@ -167,7 +167,7 @@ class _HourColumn extends StatelessWidget {
                 alignment: Alignment.topCenter,
                 child: Container(
                   height: (bucket.toBatteryKwh * _pxPerKwh).clamp(0, _areaHeight),
-                  decoration: const BoxDecoration(color: NocturneColors.batteryMark, borderRadius: BorderRadius.vertical(bottom: Radius.circular(5))),
+                  decoration: BoxDecoration(color: NocturneColors.batteryMark, borderRadius: BorderRadius.vertical(bottom: Radius.circular(5))),
                 ),
               ),
             ),
@@ -200,7 +200,7 @@ class _Legend extends StatelessWidget {
           Wrap(
             spacing: 22,
             runSpacing: 8,
-            children: const [
+            children: [
               _LegendSwatch(color: NocturneColors.solarMark, label: 'Solar'),
               _LegendSwatch(color: NocturneColors.batteryMark, label: 'Bateria'),
               _LegendSwatch(color: NocturneColors.gridMark, label: 'Rede'),
@@ -209,7 +209,7 @@ class _Legend extends StatelessWidget {
           Wrap(
             spacing: 22,
             runSpacing: 8,
-            children: const [
+            children: [
               _LegendMark(color: NocturneColors.batteryMark, label: 'Vazio'),
               _LegendMark(color: NocturneColors.gridMark, label: 'Fora de vazio'),
             ],
@@ -233,7 +233,7 @@ class _LegendSwatch extends StatelessWidget {
       children: [
         Container(width: 12, height: 12, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
         const SizedBox(width: 8),
-        Text(label, style: const TextStyle(fontSize: 14, color: NocturneColors.neutral400, decoration: TextDecoration.none)),
+        Text(label, style: TextStyle(fontSize: 14, color: NocturneColors.neutral400, decoration: TextDecoration.none)),
       ],
     );
   }
@@ -252,7 +252,7 @@ class _LegendMark extends StatelessWidget {
       children: [
         Container(width: 18, height: 4, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
         const SizedBox(width: 8),
-        Text(label, style: const TextStyle(fontSize: 14, color: NocturneColors.neutral500, decoration: TextDecoration.none)),
+        Text(label, style: TextStyle(fontSize: 14, color: NocturneColors.neutral500, decoration: TextDecoration.none)),
       ],
     );
   }

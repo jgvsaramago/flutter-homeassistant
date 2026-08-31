@@ -36,7 +36,7 @@ class SettingsScreen extends ConsumerWidget {
 
     return CustomScrollView(
       slivers: [
-        const SliverToBoxAdapter(
+        SliverToBoxAdapter(
           child: Padding(padding: EdgeInsets.fromLTRB(18, 28, 18, 12), child: Text('Definições', style: NocturneText.pageTitle)),
         ),
         SliverToBoxAdapter(

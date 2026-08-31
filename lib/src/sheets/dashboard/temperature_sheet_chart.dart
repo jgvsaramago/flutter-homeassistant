@@ -20,7 +20,7 @@ class TemperatureSheetChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final pts = points;
     if (pts == null || pts.length < 2) {
-      return const SizedBox(
+      return SizedBox(
         height: 130,
         child: Center(
           child: Text('Sem histórico suficiente', style: TextStyle(color: NocturneColors.neutral500, fontSize: 14, fontWeight: FontWeight.normal, decoration: TextDecoration.none)),
@@ -94,7 +94,7 @@ class _Chart extends StatelessWidget {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          getDrawingHorizontalLine: (_) => const FlLine(color: NocturneColors.neutral800, strokeWidth: 1),
+          getDrawingHorizontalLine: (_) => FlLine(color: NocturneColors.neutral800, strokeWidth: 1),
         ),
         borderData: FlBorderData(show: false),
         extraLinesData: ExtraLinesData(
@@ -108,7 +108,7 @@ class _Chart extends StatelessWidget {
                 label: VerticalLineLabel(
                   show: true,
                   alignment: Alignment.topRight,
-                  style: const TextStyle(color: NocturneColors.neutral500, fontSize: 12, fontWeight: FontWeight.normal, decoration: TextDecoration.none),
+                  style: TextStyle(color: NocturneColors.neutral500, fontSize: 12, fontWeight: FontWeight.normal, decoration: TextDecoration.none),
                   labelResolver: (_) => _weekdayAbbrev[midnight.weekday - 1],
                 ),
               ),
@@ -132,7 +132,7 @@ class _Chart extends StatelessWidget {
               maxIncluded: false,
               getTitlesWidget: (value, meta) => Text(
                 '${value.toStringAsFixed(1)}°',
-                style: const TextStyle(color: NocturneColors.neutral500, fontSize: 12, fontWeight: FontWeight.normal, decoration: TextDecoration.none),
+                style: TextStyle(color: NocturneColors.neutral500, fontSize: 12, fontWeight: FontWeight.normal, decoration: TextDecoration.none),
               ),
             ),
           ),
@@ -152,7 +152,7 @@ class _Chart extends StatelessWidget {
                 final label = '${time.hour.toString().padLeft(2, '0')}:00';
                 return Padding(
                   padding: const EdgeInsets.only(top: 6),
-                  child: Text(label, style: const TextStyle(color: NocturneColors.neutral500, fontSize: 12, fontWeight: FontWeight.normal, decoration: TextDecoration.none)),
+                  child: Text(label, style: TextStyle(color: NocturneColors.neutral500, fontSize: 12, fontWeight: FontWeight.normal, decoration: TextDecoration.none)),
                 );
               },
             ),
@@ -167,7 +167,7 @@ class _Chart extends StatelessWidget {
                   '${spot.y.toStringAsFixed(1)}°\n'
                   '${DateTime.fromMillisecondsSinceEpoch(spot.x.round()).hour.toString().padLeft(2, '0')}:'
                   '${DateTime.fromMillisecondsSinceEpoch(spot.x.round()).minute.toString().padLeft(2, '0')}',
-                  const TextStyle(color: NocturneColors.text, fontSize: 13, fontWeight: FontWeight.normal, decoration: TextDecoration.none),
+                  TextStyle(color: NocturneColors.text, fontSize: 13, fontWeight: FontWeight.normal, decoration: TextDecoration.none),
                 ),
             ],
           ),

@@ -36,7 +36,7 @@ class SettingsNavTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: NocturneColors.neutral500, size: 26),
+              Icon(Icons.chevron_right, color: NocturneColors.neutral500, size: 26),
             ],
           ),
         ),

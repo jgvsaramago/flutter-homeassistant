@@ -241,7 +241,7 @@ class _EnergyFlowCardState extends ConsumerState<EnergyFlowCard> {
       color: NocturneColors.surface,
       child: Stack(
         children: [
-          const Positioned(
+          Positioned(
             top: 20,
             left: 22,
             child: Text(
@@ -296,14 +296,14 @@ class _EnergyFlowCardState extends ConsumerState<EnergyFlowCard> {
                       size,
                       _gridPos,
                       _SourceNode(
-                        iconWidget: const GridTowerIcon(size: 30, color: NocturneColors.gridMark),
+                        iconWidget: GridTowerIcon(size: 30, color: NocturneColors.gridMark),
                         mark: NocturneColors.gridMark,
                         haloMix: 0.20,
                         kw: gridKw?.abs(),
                         badge: gridImporting
-                            ? const _DirectionBadge(icon: Icons.arrow_forward, fill: NocturneColors.gridMark)
+                            ? _DirectionBadge(icon: Icons.arrow_forward, fill: NocturneColors.gridMark)
                             : gridExporting
-                            ? const _DirectionBadge(icon: Icons.arrow_back, fill: NocturneColors.gridMark)
+                            ? _DirectionBadge(icon: Icons.arrow_back, fill: NocturneColors.gridMark)
                             : null,
                       ),
                     ),
@@ -321,9 +321,9 @@ class _EnergyFlowCardState extends ConsumerState<EnergyFlowCard> {
                         haloMix: 0.20,
                         kw: batteryKw?.abs(),
                         badge: batteryDischarging
-                            ? const _DirectionBadge(icon: Icons.arrow_upward, fill: NocturneColors.batteryMark)
+                            ? _DirectionBadge(icon: Icons.arrow_upward, fill: NocturneColors.batteryMark)
                             : batteryCharging
-                            ? const _DirectionBadge(icon: Icons.arrow_downward, fill: NocturneColors.batteryMark)
+                            ? _DirectionBadge(icon: Icons.arrow_downward, fill: NocturneColors.batteryMark)
                             : null,
                         socPill: batterySoc == null ? null : _SocPill(soc: batterySoc),
                       ),
@@ -684,7 +684,7 @@ class _SourceNode extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: Color.alphaBlend(mark.withValues(alpha: haloMix), NocturneColors.surface),
-            boxShadow: const [BoxShadow(color: NocturneColors.surface, spreadRadius: 8)],
+            boxShadow: [BoxShadow(color: NocturneColors.surface, spreadRadius: 8)],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -715,7 +715,7 @@ class _DirectionBadge extends StatelessWidget {
       width: 28,
       height: 28,
       alignment: Alignment.center,
-      decoration: BoxDecoration(shape: BoxShape.circle, color: fill, boxShadow: const [BoxShadow(color: NocturneColors.surface, spreadRadius: 5)]),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: fill, boxShadow: [BoxShadow(color: NocturneColors.surface, spreadRadius: 5)]),
       child: Icon(icon, size: 15, color: NocturneColors.bg),
     );
   }
@@ -733,11 +733,11 @@ class _SocPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: NocturneColors.batteryMark,
         borderRadius: BorderRadius.circular(NocturneRadii.pill),
-        boxShadow: const [BoxShadow(color: NocturneColors.surface, spreadRadius: 5)],
+        boxShadow: [BoxShadow(color: NocturneColors.surface, spreadRadius: 5)],
       ),
       child: Text(
         '${soc.round()}%',
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.3, color: NocturneColors.bg),
+        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, height: 1.3, color: NocturneColors.bg),
       ),
     );
   }
@@ -760,7 +760,7 @@ class _HomeHub extends StatelessWidget {
     return Container(
       width: _homeDiameter,
       height: _homeDiameter,
-      decoration: const BoxDecoration(shape: BoxShape.circle, color: NocturneColors.surface, boxShadow: [BoxShadow(color: NocturneColors.surface, spreadRadius: 8)]),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: NocturneColors.surface, boxShadow: [BoxShadow(color: NocturneColors.surface, spreadRadius: 8)]),
       child: Stack(
         alignment: Alignment.center,
         children: [
@@ -803,9 +803,9 @@ class _HomeHub extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.home_outlined, size: 26, color: NocturneColors.text),
+              Icon(Icons.home_outlined, size: 26, color: NocturneColors.text),
               const SizedBox(height: 4),
-              Text(_formatKw(kw), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: NocturneColors.text)),
+              Text(_formatKw(kw), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: NocturneColors.text)),
             ],
           ),
         ],
@@ -899,7 +899,7 @@ class _ApplianceNode extends StatelessWidget {
             width: _applianceDiameter,
             height: _applianceDiameter,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: NocturneColors.neutral800,
               boxShadow: [BoxShadow(color: NocturneColors.surface, spreadRadius: 6)],
@@ -911,20 +911,20 @@ class _ApplianceNode extends StatelessWidget {
                 if (temperatureText != null) ...[
                   Text(
                     temperatureText,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: NocturneColors.neutral400, height: 1.0),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: NocturneColors.neutral400, height: 1.0),
                   ),
                   const SizedBox(height: 3),
                 ],
                 individualSensorIcon(icon, size: 22, color: NocturneColors.neutral300),
                 const SizedBox(height: 3),
-                Text(kwText, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: NocturneColors.neutral200)),
+                Text(kwText, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: NocturneColors.neutral200)),
               ],
             ),
           ),
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(fontSize: 14, color: NocturneColors.neutral500),
+            style: TextStyle(fontSize: 14, color: NocturneColors.neutral500),
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,

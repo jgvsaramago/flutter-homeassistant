@@ -79,7 +79,7 @@ String _capitalize(String s) => s.isEmpty ? s : '${s[0].toUpperCase()}${s.substr
 // (rain/wind/gust) keep one fixed hue across all three bands — they're
 // informational, not a health alarm — matching the design reference.
 
-const co2Spec = MetricSpec(
+final co2Spec = MetricSpec(
   label: 'CO₂',
   unit: 'ppm',
   decimals: 0,
@@ -91,7 +91,7 @@ const co2Spec = MetricSpec(
   ],
 );
 
-const pm25Spec = MetricSpec(
+final pm25Spec = MetricSpec(
   label: 'PM2.5',
   unit: 'µg/m³',
   decimals: 0,
@@ -103,7 +103,7 @@ const pm25Spec = MetricSpec(
   ],
 );
 
-const vocSpec = MetricSpec(
+final vocSpec = MetricSpec(
   label: 'VOC',
   unit: 'mg/m³',
   decimals: 1,
@@ -115,7 +115,7 @@ const vocSpec = MetricSpec(
   ],
 );
 
-const radonSpec = MetricSpec(
+final radonSpec = MetricSpec(
   label: 'Radão',
   unit: 'Bq/m³',
   decimals: 0,
@@ -127,7 +127,7 @@ const radonSpec = MetricSpec(
   ],
 );
 
-const rainSpec = MetricSpec(
+final rainSpec = MetricSpec(
   label: 'Chuva hoje',
   unit: 'mm',
   decimals: 1,
@@ -139,7 +139,7 @@ const rainSpec = MetricSpec(
   ],
 );
 
-const windSpec = MetricSpec(
+final windSpec = MetricSpec(
   label: 'Vento',
   unit: 'km/h',
   decimals: 0,
@@ -151,7 +151,7 @@ const windSpec = MetricSpec(
   ],
 );
 
-const gustSpec = MetricSpec(
+final gustSpec = MetricSpec(
   label: 'Rajada máx.',
   unit: 'km/h',
   decimals: 0,
@@ -167,7 +167,7 @@ const gustSpec = MetricSpec(
 // so unlike every other metric here, `buildMetric` for pressure is used
 // with `meterMax: null` — no meter is drawn, per §2.5's "omit when the
 // metric has no numeric scale" rule.
-const pressureSpec = MetricSpec(
+final pressureSpec = MetricSpec(
   label: 'Pressão',
   unit: 'hPa',
   decimals: 0,
@@ -178,7 +178,7 @@ const pressureSpec = MetricSpec(
   ],
 );
 
-const uvSpec = MetricSpec(
+final uvSpec = MetricSpec(
   label: 'Índice UV',
   unit: '',
   decimals: 0,

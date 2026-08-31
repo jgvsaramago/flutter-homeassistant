@@ -12,14 +12,14 @@ class SheetMetricPopoverRow {
 
 /// Everything one [SheetMetricTile] needs to render itself.
 class SheetMetricData {
-  const SheetMetricData({
+  SheetMetricData({
     required this.label,
     required this.value,
     this.sub,
-    this.color = NocturneColors.neutral300,
+    Color? color,
     this.meterFraction,
     this.popoverRows = const [],
-  });
+  }) : color = color ?? NocturneColors.neutral300;
 
   final String label;
   final String value;
@@ -87,7 +87,7 @@ class SheetMetricTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   data.label.toUpperCase(),
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, decoration: TextDecoration.none, letterSpacing: 1.12, color: NocturneColors.neutral500),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, decoration: TextDecoration.none, letterSpacing: 1.12, color: NocturneColors.neutral500),
                 ),
               ),
               if (data.popoverRows.isNotEmpty) ...[
@@ -98,7 +98,7 @@ class SheetMetricTile extends StatelessWidget {
                   // Padding grows the tap target well past the icon's own
                   // 18px glyph — small icons on a wall panel need every bit
                   // of margin they can get without changing the visual size.
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.all(8),
                     child: Icon(Icons.info_outline, size: 18, color: NocturneColors.neutral500),
                   ),
@@ -113,7 +113,7 @@ class SheetMetricTile extends StatelessWidget {
           ),
           if (data.sub != null) ...[
             const SizedBox(height: 6),
-            Text(data.sub!, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.normal, decoration: TextDecoration.none, color: NocturneColors.neutral400)),
+            Text(data.sub!, style: TextStyle(fontSize: 14, fontWeight: FontWeight.normal, decoration: TextDecoration.none, color: NocturneColors.neutral400)),
           ],
           if (data.meterFraction != null) ...[
             const SizedBox(height: 4),
@@ -174,7 +174,7 @@ void _showMetricInfo(BuildContext context, SheetMetricData data) {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(data.label, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, decoration: TextDecoration.none, color: NocturneColors.text)),
+              Text(data.label, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, decoration: TextDecoration.none, color: NocturneColors.text)),
               const SizedBox(height: 18),
               for (final row in data.popoverRows)
                 Padding(
@@ -187,7 +187,7 @@ void _showMetricInfo(BuildContext context, SheetMetricData data) {
                       Expanded(
                         child: Text(
                           row.text,
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.normal, decoration: TextDecoration.none, color: NocturneColors.neutral300),
+                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.normal, decoration: TextDecoration.none, color: NocturneColors.neutral300),
                         ),
                       ),
                     ],

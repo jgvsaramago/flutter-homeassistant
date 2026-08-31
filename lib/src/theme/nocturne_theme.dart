@@ -1,43 +1,42 @@
 import 'package:flutter/material.dart';
 
+import 'theme_mode_controller.dart';
+
 /// Design tokens for the Smart Home dashboard theme — single source of
 /// truth for colour, type, radii, spacing, elevation and motion. Feature
 /// code should reference these (`NocturneColors`, `NocturneRadii`,
 /// `NocturneSpacing`, `NocturneDurations`, `NocturneElevation`,
 /// `NocturneText`) instead of literal hexes/radii/durations.
 ///
-/// Values here are transcribed directly from the project's `theme.css` —
-/// treat that file as the source of truth if the two ever disagree again;
-/// this file exists only because Dart has no `var(--*)`.
+/// Values here are transcribed directly from the project's `theme.css`/
+/// `theme-light.css` — treat those files as the source of truth if they
+/// ever disagree with this one again; this file exists only because Dart
+/// has no `var(--*)`.
 ///
-/// This overrides the underlying Nocturne design system's ground to pure
-/// black with untinted greys, for OLED wall panels in a dark room. Inter is
-/// the spec'd typeface, but no Inter asset is bundled (this is a headless
-/// kiosk with no guaranteed network access, so a runtime font download
-/// isn't appropriate) — text falls back to the platform default family.
-abstract final class NocturneColors {
-  // Ground.
+/// [NocturneColors]/[NocturneText]/[NocturneElevation] read
+/// [ThemeModeController.instance] to decide dark vs light at *call* time —
+/// each is a `static Color get`, not a `static const`, specifically so a
+/// runtime switch (see the MQTT `select` entity in
+/// `pi_telemetry_publisher_io.dart`) can actually change what they return.
+/// [NocturneRadii]/[NocturneSpacing]/[NocturneDurations] stay plain
+/// `static const`, unaffected by theme — geometry and motion are identical
+/// in both palettes per the light theme's own spec ("colour-layer swap
+/// only").
+bool get _isLight => ThemeModeController.instance.mode.value == Brightness.light;
+
+/// The dark palette's literal values — unchanged from before this file
+/// supported a second theme. Never referenced directly outside this file;
+/// [NocturneColors] is the public surface.
+abstract final class _Dark {
   static const bg = Color(0xFF000000);
   static const surface = Color(0xFF101114);
   static const text = Color(0xFFECECEF);
 
-  /// A panel drawn inside a card (`--color-inset`) — same value as
-  /// [neutral900], named separately because it's a *role* (the third and
-  /// last background allowed on a screen, alongside [bg] and [surface]),
-  /// not a point on the neutral ramp.
-  static const inset = neutral900;
-
-  // Accent — blurple, used for lines, labels, active states, glows. Never
-  // a flood fill.
   static const accent = Color(0xFF9184D9);
-  static const accent300 = Color(0xFFB3A8EA); // hover / links hover
-  static const accent400 = Color(0xFFA094E0); // pressed (on this dark ground)
-  static const accent600 = Color(0xFF7A6CC9); // pressed (on a light/tinted fill)
+  static const accent300 = Color(0xFFB3A8EA);
+  static const accent400 = Color(0xFFA094E0);
+  static const accent600 = Color(0xFF7A6CC9);
 
-  /// Kept for call sites that pre-date `accent300`; identical value.
-  static const accent2 = accent300;
-
-  // Neutral ramp — untinted, light -> dark.
   static const neutral100 = Color(0xFFF4F4F6);
   static const neutral200 = Color(0xFFE0E0E5);
   static const neutral300 = Color(0xFFC6C7CC);
@@ -48,19 +47,12 @@ abstract final class NocturneColors {
   static const neutral800 = Color(0xFF212228);
   static const neutral900 = Color(0xFF17181C);
 
-  /// Hairline divider: `text` at low alpha.
-  static const divider = Color(0x24ECECEF); // ~14% alpha
+  /// `--color-text` at ~14% alpha.
+  static const divider = Color(0x24ECECEF);
 
-  /// Scrim behind a bottom sheet / modal barrier.
-  static const scrim = Color(0x9E000000); // rgba(0,0,0,0.62)
+  /// rgba(0,0,0,0.62).
+  static const scrim = Color(0x9E000000);
 
-  // Domain colours: each has a duller "line" (strokes, bars, flow paths)
-  // and a brighter "mark" (icons, numerals, badges, pills). These are also
-  // the app's general semantic hues beyond energy specifically — solar
-  // covers warm/lights, ok/battery covers ok/climate-ok, cool/grid covers
-  // cool/water, alert covers errors/worst-case thresholds — so
-  // `amber`/`blue`/`green`/`red` below alias the matching "mark" tone for
-  // existing call sites that predate the named domain tokens.
   static const solarLine = Color(0xFFCF9440);
   static const solarMark = Color(0xFFE0A44B);
   static const batteryLine = Color(0xFF4FAE7B);
@@ -70,16 +62,147 @@ abstract final class NocturneColors {
   static const alertLine = Color(0xFFCF6B5B);
   static const alertMark = Color(0xFFE08272);
 
-  static const amber = solarMark;
-  static const blue = gridMark;
-  static const green = batteryMark;
+  /// rgba(0,0,0,0.55) — navbar float shadow.
+  static const navbarShadowColor = Color(0x8C000000);
+
+  /// rgba(0,0,0,0.6) — bottom sheet shadow.
+  static const sheetShadowColor = Color(0x99000000);
+
+  /// `--color-text` at 8% alpha — navbar border.
+  static const navbarBorder = Color(0x14ECECEF);
+
+  /// Generic ambient shadow for floating elements not covered by
+  /// [navbarShadowColor]/[sheetShadowColor] — rgba(0,0,0,0.55).
+  static const ambientShadowColor = Color(0x8C000000);
+}
+
+/// The light palette's literal values, from `theme-light.css`/
+/// `theme-light-prompt.md`. Never referenced directly outside this file;
+/// [NocturneColors] is the public surface.
+abstract final class _Light {
+  static const bg = Color(0xFFF4F4F7);
+  static const surface = Color(0xFFFFFFFF);
+  static const text = Color(0xFF191A20);
+
+  static const accent = Color(0xFF6355BD);
+  static const accent300 = Color(0xFF4D3FA4); // hover — darker on light, not lighter
+  static const accent400 = Color(0xFF7466CB); // pressed
+  static const accent600 = Color(0xFF8D80DD);
+
+  // Neutral ramp is REVERSED vs dark: 100 is now the darkest step, 900 the
+  // lightest — the same role each step plays (e.g. 800 = "idle chrome") is
+  // preserved, only which literal fills that role flips.
+  static const neutral100 = Color(0xFF17181C);
+  static const neutral200 = Color(0xFF212228);
+  static const neutral300 = Color(0xFF33353C);
+  static const neutral400 = Color(0xFF5C5E66);
+  static const neutral500 = Color(0xFF767881);
+  static const neutral600 = Color(0xFFA7A9B0);
+  static const neutral700 = Color(0xFFC6C7CC);
+  static const neutral800 = Color(0xFFE2E2E7);
+  static const neutral900 = Color(0xFFF0F0F3);
+
+  /// `--color-text` at 12% alpha (`--line-hairline`).
+  static const divider = Color(0x1F191A20);
+
+  /// rgba(25,26,32,0.34) — an ink tint, not black.
+  static const scrim = Color(0x57191A20);
+
+  // Domain colours re-tuned darker for contrast on white; mark is darker
+  // than line here (opposite direction from the dark theme).
+  static const solarLine = Color(0xFFC98A2A);
+  static const solarMark = Color(0xFFA06510);
+  static const batteryLine = Color(0xFF2F9E68);
+  static const batteryMark = Color(0xFF16794A);
+  static const gridLine = Color(0xFF2F7CC4);
+  static const gridMark = Color(0xFF2A6BAB);
+  static const alertLine = Color(0xFFB8452F);
+  static const alertMark = Color(0xFFA83A26);
+
+  /// rgba(25,26,32,0.12) — navbar float shadow.
+  static const navbarShadowColor = Color(0x1F191A20);
+
+  /// rgba(25,26,32,0.14) — bottom sheet shadow.
+  static const sheetShadowColor = Color(0x24191A20);
+
+  /// `--color-text` at 7% alpha (`--line-chrome`) — navbar border.
+  static const navbarBorder = Color(0x12191A20);
+
+  /// Generic ambient shadow, per the light spec's substitution rule for any
+  /// dark-theme shadow it doesn't name explicitly: same ink tint as
+  /// [scrim]/[navbarShadowColor], alpha = the dark value's alpha × 0.55.
+  /// 0x8C (0.549) × 0.55 ≈ 0x4D.
+  static const ambientShadowColor = Color(0x4D191A20);
+}
+
+abstract final class NocturneColors {
+  // Ground.
+  static Color get bg => _isLight ? _Light.bg : _Dark.bg;
+  static Color get surface => _isLight ? _Light.surface : _Dark.surface;
+  static Color get text => _isLight ? _Light.text : _Dark.text;
+
+  /// A panel drawn inside a card (`--color-inset`) — same value as
+  /// [neutral900], named separately because it's a *role* (the third and
+  /// last background allowed on a screen, alongside [bg] and [surface]),
+  /// not a point on the neutral ramp.
+  static Color get inset => neutral900;
+
+  // Accent — blurple, used for lines, labels, active states, glows. Never
+  // a flood fill.
+  static Color get accent => _isLight ? _Light.accent : _Dark.accent;
+  static Color get accent300 => _isLight ? _Light.accent300 : _Dark.accent300; // hover / links hover
+  static Color get accent400 => _isLight ? _Light.accent400 : _Dark.accent400; // pressed
+  static Color get accent600 => _isLight ? _Light.accent600 : _Dark.accent600;
+
+  /// Kept for call sites that pre-date `accent300`; identical value.
+  static Color get accent2 => accent300;
+
+  // Neutral ramp — untinted, light -> dark in the dark theme; REVERSED in
+  // the light theme (see `_Light`'s comment), so the role each step plays
+  // stays put across both.
+  static Color get neutral100 => _isLight ? _Light.neutral100 : _Dark.neutral100;
+  static Color get neutral200 => _isLight ? _Light.neutral200 : _Dark.neutral200;
+  static Color get neutral300 => _isLight ? _Light.neutral300 : _Dark.neutral300;
+  static Color get neutral400 => _isLight ? _Light.neutral400 : _Dark.neutral400;
+  static Color get neutral500 => _isLight ? _Light.neutral500 : _Dark.neutral500;
+  static Color get neutral600 => _isLight ? _Light.neutral600 : _Dark.neutral600;
+  static Color get neutral700 => _isLight ? _Light.neutral700 : _Dark.neutral700;
+  static Color get neutral800 => _isLight ? _Light.neutral800 : _Dark.neutral800;
+  static Color get neutral900 => _isLight ? _Light.neutral900 : _Dark.neutral900;
+
+  /// Hairline divider: `text` at low alpha.
+  static Color get divider => _isLight ? _Light.divider : _Dark.divider;
+
+  /// Scrim behind a bottom sheet / modal barrier.
+  static Color get scrim => _isLight ? _Light.scrim : _Dark.scrim;
+
+  // Domain colours: each has a duller "line" (strokes, bars, flow paths)
+  // and a brighter-on-dark/darker-on-light "mark" (icons, numerals, badges,
+  // pills). These are also the app's general semantic hues beyond energy
+  // specifically — solar covers warm/lights, ok/battery covers
+  // ok/climate-ok, cool/grid covers cool/water, alert covers
+  // errors/worst-case thresholds — so `amber`/`blue`/`green`/`red` below
+  // alias the matching "mark" tone for existing call sites that predate the
+  // named domain tokens.
+  static Color get solarLine => _isLight ? _Light.solarLine : _Dark.solarLine;
+  static Color get solarMark => _isLight ? _Light.solarMark : _Dark.solarMark;
+  static Color get batteryLine => _isLight ? _Light.batteryLine : _Dark.batteryLine;
+  static Color get batteryMark => _isLight ? _Light.batteryMark : _Dark.batteryMark;
+  static Color get gridLine => _isLight ? _Light.gridLine : _Dark.gridLine;
+  static Color get gridMark => _isLight ? _Light.gridMark : _Dark.gridMark;
+  static Color get alertLine => _isLight ? _Light.alertLine : _Dark.alertLine;
+  static Color get alertMark => _isLight ? _Light.alertMark : _Dark.alertMark;
+
+  static Color get amber => solarMark;
+  static Color get blue => gridMark;
+  static Color get green => batteryMark;
 
   /// The app's one error/bad-state hue, e.g. `ColorScheme.error` below and
   /// the worst CO2 threshold — aliases the alert domain's mark tone.
-  static const red = alertMark;
+  static Color get red => alertMark;
 }
 
-/// Radius scale — pick from these, nothing between.
+/// Radius scale — pick from these, nothing between. Unaffected by theme.
 abstract final class NocturneRadii {
   static const xs = 4.0; // progress tracks, tiny bars
   static const sm = 8.0; // inline marks, mini thumbs
@@ -97,7 +220,8 @@ abstract final class NocturneRadii {
 
 /// Spacing recipes from the spec. The raw 12-step scale (`space1`…
 /// `space12`) exists for one-off gaps; prefer the composite `*Padding`/
-/// `*Gap` tokens below when laying out an actual surface.
+/// `*Gap` tokens below when laying out an actual surface. Unaffected by
+/// theme.
 abstract final class NocturneSpacing {
   static const space1 = 4.0;
   static const space2 = 6.0;
@@ -124,7 +248,7 @@ abstract final class NocturneSpacing {
   static const cardGap = space5; // inside a card
 }
 
-/// Motion durations/curves from the spec.
+/// Motion durations/curves from the spec. Unaffected by theme.
 abstract final class NocturneDurations {
   static const sheet = Duration(milliseconds: 320);
   static const sheetCurve = Cubic(0.2, 0.8, 0.2, 1);
@@ -140,22 +264,32 @@ abstract final class NocturneDurations {
   static const flowSlow = Duration(milliseconds: 3400);
 }
 
-/// Dark-ground elevation: an edge plus ambient darkness, never a stack of
-/// heavy shadows.
+/// Elevation: on dark, an edge plus ambient darkness; on light, an edge
+/// plus a soft ink shadow (never black) — see `_Dark`/`_Light`'s shadow
+/// colours. Never stack heavy shadows either way.
 abstract final class NocturneElevation {
-  static const navbarShadow = BoxShadow(color: Color(0x8C000000), blurRadius: 40, offset: Offset(0, 16));
-  static const sheetShadow = BoxShadow(color: Color(0x99000000), blurRadius: 60, offset: Offset(0, -20));
-  static const navbarBorder = Color(0x14ECECEF); // text at 8% alpha
+  static BoxShadow get navbarShadow =>
+      BoxShadow(color: _isLight ? _Light.navbarShadowColor : _Dark.navbarShadowColor, blurRadius: _isLight ? 30 : 40, offset: Offset(0, _isLight ? 10 : 16));
+  static BoxShadow get sheetShadow =>
+      BoxShadow(color: _isLight ? _Light.sheetShadowColor : _Dark.sheetShadowColor, blurRadius: 60, offset: const Offset(0, -20));
+  static Color get navbarBorder => _isLight ? _Light.navbarBorder : _Dark.navbarBorder;
+
+  /// A generic ambient shadow colour for floating elements not covered by
+  /// [navbarShadow]/[sheetShadow] (the on-screen keyboard, a sheet's
+  /// metric-grid header) — same substitution the light theme spec gives for
+  /// shadows it doesn't call out by name.
+  static Color get ambientShadowColor => _isLight ? _Light.ambientShadowColor : _Dark.ambientShadowColor;
 
   /// A circular node overlapping a connector line gets a punch-out ring in
   /// the surface colour behind it, so the line appears to stop at its edge.
-  static List<BoxShadow> nodePunchout({Color color = NocturneColors.surface, bool small = false}) =>
-      [BoxShadow(color: color, spreadRadius: small ? 5 : 8)];
+  static List<BoxShadow> nodePunchout({Color? color, bool small = false}) =>
+      [BoxShadow(color: color ?? NocturneColors.surface, spreadRadius: small ? 5 : 8)];
 }
 
 /// Type roles from the spec's hierarchy table. Hierarchy is size and
 /// space, never weight above 600. Any live-changing digit (clock,
-/// temperature, duration, kWh) should merge in [tabularNums].
+/// temperature, duration, kWh) should merge in [tabularNums]. Sizes/weights/
+/// spacing are unaffected by theme; only `color` varies.
 abstract final class NocturneText {
   static const tabularNums = TextStyle(fontFeatures: [FontFeature.tabularFigures()]);
 
@@ -165,13 +299,8 @@ abstract final class NocturneText {
   // inherits an ambient underline decoration from nowhere obvious — this
   // bit the Temperatures sheet once already; pinning it here at the source
   // means no future token can reintroduce it by omission.
-  static const pageTitle = TextStyle(
-    fontSize: 36,
-    fontWeight: FontWeight.w600,
-    color: NocturneColors.text,
-    letterSpacing: -0.5,
-    decoration: TextDecoration.none,
-  );
+  static TextStyle get pageTitle =>
+      TextStyle(fontSize: 36, fontWeight: FontWeight.w600, color: NocturneColors.text, letterSpacing: -0.5, decoration: TextDecoration.none);
 
   static TextStyle heroMetric({double size = 44}) => TextStyle(
     fontSize: size,
@@ -182,69 +311,73 @@ abstract final class NocturneText {
     decoration: TextDecoration.none,
   );
 
-  static const bigNumberSheet = TextStyle(
-    fontSize: 36,
-    fontWeight: FontWeight.w600,
-    color: NocturneColors.text,
-    height: 1,
-    decoration: TextDecoration.none,
-  );
+  static TextStyle get bigNumberSheet =>
+      TextStyle(fontSize: 36, fontWeight: FontWeight.w600, color: NocturneColors.text, height: 1, decoration: TextDecoration.none);
 
-  static const cardKicker = TextStyle(
-    fontSize: 15,
-    fontWeight: FontWeight.w500,
-    color: NocturneColors.accent,
-    letterSpacing: 1.5,
-    decoration: TextDecoration.none,
-  );
+  static TextStyle get cardKicker =>
+      TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: NocturneColors.accent, letterSpacing: 1.5, decoration: TextDecoration.none);
 
-  static const smallKicker = TextStyle(fontSize: 13, color: NocturneColors.neutral500, letterSpacing: 1.3, decoration: TextDecoration.none);
+  static TextStyle get smallKicker => TextStyle(fontSize: 13, color: NocturneColors.neutral500, letterSpacing: 1.3, decoration: TextDecoration.none);
 
-  static const itemTitle = TextStyle(fontSize: 20, fontWeight: FontWeight.w500, color: NocturneColors.text, height: 1.2, decoration: TextDecoration.none);
+  static TextStyle get itemTitle =>
+      TextStyle(fontSize: 20, fontWeight: FontWeight.w500, color: NocturneColors.text, height: 1.2, decoration: TextDecoration.none);
 
-  static const body = TextStyle(fontSize: 16, color: NocturneColors.neutral400, height: 1.45, decoration: TextDecoration.none);
+  static TextStyle get body => TextStyle(fontSize: 16, color: NocturneColors.neutral400, height: 1.45, decoration: TextDecoration.none);
 
-  static const caption = TextStyle(fontSize: 15, color: NocturneColors.neutral500, decoration: TextDecoration.none);
+  static TextStyle get caption => TextStyle(fontSize: 15, color: NocturneColors.neutral500, decoration: TextDecoration.none);
 
   static const navLabel = TextStyle(fontSize: 15, fontWeight: FontWeight.w600, decoration: TextDecoration.none);
 
   /// Baseline-aligned beside a metric (`.t-unit`).
-  static const unitSuffix = TextStyle(fontSize: 20, color: NocturneColors.neutral500, decoration: TextDecoration.none);
+  static TextStyle get unitSuffix => TextStyle(fontSize: 20, color: NocturneColors.neutral500, decoration: TextDecoration.none);
 }
 
 ThemeData buildNocturneTheme() {
-  final colorScheme = const ColorScheme.dark(
-    primary: NocturneColors.accent,
-    onPrimary: NocturneColors.bg,
-    secondary: NocturneColors.accent300,
-    onSecondary: NocturneColors.bg,
-    surface: NocturneColors.bg,
-    onSurface: NocturneColors.text,
-    onSurfaceVariant: NocturneColors.neutral500,
-    outline: NocturneColors.neutral700,
-    outlineVariant: NocturneColors.divider,
-    error: NocturneColors.red,
-  ).copyWith(
-    surfaceContainer: NocturneColors.surface,
-    surfaceContainerHigh: NocturneColors.surface,
-    surfaceContainerHighest: NocturneColors.neutral800,
-  );
+  final light = _isLight;
 
-  final base = ThemeData(colorScheme: colorScheme, useMaterial3: true, brightness: Brightness.dark);
+  final colorScheme =
+      (light
+              ? ColorScheme.light(
+                  primary: NocturneColors.accent,
+                  onPrimary: NocturneColors.surface,
+                  secondary: NocturneColors.accent300,
+                  onSecondary: NocturneColors.surface,
+                  surface: NocturneColors.bg,
+                  onSurface: NocturneColors.text,
+                  onSurfaceVariant: NocturneColors.neutral500,
+                  outline: NocturneColors.neutral700,
+                  outlineVariant: NocturneColors.divider,
+                  error: NocturneColors.red,
+                )
+              : ColorScheme.dark(
+                  primary: NocturneColors.accent,
+                  onPrimary: NocturneColors.bg,
+                  secondary: NocturneColors.accent300,
+                  onSecondary: NocturneColors.bg,
+                  surface: NocturneColors.bg,
+                  onSurface: NocturneColors.text,
+                  onSurfaceVariant: NocturneColors.neutral500,
+                  outline: NocturneColors.neutral700,
+                  outlineVariant: NocturneColors.divider,
+                  error: NocturneColors.red,
+                ))
+          .copyWith(surfaceContainer: NocturneColors.surface, surfaceContainerHigh: NocturneColors.surface, surfaceContainerHighest: NocturneColors.neutral800);
+
+  final base = ThemeData(colorScheme: colorScheme, useMaterial3: true, brightness: light ? Brightness.light : Brightness.dark);
 
   return base.copyWith(
     scaffoldBackgroundColor: NocturneColors.bg,
     canvasColor: NocturneColors.bg,
     dividerColor: NocturneColors.divider,
     textTheme: base.textTheme.apply(bodyColor: NocturneColors.text, displayColor: NocturneColors.text),
-    iconTheme: const IconThemeData(color: NocturneColors.text),
-    cardTheme: const CardThemeData(
+    iconTheme: IconThemeData(color: NocturneColors.text),
+    cardTheme: CardThemeData(
       color: NocturneColors.surface,
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(NocturneRadii.primaryCard))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(NocturneRadii.primaryCard))),
     ),
-    appBarTheme: const AppBarTheme(backgroundColor: NocturneColors.bg, foregroundColor: NocturneColors.text, elevation: 0),
+    appBarTheme: AppBarTheme(backgroundColor: NocturneColors.bg, foregroundColor: NocturneColors.text, elevation: 0),
     // This app only ever runs on a fixed kiosk touchscreen — long-press's
     // default "hover" tooltip popup (Flutter's stand-in for a desktop mouse
     // hover, see Tooltip's own default) has no discoverability purpose here

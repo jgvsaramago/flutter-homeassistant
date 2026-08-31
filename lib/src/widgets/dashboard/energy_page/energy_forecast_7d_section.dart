@@ -37,15 +37,15 @@ class EnergyForecast7dSection extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Expanded(child: Text('PREVISÃO SOLAR · 7 DIAS', style: NocturneText.cardKicker)),
+              Expanded(child: Text('PREVISÃO SOLAR · 7 DIAS', style: NocturneText.cardKicker)),
               RichText(
                 text: TextSpan(
-                  style: const TextStyle(fontSize: 15, color: NocturneColors.neutral400, decoration: TextDecoration.none),
+                  style: TextStyle(fontSize: 15, color: NocturneColors.neutral400, decoration: TextDecoration.none),
                   children: [
                     const TextSpan(text: 'Total previsto '),
                     TextSpan(
                       text: formatKwh(forecast.sevenDayTotalKwh) ?? '--',
-                      style: const TextStyle(color: NocturneColors.text, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: NocturneColors.text, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -111,7 +111,7 @@ class _DayRow extends StatelessWidget {
           child: Text(
             day.tempMax == null ? '--' : '${day.tempMax}°',
             textAlign: TextAlign.right,
-            style: const TextStyle(fontSize: 14, color: NocturneColors.neutral500, decoration: TextDecoration.none),
+            style: TextStyle(fontSize: 14, color: NocturneColors.neutral500, decoration: TextDecoration.none),
           ),
         ),
       ],

@@ -138,7 +138,7 @@ class _HeaderRow extends StatelessWidget {
             children: [
               Text(
                 '$year',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: 1.4, color: NocturneColors.accent, decoration: TextDecoration.none),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: 1.4, color: NocturneColors.accent, decoration: TextDecoration.none),
               ),
               const SizedBox(height: 2),
               Text(_capitalize(monthName), style: NocturneText.heroMetric()),
@@ -168,7 +168,7 @@ class _TodayPill extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
         decoration: BoxDecoration(borderRadius: BorderRadius.circular(NocturneRadii.pill), border: Border.all(color: NocturneColors.accent)),
-        child: const Text('Hoje', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: NocturneColors.accent, decoration: TextDecoration.none)),
+        child: Text('Hoje', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: NocturneColors.accent, decoration: TextDecoration.none)),
       ),
     );
   }
@@ -404,7 +404,7 @@ class _SelectedDayLine extends StatelessWidget {
       children: [
         Text('${date.day}', style: NocturneText.bigNumberSheet.merge(NocturneText.tabularNums)),
         const SizedBox(width: 12),
-        Text('$weekday · $countText', style: const TextStyle(fontSize: 17, color: NocturneColors.neutral500, decoration: TextDecoration.none).merge(NocturneText.tabularNums)),
+        Text('$weekday · $countText', style: TextStyle(fontSize: 17, color: NocturneColors.neutral500, decoration: TextDecoration.none).merge(NocturneText.tabularNums)),
       ],
     );
   }
@@ -434,14 +434,14 @@ class _EventRow extends StatelessWidget {
               children: [
                 Text(
                   instance.event.summary,
-                  style: const TextStyle(fontSize: 16, color: NocturneColors.text, decoration: TextDecoration.none),
+                  style: TextStyle(fontSize: 16, color: NocturneColors.text, decoration: TextDecoration.none),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '$timeText · $calendarName',
-                  style: const TextStyle(fontSize: 13, color: NocturneColors.neutral500, decoration: TextDecoration.none).merge(NocturneText.tabularNums),
+                  style: TextStyle(fontSize: 13, color: NocturneColors.neutral500, decoration: TextDecoration.none).merge(NocturneText.tabularNums),
                 ),
               ],
             ),
@@ -461,6 +461,6 @@ class _EmptyNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(text, style: const TextStyle(fontSize: 16, color: NocturneColors.neutral600, decoration: TextDecoration.none));
+    return Text(text, style: TextStyle(fontSize: 16, color: NocturneColors.neutral600, decoration: TextDecoration.none));
   }
 }

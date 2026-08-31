@@ -285,18 +285,18 @@ class _NowPlayingState extends ConsumerState<_NowPlaying> {
                     item?.name ?? (player.available ? 'Nada em reprodução' : 'Leitor indisponível'),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w600, letterSpacing: -0.6, height: 1.1, color: NocturneColors.text, decoration: TextDecoration.none),
+                    style: TextStyle(fontSize: 36, fontWeight: FontWeight.w600, letterSpacing: -0.6, height: 1.1, color: NocturneColors.text, decoration: TextDecoration.none),
                   ),
                   if (item?.artist != null) ...[
                     const SizedBox(height: 9),
-                    Text(item!.artist!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 22, color: NocturneColors.neutral400, decoration: TextDecoration.none)),
+                    Text(item!.artist!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 22, color: NocturneColors.neutral400, decoration: TextDecoration.none)),
                   ],
                 ],
               ),
             ),
             if (item != null) ...[
               const SizedBox(width: 20),
-              const Padding(padding: EdgeInsets.only(top: 6), child: Icon(Icons.favorite, size: 32, color: NocturneColors.accent)),
+              Padding(padding: EdgeInsets.only(top: 6), child: Icon(Icons.favorite, size: 32, color: NocturneColors.accent)),
             ],
           ],
         ),
@@ -335,13 +335,13 @@ class _HeaderRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        GestureDetector(behavior: HitTestBehavior.opaque, onTap: onClose, child: const Icon(Icons.keyboard_arrow_down, size: 26, color: NocturneColors.text)),
+        GestureDetector(behavior: HitTestBehavior.opaque, onTap: onClose, child: Icon(Icons.keyboard_arrow_down, size: 26, color: NocturneColors.text)),
         const SizedBox(width: 16),
         Expanded(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 'A TOCAR DE',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, letterSpacing: 1.68, color: NocturneColors.neutral600, decoration: TextDecoration.none),
               ),
@@ -351,14 +351,14 @@ class _HeaderRow extends StatelessWidget {
                   sourceName!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500, color: NocturneColors.text, decoration: TextDecoration.none),
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500, color: NocturneColors.text, decoration: TextDecoration.none),
                 ),
               ],
             ],
           ),
         ),
         const SizedBox(width: 16),
-        const Icon(Icons.more_vert, size: 26, color: NocturneColors.neutral500),
+        Icon(Icons.more_vert, size: 26, color: NocturneColors.neutral500),
       ],
     );
   }
@@ -476,8 +476,8 @@ class _ProgressBarState extends State<_ProgressBar> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(_formatDuration(elapsed), style: const TextStyle(fontSize: 16, color: NocturneColors.neutral500, decoration: TextDecoration.none).merge(NocturneText.tabularNums)),
-              Text('-${_formatDuration(remaining)}', style: const TextStyle(fontSize: 16, color: NocturneColors.neutral500, decoration: TextDecoration.none).merge(NocturneText.tabularNums)),
+              Text(_formatDuration(elapsed), style: TextStyle(fontSize: 16, color: NocturneColors.neutral500, decoration: TextDecoration.none).merge(NocturneText.tabularNums)),
+              Text('-${_formatDuration(remaining)}', style: TextStyle(fontSize: 16, color: NocturneColors.neutral500, decoration: TextDecoration.none).merge(NocturneText.tabularNums)),
             ],
           ),
         ),
@@ -596,7 +596,7 @@ class _VolumeRowState extends State<_VolumeRow> {
     final level = (_dragValue ?? widget.player.volumeLevel?.toDouble() ?? 0).clamp(0.0, 100.0);
     return Row(
       children: [
-        const Icon(Icons.volume_down, size: 24, color: NocturneColors.neutral500),
+        Icon(Icons.volume_down, size: 24, color: NocturneColors.neutral500),
         const SizedBox(width: 16),
         Expanded(
           child: SliderTheme(
@@ -621,7 +621,7 @@ class _VolumeRowState extends State<_VolumeRow> {
           child: Text(
             '${level.round()}',
             textAlign: TextAlign.right,
-            style: const TextStyle(fontSize: 17, color: NocturneColors.neutral500, decoration: TextDecoration.none).merge(NocturneText.tabularNums),
+            style: TextStyle(fontSize: 17, color: NocturneColors.neutral500, decoration: TextDecoration.none).merge(NocturneText.tabularNums),
           ),
         ),
       ],
@@ -651,14 +651,14 @@ class _PlayerSwitcherRow extends StatelessWidget {
             onTap: onOpenOutputs,
             child: Row(
               children: [
-                const Icon(Icons.speaker_group_outlined, size: 22, color: NocturneColors.accent),
+                Icon(Icons.speaker_group_outlined, size: 22, color: NocturneColors.accent),
                 const SizedBox(width: 11),
                 Flexible(
                   child: Text(
                     speakerLine,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500, color: NocturneColors.accent, decoration: TextDecoration.none),
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500, color: NocturneColors.accent, decoration: TextDecoration.none),
                   ),
                 ),
               ],
@@ -668,7 +668,7 @@ class _PlayerSwitcherRow extends StatelessWidget {
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onSwitchPlayer,
-          child: const Padding(padding: EdgeInsets.all(4), child: Icon(Icons.swap_horiz, size: 20, color: NocturneColors.neutral500)),
+          child: Padding(padding: EdgeInsets.all(4), child: Icon(Icons.swap_horiz, size: 20, color: NocturneColors.neutral500)),
         ),
       ],
     );
@@ -698,7 +698,7 @@ class _PlayerPickerDialog extends StatelessWidget {
               for (final player in players)
                 ListTile(
                   title: Text(player.name, style: TextStyle(color: player.playerId == selectedId ? NocturneColors.accent : NocturneColors.text)),
-                  trailing: player.playerId == selectedId ? const Icon(Icons.check, color: NocturneColors.accent) : null,
+                  trailing: player.playerId == selectedId ? Icon(Icons.check, color: NocturneColors.accent) : null,
                   onTap: () {
                     onSelect(player.playerId);
                     Navigator.of(context).pop();
@@ -732,7 +732,7 @@ class _MusicTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(border: Border(top: BorderSide(color: NocturneColors.divider))),
+      decoration: BoxDecoration(border: Border(top: BorderSide(color: NocturneColors.divider))),
       child: Padding(
         padding: const EdgeInsets.only(top: 14),
         child: AnimatedBuilder(
@@ -803,14 +803,14 @@ class _ViewHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        GestureDetector(behavior: HitTestBehavior.opaque, onTap: onBack, child: const Icon(Icons.chevron_left, size: 28, color: NocturneColors.text)),
+        GestureDetector(behavior: HitTestBehavior.opaque, onTap: onBack, child: Icon(Icons.chevron_left, size: 28, color: NocturneColors.text)),
         const SizedBox(width: 18),
         Expanded(
           child: Text(
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: style ?? const TextStyle(fontSize: 18, color: NocturneColors.neutral500, decoration: TextDecoration.none),
+            style: style ?? TextStyle(fontSize: 18, color: NocturneColors.neutral500, decoration: TextDecoration.none),
           ),
         ),
       ],
@@ -902,14 +902,14 @@ class _PlaylistDetailViewState extends ConsumerState<_PlaylistDetailView> {
                     widget.playlist.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w600, letterSpacing: -0.5, height: 1.1, color: NocturneColors.text, decoration: TextDecoration.none),
+                    style: TextStyle(fontSize: 34, fontWeight: FontWeight.w600, letterSpacing: -0.5, height: 1.1, color: NocturneColors.text, decoration: TextDecoration.none),
                   ),
                   const SizedBox(height: 11),
-                  const Text('Playlist da casa', style: TextStyle(fontSize: 18, color: NocturneColors.neutral400, decoration: TextDecoration.none)),
+                  Text('Playlist da casa', style: TextStyle(fontSize: 18, color: NocturneColors.neutral400, decoration: TextDecoration.none)),
                   const SizedBox(height: 11),
                   Text(
                     tracks == null ? ' ' : '${tracks.length} música${tracks.length == 1 ? '' : 's'}',
-                    style: const TextStyle(fontSize: 16, color: NocturneColors.neutral600, decoration: TextDecoration.none),
+                    style: TextStyle(fontSize: 16, color: NocturneColors.neutral600, decoration: TextDecoration.none),
                   ),
                 ],
               ),
@@ -928,9 +928,9 @@ class _PlaylistDetailViewState extends ConsumerState<_PlaylistDetailView> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.play_arrow, size: 20, color: NocturneColors.bg),
+                    Icon(Icons.play_arrow, size: 20, color: NocturneColors.bg),
                     const SizedBox(width: 12),
-                    const Text('Tocar', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600, color: NocturneColors.bg, decoration: TextDecoration.none)),
+                    Text('Tocar', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600, color: NocturneColors.bg, decoration: TextDecoration.none)),
                   ],
                 ),
               ),
@@ -938,7 +938,7 @@ class _PlaylistDetailViewState extends ConsumerState<_PlaylistDetailView> {
             const SizedBox(width: 16),
             _IconTapTarget(icon: Icons.shuffle, size: 28, active: _shuffle, onTap: () => setState(() => _shuffle = !_shuffle)),
             const SizedBox(width: 16),
-            const Padding(padding: EdgeInsets.all(11), child: Icon(Icons.favorite_border, size: 28, color: NocturneColors.neutral500)),
+            Padding(padding: EdgeInsets.all(11), child: Icon(Icons.favorite_border, size: 28, color: NocturneColors.neutral500)),
             const Spacer(),
             GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -949,9 +949,9 @@ class _PlaylistDetailViewState extends ConsumerState<_PlaylistDetailView> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.speaker_group_outlined, size: 18, color: NocturneColors.accent),
+                    Icon(Icons.speaker_group_outlined, size: 18, color: NocturneColors.accent),
                     const SizedBox(width: 10),
-                    Text(widget.speakerCount, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: NocturneColors.accent, decoration: TextDecoration.none)),
+                    Text(widget.speakerCount, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: NocturneColors.accent, decoration: TextDecoration.none)),
                   ],
                 ),
               ),
@@ -962,7 +962,7 @@ class _PlaylistDetailViewState extends ConsumerState<_PlaylistDetailView> {
         if (tracks == null)
           const Padding(padding: EdgeInsets.symmetric(vertical: 30), child: Center(child: CircularProgressIndicator()))
         else if (tracks.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 20),
             child: Text('Playlist vazia.', style: TextStyle(fontSize: 16, color: NocturneColors.neutral600, decoration: TextDecoration.none)),
           )
@@ -1006,7 +1006,7 @@ class _TrackRow extends StatelessWidget {
           children: [
             SizedBox(
               width: 22,
-              child: Text('$index', style: const TextStyle(fontSize: 17, color: NocturneColors.neutral600, decoration: TextDecoration.none).merge(NocturneText.tabularNums)),
+              child: Text('$index', style: TextStyle(fontSize: 17, color: NocturneColors.neutral600, decoration: TextDecoration.none).merge(NocturneText.tabularNums)),
             ),
             const SizedBox(width: 14),
             ClipRRect(
@@ -1029,11 +1029,11 @@ class _TrackRow extends StatelessWidget {
                     track.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500, color: NocturneColors.text, decoration: TextDecoration.none),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500, color: NocturneColors.text, decoration: TextDecoration.none),
                   ),
                   if (track.subtitle != null) ...[
                     const SizedBox(height: 4),
-                    Text(track.subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, color: NocturneColors.neutral500, decoration: TextDecoration.none)),
+                    Text(track.subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 16, color: NocturneColors.neutral500, decoration: TextDecoration.none)),
                   ],
                 ],
               ),
@@ -1042,7 +1042,7 @@ class _TrackRow extends StatelessWidget {
               const SizedBox(width: 14),
               Text(
                 _formatTrackDuration(track.duration!),
-                style: const TextStyle(fontSize: 16, color: NocturneColors.neutral600, decoration: TextDecoration.none).merge(NocturneText.tabularNums),
+                style: TextStyle(fontSize: 16, color: NocturneColors.neutral600, decoration: TextDecoration.none).merge(NocturneText.tabularNums),
               ),
             ],
           ],
@@ -1091,7 +1091,7 @@ class _OutputsView extends ConsumerWidget {
         _ViewHeader(
           title: 'Onde tocar',
           onBack: onBack,
-          style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w600, color: NocturneColors.text, decoration: TextDecoration.none),
+          style: TextStyle(fontSize: 30, fontWeight: FontWeight.w600, color: NocturneColors.text, decoration: TextDecoration.none),
         ),
         const SizedBox(height: 26),
         Container(
@@ -1102,12 +1102,12 @@ class _OutputsView extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Text('Grupo · ${_speakerCountLabel(player)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500, color: NocturneColors.text, decoration: TextDecoration.none)),
+                  Text('Grupo · ${_speakerCountLabel(player)}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500, color: NocturneColors.text, decoration: TextDecoration.none)),
                   const Spacer(),
                   if (player.volumeLevel != null)
                     Text(
                       '${player.volumeLevel}',
-                      style: const TextStyle(fontSize: 18, color: NocturneColors.neutral500, decoration: TextDecoration.none).merge(NocturneText.tabularNums),
+                      style: TextStyle(fontSize: 18, color: NocturneColors.neutral500, decoration: TextDecoration.none).merge(NocturneText.tabularNums),
                     ),
                 ],
               ),
@@ -1130,19 +1130,19 @@ class _OutputsView extends ConsumerWidget {
                   ),
                 ),
               const SizedBox(height: 14),
-              const Text('O volume mestre move todos em proporção.', style: TextStyle(fontSize: 15, color: NocturneColors.neutral500, decoration: TextDecoration.none)),
+              Text('O volume mestre move todos em proporção.', style: TextStyle(fontSize: 15, color: NocturneColors.neutral500, decoration: TextDecoration.none)),
             ],
           ),
         ),
         const SizedBox(height: 26),
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 4),
           child: Text('DISPONÍVEIS', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, letterSpacing: 1.8, color: NocturneColors.neutral600, decoration: TextDecoration.none)),
         ),
         const SizedBox(height: 14),
         _SpeakerRow(player: player, selected: true, sub: 'Líder do grupo', onChanged: null),
         if (candidates.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 20),
             child: Text('Sem outros leitores disponíveis para agrupar.', style: TextStyle(fontSize: 15, color: NocturneColors.neutral600, decoration: TextDecoration.none)),
           )
@@ -1206,7 +1206,7 @@ class _SpeakerRow extends StatelessWidget {
                       borderRadius: BorderRadius.circular(7),
                       border: checked ? null : Border.all(color: NocturneColors.neutral700, width: 1.5),
                     ),
-                    child: checked ? const Icon(Icons.check, size: 18, color: NocturneColors.bg) : null,
+                    child: checked ? Icon(Icons.check, size: 18, color: NocturneColors.bg) : null,
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -1221,7 +1221,7 @@ class _SpeakerRow extends StatelessWidget {
                           style: TextStyle(fontSize: 21, fontWeight: FontWeight.w500, color: offline ? NocturneColors.neutral400 : NocturneColors.text, decoration: TextDecoration.none),
                         ),
                         const SizedBox(height: 4),
-                        Text(sub, style: const TextStyle(fontSize: 15, color: NocturneColors.neutral500, decoration: TextDecoration.none)),
+                        Text(sub, style: TextStyle(fontSize: 15, color: NocturneColors.neutral500, decoration: TextDecoration.none)),
                       ],
                     ),
                   ),
@@ -1229,7 +1229,7 @@ class _SpeakerRow extends StatelessWidget {
                     const SizedBox(width: 12),
                     Text(
                       '${player.volumeLevel}',
-                      style: const TextStyle(fontSize: 18, color: NocturneColors.neutral500, decoration: TextDecoration.none).merge(NocturneText.tabularNums),
+                      style: TextStyle(fontSize: 18, color: NocturneColors.neutral500, decoration: TextDecoration.none).merge(NocturneText.tabularNums),
                     ),
                   ],
                 ],
@@ -1422,16 +1422,16 @@ class _SearchFieldState extends State<_SearchField> {
       decoration: BoxDecoration(color: NocturneColors.neutral900, borderRadius: BorderRadius.circular(14)),
       child: Row(
         children: [
-          const Icon(Icons.search, size: 24, color: NocturneColors.neutral500),
+          Icon(Icons.search, size: 24, color: NocturneColors.neutral500),
           const SizedBox(width: 14),
           Expanded(
             child: TextField(
               controller: widget.controller,
               focusNode: _focusNode,
-              style: const TextStyle(fontSize: 19, color: NocturneColors.text, decoration: TextDecoration.none),
+              style: TextStyle(fontSize: 19, color: NocturneColors.text, decoration: TextDecoration.none),
               decoration: InputDecoration(
                 hintText: widget.hintText,
-                hintStyle: const TextStyle(fontSize: 19, color: NocturneColors.neutral600, decoration: TextDecoration.none),
+                hintStyle: TextStyle(fontSize: 19, color: NocturneColors.neutral600, decoration: TextDecoration.none),
                 border: InputBorder.none,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 18),
@@ -1607,7 +1607,7 @@ class _GenreShelf extends StatelessWidget {
                 item.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: NocturneColors.text, decoration: TextDecoration.none),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: NocturneColors.text, decoration: TextDecoration.none),
               ),
             ),
           );
@@ -1662,13 +1662,13 @@ class _GenreViewState extends ConsumerState<_GenreView> {
         _ViewHeader(
           title: widget.genre.name,
           onBack: widget.onBack,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: NocturneColors.text, decoration: TextDecoration.none),
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: NocturneColors.text, decoration: TextDecoration.none),
         ),
         const SizedBox(height: 22),
         if (shelves == null)
           const Padding(padding: EdgeInsets.symmetric(vertical: 30), child: Center(child: CircularProgressIndicator()))
         else if (shelves.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 20),
             child: Text('Sem sugestões para este género.', style: TextStyle(fontSize: 16, color: NocturneColors.neutral600, decoration: TextDecoration.none)),
           )
@@ -1696,12 +1696,12 @@ class _SectionHeader extends StatelessWidget {
         Text(
           title,
           style: muted
-              ? const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, letterSpacing: 1.8, color: NocturneColors.neutral600, decoration: TextDecoration.none)
-              : const TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: NocturneColors.text, decoration: TextDecoration.none),
+              ? TextStyle(fontSize: 15, fontWeight: FontWeight.w500, letterSpacing: 1.8, color: NocturneColors.neutral600, decoration: TextDecoration.none)
+              : TextStyle(fontSize: 22, fontWeight: FontWeight.w600, color: NocturneColors.text, decoration: TextDecoration.none),
         ),
         // Decorative: there's no "view every playlist/radio/artist/album"
         // destination in scope yet, only the shelves themselves.
-        const Text('Ver tudo', style: TextStyle(fontSize: 16, color: NocturneColors.accent, decoration: TextDecoration.none)),
+        Text('Ver tudo', style: TextStyle(fontSize: 16, color: NocturneColors.accent, decoration: TextDecoration.none)),
       ],
     );
   }
@@ -1772,7 +1772,7 @@ class _CardRow extends StatelessWidget {
                       item.subtitle!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 15, color: NocturneColors.neutral500, decoration: TextDecoration.none),
+                      style: TextStyle(fontSize: 15, color: NocturneColors.neutral500, decoration: TextDecoration.none),
                     ),
                   ],
                 ],
@@ -1790,7 +1790,7 @@ class _ArtPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(color: NocturneColors.inset, alignment: Alignment.center, child: const Icon(Icons.music_note, size: 32, color: NocturneColors.neutral600));
+    return Container(color: NocturneColors.inset, alignment: Alignment.center, child: Icon(Icons.music_note, size: 32, color: NocturneColors.neutral600));
   }
 }
 
@@ -1837,7 +1837,7 @@ class _AvatarRow extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500, color: NocturneColors.text, decoration: TextDecoration.none),
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500, color: NocturneColors.text, decoration: TextDecoration.none),
                   ),
                 ],
               ),
@@ -1854,7 +1854,7 @@ class _AvatarPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(color: NocturneColors.inset, alignment: Alignment.center, child: const Icon(Icons.person, size: 32, color: NocturneColors.neutral600));
+    return Container(color: NocturneColors.inset, alignment: Alignment.center, child: Icon(Icons.person, size: 32, color: NocturneColors.neutral600));
   }
 }
 
@@ -1867,7 +1867,7 @@ class _SearchResultsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 20),
         child: Text('Sem resultados.', style: TextStyle(fontSize: 16, color: NocturneColors.neutral600, decoration: TextDecoration.none)),
       );
@@ -1967,7 +1967,7 @@ class _RadiosTabState extends ConsumerState<_RadiosTab> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
-          children: const [
+          children: [
             Expanded(child: Text('Rádios', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w600, color: NocturneColors.text, decoration: TextDecoration.none))),
             Text('Editar', style: TextStyle(fontSize: 16, color: NocturneColors.accent, decoration: TextDecoration.none)),
           ],
@@ -1985,7 +1985,7 @@ class _RadiosTabState extends ConsumerState<_RadiosTab> {
           ),
           const SizedBox(height: 28),
         ],
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 2),
           child: Text('GUARDADAS', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, letterSpacing: 1.8, color: NocturneColors.neutral600, decoration: TextDecoration.none)),
         ),
@@ -1993,7 +1993,7 @@ class _RadiosTabState extends ConsumerState<_RadiosTab> {
         if (filtered == null)
           const Padding(padding: EdgeInsets.symmetric(vertical: 30), child: Center(child: CircularProgressIndicator()))
         else if (filtered.isEmpty)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 20),
             child: Text('Sem estações na biblioteca.', style: TextStyle(fontSize: 16, color: NocturneColors.neutral600, decoration: TextDecoration.none)),
           )
@@ -2042,12 +2042,12 @@ class _LiveRadioCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('EM DIRETO', style: TextStyle(fontSize: 14, letterSpacing: 1.68, color: NocturneColors.neutral600, decoration: TextDecoration.none)),
+                Text('EM DIRETO', style: TextStyle(fontSize: 14, letterSpacing: 1.68, color: NocturneColors.neutral600, decoration: TextDecoration.none)),
                 const SizedBox(height: 9),
-                Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w600, height: 1.15, color: NocturneColors.text, decoration: TextDecoration.none)),
+                Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w600, height: 1.15, color: NocturneColors.text, decoration: TextDecoration.none)),
                 if (meta.isNotEmpty) ...[
                   const SizedBox(height: 9),
-                  Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, color: NocturneColors.neutral500, decoration: TextDecoration.none)),
+                  Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 17, color: NocturneColors.neutral500, decoration: TextDecoration.none)),
                 ],
               ],
             ),
@@ -2060,7 +2060,7 @@ class _LiveRadioCard extends StatelessWidget {
               width: 72,
               height: 72,
               alignment: Alignment.center,
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: NocturneColors.text),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: NocturneColors.text),
               child: Icon(playing ? Icons.pause : Icons.play_arrow, size: 30, color: NocturneColors.bg),
             ),
           ),
@@ -2109,7 +2109,7 @@ class _StationRow extends StatelessWidget {
                   ),
                   if (item.subtitle != null) ...[
                     const SizedBox(height: 5),
-                    Text(item.subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, color: NocturneColors.neutral500, decoration: TextDecoration.none)),
+                    Text(item.subtitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 16, color: NocturneColors.neutral500, decoration: TextDecoration.none)),
                   ],
                 ],
               ),
@@ -2158,17 +2158,17 @@ class _BrowseRow extends StatelessWidget {
         decoration: BoxDecoration(color: NocturneColors.inset, borderRadius: BorderRadius.circular(NocturneRadii.insetPanel)),
         child: Row(
           children: [
-            const Icon(Icons.play_circle_outline, size: 22, color: NocturneColors.neutral500),
+            Icon(Icons.play_circle_outline, size: 22, color: NocturneColors.neutral500),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(item.name, style: const TextStyle(fontSize: 16, color: NocturneColors.text, decoration: TextDecoration.none), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(item.name, style: TextStyle(fontSize: 16, color: NocturneColors.text, decoration: TextDecoration.none), maxLines: 1, overflow: TextOverflow.ellipsis),
                   if (item.subtitle != null) ...[
                     const SizedBox(height: 2),
-                    Text(item.subtitle!, style: const TextStyle(fontSize: 13, color: NocturneColors.neutral500, decoration: TextDecoration.none), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(item.subtitle!, style: TextStyle(fontSize: 13, color: NocturneColors.neutral500, decoration: TextDecoration.none), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ],
                 ],
               ),
@@ -2189,7 +2189,7 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: NocturneColors.neutral600, decoration: TextDecoration.none)),
+      child: Text(message, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: NocturneColors.neutral600, decoration: TextDecoration.none)),
     );
   }
 }

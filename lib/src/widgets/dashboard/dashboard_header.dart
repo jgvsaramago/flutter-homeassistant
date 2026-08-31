@@ -78,7 +78,7 @@ class _DashboardHeaderState extends State<DashboardHeader> {
                   style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w600, height: 1.15),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Aqui está o que se passa em casa',
                   style: TextStyle(fontSize: 20, color: NocturneColors.neutral500, height: 1.4),
                 ),
@@ -100,7 +100,7 @@ class _DashboardHeaderState extends State<DashboardHeader> {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(_dateStr, style: const TextStyle(fontSize: 22, color: NocturneColors.neutral300)),
+              Text(_dateStr, style: TextStyle(fontSize: 22, color: NocturneColors.neutral300)),
             ],
           ),
         ],

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/ev_cars_provider.dart';
 import '../providers/ha_providers.dart';
 import '../sheets/sheet_registry.dart';
+import '../theme/nocturne_theme.dart';
 import 'climate_screen.dart';
 import 'dashboard_screen.dart';
 import '../sheets/dashboard/calendar_sheet.dart';
@@ -164,8 +165,13 @@ class _MainShellState extends ConsumerState<MainShell> {
                     // FadeThroughTransition paints its own full-size background
                     // behind the incoming/outgoing child (defaulting to
                     // ThemeData.canvasColor) — pin it to match the scaffold
-                    // instead of whatever that resolves to.
-                    fillColor: Colors.black,
+                    // instead of whatever that resolves to. Reads the token
+                    // rather than hardcoding black: on the light theme the
+                    // scaffold is `_Light.bg`, not black, and this fill sits
+                    // behind every screen (including the gaps between cards),
+                    // so a hardcoded black here painted the whole app's
+                    // background wrong the moment the theme wasn't dark.
+                    fillColor: NocturneColors.bg,
                     child: child,
                   ),
               child: KeyedSubtree(
@@ -176,13 +182,18 @@ class _MainShellState extends ConsumerState<MainShell> {
             IgnorePointer(
               child: Align(
                 alignment: Alignment.bottomCenter,
+                // Fades content out just above the floating navbar so it
+                // doesn't cut off abruptly — same reasoning as the
+                // `fillColor` above: this needs to fade to the scaffold's
+                // actual background, not a hardcoded black that only looked
+                // right while the theme was always dark.
                 child: Container(
                   height: 48,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Colors.black],
+                      colors: [NocturneColors.bg.withValues(alpha: 0), NocturneColors.bg],
                     ),
                   ),
                 ),

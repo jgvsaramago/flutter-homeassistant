@@ -92,17 +92,17 @@ class _MassConnectionCardState extends ConsumerState<MassConnectionCard> {
           children: [
             Row(
               children: [
-                const Icon(Icons.speaker_group_outlined, size: 20, color: NocturneColors.accent),
+                Icon(Icons.speaker_group_outlined, size: 20, color: NocturneColors.accent),
                 const SizedBox(width: 8),
                 Text('SERVIDOR', style: NocturneText.cardKicker),
               ],
             ),
             const SizedBox(height: 6),
-            const Text('Servidor Music Assistant usado pela folha de Música — o mesmo endereço e token gerados no seu painel.', style: NocturneText.body),
+            Text('Servidor Music Assistant usado pela folha de Música — o mesmo endereço e token gerados no seu painel.', style: NocturneText.body),
             const SizedBox(height: 18),
             Row(
               children: [
-                const Expanded(child: Text('Estado', style: NocturneText.body)),
+                Expanded(child: Text('Estado', style: NocturneText.body)),
                 Icon(Icons.circle, size: 12, color: _statusColor(connectionState)),
                 const SizedBox(width: 8),
                 Text(_statusLabel(connectionState), style: NocturneText.itemTitle),

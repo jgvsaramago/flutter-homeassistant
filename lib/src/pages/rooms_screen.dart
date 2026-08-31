@@ -101,7 +101,7 @@ class RoomsScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Text(
                   _summary(rooms.length, lightsOn, windowsOpen, acOn),
-                  style: const TextStyle(fontSize: 19, color: NocturneColors.neutral400, height: 1.45),
+                  style: TextStyle(fontSize: 19, color: NocturneColors.neutral400, height: 1.45),
                 ),
                 const SizedBox(height: 16),
                 _CountersRow(lights: lightsOn, windows: windowsOpen, ac: acOn, avgTemp: avgTemp),
@@ -175,7 +175,7 @@ class _CounterTile extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 13, letterSpacing: 1.1, color: NocturneColors.neutral500),
+            style: TextStyle(fontSize: 13, letterSpacing: 1.1, color: NocturneColors.neutral500),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

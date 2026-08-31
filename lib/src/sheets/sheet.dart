@@ -326,7 +326,7 @@ class _SheetState extends State<Sheet> with SingleTickerProviderStateMixin {
                       decoration: BoxDecoration(
                         color: NocturneColors.surface,
                         borderRadius: BorderRadius.only(topLeft: Radius.circular(widget.radius), topRight: Radius.circular(widget.radius)),
-                        boxShadow: const [NocturneElevation.sheetShadow],
+                        boxShadow: [NocturneElevation.sheetShadow],
                       ),
                       child: _SheetScope(
                         controller: SheetController._(widget.onClose),
@@ -346,7 +346,7 @@ class _SheetState extends State<Sheet> with SingleTickerProviderStateMixin {
                     // colour (and squared like its bottom edge already is)
                     // so the seam between "dragged" and "pinned" is invisible
                     // when the sheet is at rest.
-                    decoration: const BoxDecoration(color: NocturneColors.surface),
+                    decoration: BoxDecoration(color: NocturneColors.surface),
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(8, 16, 8, 16 + MediaQuery.paddingOf(context).bottom),
                       child: widget.footer,

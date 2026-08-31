@@ -14,6 +14,7 @@ import 'src/mqtt/mqtt_config.dart';
 import 'src/mqtt/mqtt_credentials_store.dart';
 import 'src/mqtt/pi_telemetry_publisher.dart';
 import 'src/services/launch_config.dart';
+import 'src/theme/theme_mode_controller.dart';
 
 // Bump on every edit and check this against the console output on the Pi to
 // confirm a rebuild actually got redeployed, rather than the old bundle
@@ -42,6 +43,11 @@ void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint('flutter-homeassistant build revision: $_buildRevision');
 
+  // Restored before the first frame so the app paints in the right theme
+  // immediately, rather than flashing dark then swapping once this
+  // resolves.
+  await ThemeModeController.instance.restore();
+
   // Environment variables are the primary launch-config channel, not argv:
   // flutter-pi (the embedder this app ships on) hardcodes its Dart
   // entrypoint's argument list to empty — dart_entrypoint_argc/argv are
@@ -54,6 +60,17 @@ void main(List<String> args) async {
   // the UI in a browser with no HA/MQTT setup at all.
   final argsAndQuery = {..._parseArgs(args), ...Uri.base.queryParameters};
   String? config(String envKey, String argKey) => env[envKey] ?? argsAndQuery[argKey];
+
+  // A one-off preview override (?theme=light/dark, --theme=light/dark) —
+  // same idea as ?demo=true, doesn't touch the persisted preference, so
+  // reloading without it falls back to whatever was actually saved/set via
+  // MQTT.
+  final themeOverride = config('THEME', 'theme');
+  if (themeOverride == 'light') {
+    ThemeModeController.instance.mode.value = Brightness.light;
+  } else if (themeOverride == 'dark') {
+    ThemeModeController.instance.mode.value = Brightness.dark;
+  }
 
   final demoMode = argsAndQuery.containsKey('demo') || env['DEMO'] == 'true' || env['DEMO'] == '1';
 

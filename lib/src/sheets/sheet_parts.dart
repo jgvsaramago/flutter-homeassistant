@@ -51,10 +51,10 @@ class SheetSectionHeader extends StatelessWidget {
         children: [
           Text(
             title.toUpperCase(),
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500, decoration: TextDecoration.none, letterSpacing: 2.04, color: NocturneColors.accent),
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500, decoration: TextDecoration.none, letterSpacing: 2.04, color: NocturneColors.accent),
           ),
           if (meta != null)
-            Text(meta!, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.normal, decoration: TextDecoration.none, color: NocturneColors.neutral500)),
+            Text(meta!, style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal, decoration: TextDecoration.none, color: NocturneColors.neutral500)),
         ],
       ),
     );
@@ -72,7 +72,7 @@ class SheetHero extends StatelessWidget {
   final String? aside;
   final String? minmax;
 
-  static const _valueStyle = TextStyle(fontSize: 64, fontWeight: FontWeight.w600, decoration: TextDecoration.none, height: 1, letterSpacing: -1.28, color: NocturneColors.text);
+  static final _valueStyle = TextStyle(fontSize: 64, fontWeight: FontWeight.w600, decoration: TextDecoration.none, height: 1, letterSpacing: -1.28, color: NocturneColors.text);
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +91,7 @@ class SheetHero extends StatelessWidget {
               if (aside != null) ...[
                 const SizedBox(width: 20),
                 Flexible(
-                  child: Text(aside!, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.normal, decoration: TextDecoration.none, color: NocturneColors.neutral400)),
+                  child: Text(aside!, style: TextStyle(fontSize: 22, fontWeight: FontWeight.normal, decoration: TextDecoration.none, color: NocturneColors.neutral400)),
                 ),
               ],
             ],
@@ -102,7 +102,7 @@ class SheetHero extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
             child: Align(
               alignment: Alignment.centerRight,
-              child: Text(minmax!, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.normal, decoration: TextDecoration.none, color: NocturneColors.neutral500)),
+              child: Text(minmax!, style: TextStyle(fontSize: 15, fontWeight: FontWeight.normal, decoration: TextDecoration.none, color: NocturneColors.neutral500)),
             ),
           ),
       ],

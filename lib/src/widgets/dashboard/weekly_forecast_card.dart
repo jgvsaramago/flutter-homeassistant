@@ -50,7 +50,7 @@ class WeeklyForecastCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'PREVISÃO DE 7 DIAS',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, letterSpacing: 1.3, color: NocturneColors.accent),
               ),
@@ -79,12 +79,12 @@ class _DayColumn extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(day.label, style: const TextStyle(fontSize: 18, color: NocturneColors.neutral300)),
+        Text(day.label, style: TextStyle(fontSize: 18, color: NocturneColors.neutral300)),
         const SizedBox(height: 6),
         Icon(_iconFor(day.sky), size: 30, color: _colorFor(day.sky)),
         const SizedBox(height: 6),
         Text('${day.high}°', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
-        Text('${day.low}°', style: const TextStyle(fontSize: 16, color: NocturneColors.neutral600)),
+        Text('${day.low}°', style: TextStyle(fontSize: 16, color: NocturneColors.neutral600)),
       ],
     );
   }

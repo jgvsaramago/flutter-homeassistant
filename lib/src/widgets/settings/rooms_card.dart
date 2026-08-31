@@ -197,7 +197,7 @@ class _RoomsCardState extends ConsumerState<RoomsCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
                 Icon(Icons.grid_view_outlined, size: 20, color: NocturneColors.accent),
                 SizedBox(width: 8),
@@ -205,7 +205,7 @@ class _RoomsCardState extends ConsumerState<RoomsCard> {
               ],
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'As divisões mostradas na página Divisões, pela ordem aqui. Cada campo é opcional — uma divisão só mostra o que tiver configurado.',
               style: NocturneText.body,
             ),
@@ -268,7 +268,7 @@ class _RoomRow extends StatelessWidget {
                 // the expand/collapse toggle for the same touch.
                 ReorderableDragStartListener(
                   index: index,
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 4, vertical: 10),
                     child: Icon(Icons.drag_indicator, color: NocturneColors.neutral600),
                   ),
@@ -295,7 +295,7 @@ class _RoomRow extends StatelessWidget {
             ),
             if (missingName) ...[
               const SizedBox(height: 6),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(left: 2),
                 child: Text('Sem nome — esta divisão não vai ser guardada.', style: TextStyle(fontSize: 14, color: NocturneColors.solarMark)),
               ),
@@ -331,7 +331,7 @@ class _RoomRow extends StatelessWidget {
                 onChanged: (v) => onUpdate(entry.id, (e) => e.secondaryEntityId = v),
               ),
               const SizedBox(height: 6),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(left: 2),
                 child: Text(
                   'Humidade, CO₂ ou fechadura mostram uma frase; qualquer outro sensor mostra o valor tal e qual. Sem isto, mostra a posição dos estores (se configurados).',
@@ -383,8 +383,8 @@ class _RoomRow extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
                   onPressed: onRemove,
-                  icon: const Icon(Icons.delete_outline, size: 20, color: NocturneColors.red),
-                  label: const Text('Remover divisão', style: TextStyle(color: NocturneColors.red)),
+                  icon: Icon(Icons.delete_outline, size: 20, color: NocturneColors.red),
+                  label: Text('Remover divisão', style: TextStyle(color: NocturneColors.red)),
                   style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8)),
                 ),
               ),

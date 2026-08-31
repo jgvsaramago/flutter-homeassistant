@@ -38,13 +38,13 @@ class SheetAiSummary extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_awesome, size: 22, color: NocturneColors.accent),
+              Icon(Icons.auto_awesome, size: 22, color: NocturneColors.accent),
               const SizedBox(width: 10),
-              Expanded(child: Text(title, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w500, decoration: TextDecoration.none, color: NocturneColors.text))),
+              Expanded(child: Text(title, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w500, decoration: TextDecoration.none, color: NocturneColors.text))),
             ],
           ),
           const SizedBox(height: 14),
-          Text(body, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.normal, decoration: TextDecoration.none, height: 1.5, color: NocturneColors.text)),
+          Text(body, style: TextStyle(fontSize: 20, fontWeight: FontWeight.normal, decoration: TextDecoration.none, height: 1.5, color: NocturneColors.text)),
           if (suggestionsTitle != null && suggestions.isNotEmpty) ...[
             const SizedBox(height: 14),
             Container(
@@ -55,7 +55,7 @@ class SheetAiSummary extends StatelessWidget {
                 children: [
                   Text(
                     suggestionsTitle!.toUpperCase(),
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, decoration: TextDecoration.none, letterSpacing: 1.8, color: NocturneColors.neutral400),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, decoration: TextDecoration.none, letterSpacing: 1.8, color: NocturneColors.neutral400),
                   ),
                   for (final suggestion in suggestions)
                     Padding(
@@ -67,13 +67,13 @@ class SheetAiSummary extends StatelessWidget {
                           Expanded(
                             child: Text(
                               suggestion.text,
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.normal, decoration: TextDecoration.none, color: NocturneColors.text),
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.normal, decoration: TextDecoration.none, color: NocturneColors.text),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Text(
                             suggestion.timing,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.normal, decoration: TextDecoration.none, color: NocturneColors.neutral400),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal, decoration: TextDecoration.none, color: NocturneColors.neutral400),
                             textAlign: TextAlign.right,
                           ),
                         ],

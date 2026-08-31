@@ -175,14 +175,14 @@ class _EvCard extends StatelessWidget {
                   ),
                   if (charging == true) ...[
                     const SizedBox(width: 6),
-                    const Icon(
+                    Icon(
                       Icons.bolt,
                       size: 16,
                       color: NocturneColors.amber,
                     ),
                   ] else if (plugged == true) ...[
                     const SizedBox(width: 6),
-                    const Icon(
+                    Icon(
                       Icons.electrical_services,
                       size: 16,
                       color: NocturneColors.neutral400,
@@ -222,7 +222,7 @@ class _EvCard extends StatelessWidget {
                   ),
                   Text(
                     readout.range,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       color: NocturneColors.neutral500,
                     ),
@@ -242,7 +242,7 @@ class _EvCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 _statusText(charging, plugged),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   color: NocturneColors.neutral500,
                 ),
@@ -283,14 +283,14 @@ class _CarPhotoPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [NocturneColors.neutral800, NocturneColors.neutral900],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
       ),
-      child: const Center(
+      child: Center(
         child: Icon(
           Icons.directions_car_filled_outlined,
           color: NocturneColors.neutral600,

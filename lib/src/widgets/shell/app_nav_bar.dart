@@ -43,7 +43,7 @@ class AppNavBar extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(_barRadius),
-        boxShadow: const [NocturneElevation.navbarShadow],
+        boxShadow: [NocturneElevation.navbarShadow],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(_barRadius),

@@ -19,7 +19,7 @@ class _PlanoRow {
 /// section on this page these three rows are static sample content, not
 /// derived from any entity. Kept because the design reference calls for the
 /// section; revisit if/when a real scheduling feature exists to back it.
-const _rows = [
+final _rows = [
   _PlanoRow(
     icon: Icons.local_laundry_service_outlined,
     title: 'Máquina de lavar',
@@ -59,9 +59,9 @@ class EnergyPlanoSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              const Expanded(child: Text('PLANO DO EXCEDENTE', style: NocturneText.cardKicker)),
+              Expanded(child: Text('PLANO DO EXCEDENTE', style: NocturneText.cardKicker)),
               RichText(
-                text: const TextSpan(
+                text: TextSpan(
                   style: TextStyle(fontSize: 16, color: NocturneColors.neutral400, decoration: TextDecoration.none),
                   children: [
                     TextSpan(text: 'Sobram '),
@@ -116,7 +116,7 @@ class _PlanoTile extends StatelessWidget {
                 children: [
                   Text(row.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 3),
-                  Text(row.sub, style: const TextStyle(fontSize: 15, color: NocturneColors.neutral500)),
+                  Text(row.sub, style: TextStyle(fontSize: 15, color: NocturneColors.neutral500)),
                 ],
               ),
             ),
