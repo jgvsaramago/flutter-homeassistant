@@ -28,27 +28,47 @@ class ScreenPowerGuard extends StatefulWidget {
 class _ScreenPowerGuardState extends State<ScreenPowerGuard> {
   static final _service = ScreenPowerService();
 
+  /// True once this *process* has run the "wake in case the previous
+  /// process left the hardware blanked" recovery below — a widget remount
+  /// (the whole app remounts on a theme switch; see `ThemeModeController`/
+  /// `app.dart`) isn't a fresh process launch and must not repeat it, or
+  /// it would force the screen back on even when it had just been
+  /// correctly, deliberately turned off moments before.
+  static bool _recoveredThisProcess = false;
+
   Timer? _idleTimer;
-  bool _screenOff = false;
+
+  /// Seeded from the controller's last known state, not a hardcoded
+  /// `false` — `ScreenPowerController.instance` is a singleton that
+  /// survives a widget remount, so this keeps `_screenOff` in sync with
+  /// reality across one instead of silently resetting to "on" (and then
+  /// silently no-op'ing the next real "turn on" command, since `_applyPower`
+  /// treats that as already being in the requested state) every time the
+  /// app remounts.
+  late bool _screenOff = !ScreenPowerController.instance.isOn.value;
 
   @override
   void initState() {
     super.initState();
     ScreenPowerController.instance.attach(_applyPowerExternal);
     if (!_service.isSupported) return;
-    // The backlight/panel-off sysfs writes outlive the process that made
-    // them — if this app got killed (not cleanly closed) while the screen
-    // was blanked, the hardware is still off when we relaunch, even though
-    // this fresh instance's _screenOff starts false and has no way to know
-    // that. Unconditionally waking on every launch is what actually fixes
-    // that, rather than trying to detect and special-case it.
-    _service.setPowered(true);
+    if (!_recoveredThisProcess) {
+      _recoveredThisProcess = true;
+      // The backlight/panel-off sysfs writes outlive the process that made
+      // them — if this app got killed (not cleanly closed) while the screen
+      // was blanked, the hardware is still off when we relaunch, even though
+      // this fresh instance's _screenOff starts false and has no way to know
+      // that. Unconditionally waking on every process launch is what
+      // actually fixes that, rather than trying to detect and special-case
+      // it — but only ever once per process, guarded by the flag above.
+      _service.setPowered(true);
+    }
     _resetIdleTimer();
   }
 
   @override
   void dispose() {
-    ScreenPowerController.instance.detach();
+    ScreenPowerController.instance.detach(_applyPowerExternal);
     _idleTimer?.cancel();
     super.dispose();
   }
