@@ -19,6 +19,20 @@ import 'temperature_entities_provider.dart';
 
 final haCredentialsStoreProvider = Provider<HaCredentialsStore>((ref) => HaCredentialsStore());
 
+/// Authorization header for an `Image.network` request to [url], if it
+/// points at the configured HA instance's own REST API (e.g.
+/// `/api/image/serve/...`, used by the EV cards' photo field) — such
+/// endpoints require the long-lived access token as a Bearer header, unlike
+/// `/local/...` static files or `entity_picture`-style URLs that HA itself
+/// signs with a token in the query string. Returns null for any other host,
+/// so the token is never sent to a third-party server.
+Map<String, String>? haImageAuthHeaders(HaConnectionConfig? config, String url) {
+  if (config == null) return null;
+  final base = config.baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
+  if (!url.startsWith(base)) return null;
+  return {'Authorization': 'Bearer ${config.accessToken}'};
+}
+
 /// Single long-lived websocket client shared by the whole app.
 final haWebSocketClientProvider = Provider<HaWebSocketClient>((ref) {
   final client = HaWebSocketClient();

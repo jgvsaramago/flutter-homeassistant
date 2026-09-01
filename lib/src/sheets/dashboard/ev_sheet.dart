@@ -476,7 +476,7 @@ class _Header extends StatelessWidget {
 /// The header's 300×170 photo slot: [url] if it loads, else the dashed-look
 /// "foto do carro" placeholder — same fallback shape as the home card's own
 /// `_CarPhoto` in `ev_cars_row.dart`, just at the sheet's own fixed size.
-class _CarPhoto extends StatelessWidget {
+class _CarPhoto extends ConsumerWidget {
   const _CarPhoto({
     required this.url,
     required this.width,
@@ -490,8 +490,9 @@ class _CarPhoto extends StatelessWidget {
   final double radius;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final url = this.url;
+    final connectionConfig = url == null ? null : ref.watch(connectionConfigProvider);
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: SizedBox(
@@ -502,6 +503,7 @@ class _CarPhoto extends StatelessWidget {
             : Image.network(
                 url,
                 fit: BoxFit.cover,
+                headers: haImageAuthHeaders(connectionConfig, url),
                 errorBuilder: (context, error, stackTrace) =>
                     _PhotoPlaceholder(radius: radius),
               ),

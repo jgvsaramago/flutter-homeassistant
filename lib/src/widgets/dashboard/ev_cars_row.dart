@@ -258,22 +258,23 @@ class _EvCard extends StatelessWidget {
 /// The home card's 90%×88 photo slot: the configured [url] if it loads,
 /// else the neutral gradient placeholder with a car glyph — same fallback
 /// shape as `_ArtworkPlaceholder` in `music_sheet.dart`.
-class _CarPhoto extends StatelessWidget {
+class _CarPhoto extends ConsumerWidget {
   const _CarPhoto({required this.url});
 
   final String? url;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final url = this.url;
-    return url == null
-        ? const _CarPhotoPlaceholder()
-        : Image.network(
-            url,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) =>
-                const _CarPhotoPlaceholder(),
-          );
+    if (url == null) return const _CarPhotoPlaceholder();
+    final connectionConfig = ref.watch(connectionConfigProvider);
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      headers: haImageAuthHeaders(connectionConfig, url),
+      errorBuilder: (context, error, stackTrace) =>
+          const _CarPhotoPlaceholder(),
+    );
   }
 }
 
