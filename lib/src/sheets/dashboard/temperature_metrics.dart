@@ -75,7 +75,7 @@ SheetMetricData buildTextMetric(String label, String? text) {
 String _capitalize(String s) => s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
 
 // Health/air-quality metrics escalate green → amber → red, mirroring the
-// CO₂ threshold model `ClimateModeRow` already uses. Weather metrics
+// CO₂ threshold model `ClimateHero` already uses. Weather metrics
 // (rain/wind/gust) keep one fixed hue across all three bands — they're
 // informational, not a health alarm — matching the design reference.
 

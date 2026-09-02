@@ -74,6 +74,23 @@ abstract final class _Dark {
   /// Generic ambient shadow for floating elements not covered by
   /// [navbarShadowColor]/[sheetShadowColor] — rgba(0,0,0,0.55).
   static const ambientShadowColor = Color(0x8C000000);
+
+  /// Climate hero card (Homepage) — fixed gradient, not derived from the
+  /// accent token: the dark accent is too pale for a white-text surface.
+  static const heroGradientStart = Color(0xFF5B4CB4);
+  static const heroGradientEnd = Color(0xFF372C7C);
+
+  /// rgba(0,0,0,0.6).
+  static const heroShadowColor = Color(0x99000000);
+
+  /// rgba(255,255,255,0.14) — the hero's inset top highlight.
+  static const heroInsetHighlight = Color(0x24FFFFFF);
+
+  /// 7-day forecast range-bar track.
+  static const forecastTrack = Color(0xFF25262C);
+
+  /// 7-day forecast cloud-icon stroke.
+  static const forecastCloudStroke = Color(0xFF7D8089);
 }
 
 /// The light palette's literal values, from `theme-light.css`/
@@ -133,6 +150,23 @@ abstract final class _Light {
   /// [scrim]/[navbarShadowColor], alpha = the dark value's alpha × 0.55.
   /// 0x8C (0.549) × 0.55 ≈ 0x4D.
   static const ambientShadowColor = Color(0x4D191A20);
+
+  /// Climate hero card — accent-derived gradient (unlike the dark theme's
+  /// fixed purple: the light accent stays legible with white text).
+  static const heroGradientStart = accent;
+  static const heroGradientEnd = accent600;
+
+  /// `accent` at 45% alpha (`color-mix(in srgb, accent 45%, transparent)`).
+  static const heroShadowColor = Color(0x736355BD);
+
+  /// rgba(255,255,255,0.25) — the hero's inset top highlight.
+  static const heroInsetHighlight = Color(0x40FFFFFF);
+
+  /// 7-day forecast range-bar track.
+  static const forecastTrack = Color(0xFFEEEEF1);
+
+  /// 7-day forecast cloud-icon stroke.
+  static const forecastCloudStroke = Color(0xFFB9BCC6);
 }
 
 abstract final class NocturneColors {
@@ -200,6 +234,16 @@ abstract final class NocturneColors {
   /// The app's one error/bad-state hue, e.g. `ColorScheme.error` below and
   /// the worst CO2 threshold — aliases the alert domain's mark tone.
   static Color get red => alertMark;
+
+  // Homepage climate hero card (see `ClimateHero`).
+  static Color get heroGradientStart => _isLight ? _Light.heroGradientStart : _Dark.heroGradientStart;
+  static Color get heroGradientEnd => _isLight ? _Light.heroGradientEnd : _Dark.heroGradientEnd;
+  static Color get heroShadowColor => _isLight ? _Light.heroShadowColor : _Dark.heroShadowColor;
+  static Color get heroInsetHighlight => _isLight ? _Light.heroInsetHighlight : _Dark.heroInsetHighlight;
+
+  // 7-day forecast range-bar chart (see `WeeklyForecastCard`).
+  static Color get forecastTrack => _isLight ? _Light.forecastTrack : _Dark.forecastTrack;
+  static Color get forecastCloudStroke => _isLight ? _Light.forecastCloudStroke : _Dark.forecastCloudStroke;
 }
 
 /// Radius scale — pick from these, nothing between. Unaffected by theme.

@@ -4,7 +4,7 @@ import 'settings_json_utils.dart';
 /// Which HA entities feed the Temperatures sheet. All optional — an unset
 /// field just makes that metric show "--" until configured. The two
 /// temperature fields default to this app's own pre-existing hardcoded
-/// sensors (the ones `ClimateModeRow`'s card already read before this
+/// sensors (the ones `ClimateHero`'s card already read before this
 /// config existed), so upgrading doesn't blank out the one thing that was
 /// already working.
 class TemperatureEntityConfig {
