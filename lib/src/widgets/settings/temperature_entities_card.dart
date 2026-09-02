@@ -200,10 +200,11 @@ class _TemperatureEntitiesCardState extends ConsumerState<TemperatureEntitiesCar
             ),
             const SizedBox(height: 16),
             _FieldWithDescription(
-              description: 'Estado do tempo em texto (ex.: "Chuva fraca").',
+              description: 'Estado do tempo em texto (ex.: "Chuva fraca") e a previsão de 7 dias da Homepage.',
               field: EntityIdField(
                 label: 'Estado do tempo',
                 hint: 'weather.estacao',
+                domainFilter: 'weather',
                 initialValue: _draft.weatherStateEntityId,
                 onChanged: (v) => _update((c) => c.copyWith(weatherStateEntityId: v)),
               ),

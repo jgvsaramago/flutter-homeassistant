@@ -1,35 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../providers/weekly_forecast_provider.dart';
 import '../../theme/nocturne_theme.dart';
 
-enum _Sky { sunny, partlyCloudy, cloudy, rainy }
+enum _Sky { sunny, partlyCloudy, cloudy, rainy, unknown }
 
-class _Day {
-  const _Day(this.label, this.sky, this.high, this.low);
-  final String label;
-  final _Sky sky;
-  final int high;
-  final int low;
-}
-
-/// Section 5 of the Homepage: 7-day forecast. This app has no weather
-/// integration yet, so — like the design reference, which has no `{{ }}`
-/// bindings in this section — it's static placeholder data.
-const _week = [
-  _Day('Hoje', _Sky.sunny, 24, 16),
-  _Day('Sex', _Sky.partlyCloudy, 22, 15),
-  _Day('Sáb', _Sky.cloudy, 19, 13),
-  _Day('Dom', _Sky.rainy, 17, 12),
-  _Day('Seg', _Sky.sunny, 23, 14),
-  _Day('Ter', _Sky.partlyCloudy, 21, 13),
-  _Day('Qua', _Sky.cloudy, 18, 12),
-];
+/// Maps HA's weather condition strings (see the `weather` integration docs)
+/// to this card's four visual buckets — `unknown` covers both "no data yet"
+/// (unconfigured/unavailable entity) and any condition string this app
+/// doesn't have its own icon for.
+_Sky _skyFor(String? condition) => switch (condition) {
+  'sunny' || 'clear-night' => _Sky.sunny,
+  'partlycloudy' => _Sky.partlyCloudy,
+  'cloudy' || 'fog' || 'windy' || 'windy-variant' => _Sky.cloudy,
+  'rainy' || 'pouring' || 'snowy' || 'snowy-rainy' || 'hail' || 'lightning' || 'lightning-rainy' || 'exceptional' => _Sky.rainy,
+  _ => _Sky.unknown,
+};
 
 IconData _iconFor(_Sky sky) => switch (sky) {
   _Sky.sunny => Icons.wb_sunny_outlined,
   _Sky.partlyCloudy => Icons.wb_cloudy_outlined,
   _Sky.cloudy => Icons.cloud_outlined,
   _Sky.rainy => Icons.umbrella_outlined,
+  _Sky.unknown => Icons.help_outline,
 };
 
 // Fixed hexes (not theme tokens) for the sun/rain strokes — the design
@@ -42,6 +36,7 @@ Color _colorFor(_Sky sky) => switch (sky) {
   _Sky.sunny => _sunStroke,
   _Sky.partlyCloudy || _Sky.cloudy => NocturneColors.forecastCloudStroke,
   _Sky.rainy => _rainStroke,
+  _Sky.unknown => NocturneColors.neutral600,
 };
 
 /// Range-bar fill gradient, chosen by the day's own high — warm (hot) to
@@ -54,19 +49,28 @@ List<Color> _gradientFor(int high) {
   return const [Color(0xFF8FB6D8), Color(0xFF6FB0E0)];
 }
 
-class WeeklyForecastCard extends StatelessWidget {
+/// Section 5 of the Homepage: 7-day forecast, from whatever `weather.*`
+/// entity Settings → Temperaturas has configured (see
+/// `weeklyForecastProvider`). Shows "--" per day, same as every other
+/// unconfigured metric in this app, until that's set.
+class WeeklyForecastCard extends ConsumerWidget {
   const WeeklyForecastCard({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // The range-bar scale spans the week's own min/max, not a hardcoded
-    // range, so a colder or hotter week still uses the bar's full height.
-    var scaleMax = _week.first.high;
-    var scaleMin = _week.first.low;
-    for (final day in _week.skip(1)) {
-      if (day.high > scaleMax) scaleMax = day.high;
-      if (day.low < scaleMin) scaleMin = day.low;
-    }
+  Widget build(BuildContext context, WidgetRef ref) {
+    // `.valueOrNull`, not `.value`: a transient fetch error (or the very
+    // first frame, before the notifier's future resolves) must not crash
+    // this card — it should just show "--" until data (or a retry) arrives.
+    final week = ref.watch(weeklyForecastProvider).valueOrNull ?? const [];
+
+    // The range-bar scale spans the week's own min/max among days that
+    // actually have data — a colder or hotter week still uses the bar's
+    // full height, and an empty/unconfigured week just skips every fill.
+    final knownHighs = [for (final d in week) ?d.high];
+    final knownLows = [for (final d in week) ?d.low];
+    final hasRange = knownHighs.isNotEmpty && knownLows.isNotEmpty;
+    final scaleMax = hasRange ? knownHighs.reduce((a, b) => a > b ? a : b) : 0;
+    final scaleMin = hasRange ? knownLows.reduce((a, b) => a < b ? a : b) : 0;
 
     return SizedBox(
       height: 260,
@@ -85,7 +89,7 @@ class WeeklyForecastCard extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (final day in _week) Expanded(child: _DayColumn(day: day, scaleMin: scaleMin, scaleMax: scaleMax)),
+                    for (final day in week) Expanded(child: _DayColumn(day: day, scaleMin: scaleMin, scaleMax: scaleMax)),
                   ],
                 ),
               ),
@@ -100,7 +104,7 @@ class WeeklyForecastCard extends StatelessWidget {
 class _DayColumn extends StatelessWidget {
   const _DayColumn({required this.day, required this.scaleMin, required this.scaleMax});
 
-  final _Day day;
+  final WeeklyForecastDay day;
   final int scaleMin;
   final int scaleMax;
 
@@ -108,9 +112,10 @@ class _DayColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final span = (scaleMax - scaleMin).toDouble();
-    final topFraction = span == 0 ? 0.0 : (scaleMax - day.high) / span;
-    final bottomFraction = span == 0 ? 0.0 : (day.low - scaleMin) / span;
+    final high = day.high;
+    final low = day.low;
+    final hasData = high != null && low != null && scaleMax > scaleMin;
+    final sky = _skyFor(day.condition);
 
     return Column(
       children: [
@@ -124,14 +129,20 @@ class _DayColumn extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Icon(_iconFor(day.sky), size: 22, color: _colorFor(day.sky)),
+        Icon(_iconFor(sky), size: 22, color: _colorFor(sky)),
         const SizedBox(height: 8),
         Expanded(
-          child: _RangeBar(topFraction: topFraction, bottomFraction: bottomFraction, gradientColors: _gradientFor(day.high)),
+          child: hasData
+              ? _RangeBar(
+                  topFraction: (scaleMax - high) / (scaleMax - scaleMin),
+                  bottomFraction: (low - scaleMin) / (scaleMax - scaleMin),
+                  gradientColors: _gradientFor(high),
+                )
+              : const _RangeBar(topFraction: null, bottomFraction: null, gradientColors: []),
         ),
         const SizedBox(height: 8),
-        Text('${day.high}°', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: NocturneColors.text)),
-        Text('${day.low}°', style: TextStyle(fontSize: 14, color: NocturneColors.neutral600)),
+        Text('${high ?? '--'}°', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: NocturneColors.text)),
+        Text('${low ?? '--'}°', style: TextStyle(fontSize: 14, color: NocturneColors.neutral600)),
       ],
     );
   }
@@ -139,40 +150,46 @@ class _DayColumn extends StatelessWidget {
 
 /// A narrow vertical track with a gradient fill spanning from [topFraction]
 /// (0 = top of the track) to `1 - bottomFraction` (measured from the
-/// bottom) — the "how hot/cold this day is within the week" bar.
+/// bottom) — the "how hot/cold this day is within the week" bar. Null
+/// fractions render the bare track with no fill, for a day with no data.
 class _RangeBar extends StatelessWidget {
   const _RangeBar({required this.topFraction, required this.bottomFraction, required this.gradientColors});
 
-  final double topFraction;
-  final double bottomFraction;
+  final double? topFraction;
+  final double? bottomFraction;
   final List<Color> gradientColors;
 
   @override
   Widget build(BuildContext context) {
+    final top = topFraction;
+    final bottom = bottomFraction;
+
     return Container(
       width: 8,
       decoration: BoxDecoration(color: NocturneColors.forecastTrack, borderRadius: BorderRadius.circular(4)),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final height = constraints.maxHeight;
-          return Stack(
-            children: [
-              Positioned(
-                top: height * topFraction,
-                bottom: height * bottomFraction,
-                left: 0,
-                right: 0,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(4),
-                    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: gradientColors),
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+      child: top == null || bottom == null
+          ? null
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final height = constraints.maxHeight;
+                return Stack(
+                  children: [
+                    Positioned(
+                      top: height * top,
+                      bottom: height * bottom,
+                      left: 0,
+                      right: 0,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(4),
+                          gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: gradientColors),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
     );
   }
 }

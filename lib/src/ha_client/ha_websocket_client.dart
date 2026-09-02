@@ -328,6 +328,35 @@ class HaWebSocketClient {
     });
   }
 
+  /// Fetches [entityId]'s forecast via HA's `weather.get_forecasts` service
+  /// — the modern replacement for the legacy `forecast` attribute some
+  /// `weather.*` entities still carry directly (that older path needs no
+  /// service call at all; see `energy_forecast_provider.dart`'s own
+  /// fallback for it). Unlike [callService], this is a response-returning
+  /// service call (`return_response: true`), so the result comes back
+  /// nested under `result.response.<entityId>.forecast` rather than being
+  /// discarded.
+  ///
+  /// Returns each forecast entry (`{datetime, condition, temperature,
+  /// templow, ...}`, shape varies slightly by weather integration) as-is;
+  /// the caller decides how to read/round them. Returns an empty list for
+  /// any response shape that doesn't match — an integration that doesn't
+  /// support this service, for instance — rather than throwing.
+  Future<List<Map<String, dynamic>>> getWeatherForecasts(String entityId, {String type = 'daily'}) async {
+    final result = await _sendCommand({
+      'type': 'call_service',
+      'domain': 'weather',
+      'service': 'get_forecasts',
+      'service_data': {'type': type},
+      'target': {'entity_id': entityId},
+      'return_response': true,
+    });
+    final response = ((result['result'] as Map?)?['response'] as Map?)?.cast<String, dynamic>();
+    final forecast = (response?[entityId] as Map?)?['forecast'];
+    if (forecast is! List) return const [];
+    return forecast.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+  }
+
   Future<void> disconnect() async {
     await _channelSubscription?.cancel();
     _channelSubscription = null;
