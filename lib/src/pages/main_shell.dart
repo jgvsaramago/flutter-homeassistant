@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/ev_cars_provider.dart';
 import '../providers/ha_providers.dart';
+import '../services/screen_power_controller.dart';
 import '../sheets/sheet_registry.dart';
 import '../theme/nocturne_theme.dart';
 import 'climate_screen.dart';
@@ -16,6 +19,11 @@ import 'energy_screen.dart';
 import 'rooms_screen.dart';
 import 'settings/settings_screen.dart';
 import '../widgets/shell/app_nav_bar.dart';
+
+/// How long the screen has to stay off before the tab resets to Casa — long
+/// enough that a screen-off/on that's really just someone briefly blocking
+/// the panel doesn't visibly yank them back to Home mid-task.
+const _resetToHomeAfterScreenOff = Duration(seconds: 5);
 
 // Labels/icons follow the design reference's own nav set (Casa/Divisões/
 // Energia/Aspirador/Automações) wherever a real screen actually matches —
@@ -72,6 +80,7 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   int _selectedIndex = 0;
+  Timer? _resetToHomeTimer;
 
   @override
   void initState() {
@@ -93,6 +102,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     );
     SheetRegistry.instance.requestedId.addListener(_onSheetRequested);
     SheetRegistry.instance.closeRequests.addListener(_onCloseRequested);
+    ScreenPowerController.instance.isOn.addListener(_onScreenPowerChanged);
   }
 
   @override
@@ -104,7 +114,24 @@ class _MainShellState extends ConsumerState<MainShell> {
     SheetRegistry.instance.unregister('music');
     SheetRegistry.instance.unregister('ev-left');
     SheetRegistry.instance.unregister('ev-right');
+    ScreenPowerController.instance.isOn.removeListener(_onScreenPowerChanged);
+    _resetToHomeTimer?.cancel();
     super.dispose();
+  }
+
+  // Resets the selected tab back to Casa once the screen has been off for a
+  // while — the change happens while nobody can see it either way, so
+  // whoever wakes the panel next always lands on Home rather than wherever
+  // the previous person left off (Settings, say). Cancels cleanly if the
+  // screen comes back on before the delay elapses, so a quick off/on
+  // doesn't reset anything.
+  void _onScreenPowerChanged() {
+    _resetToHomeTimer?.cancel();
+    _resetToHomeTimer = null;
+    if (ScreenPowerController.instance.isOn.value) return;
+    _resetToHomeTimer = Timer(_resetToHomeAfterScreenOff, () {
+      if (mounted && _selectedIndex != 0) setState(() => _selectedIndex = 0);
+    });
   }
 
   void _onSheetRequested() {

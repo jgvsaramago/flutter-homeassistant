@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/ha_entity.dart';
 import '../../providers/energy_entities_provider.dart';
+import '../../providers/energy_page_scroll_provider.dart';
 import '../../providers/ha_providers.dart';
 import '../../providers/individual_sensors_provider.dart';
 import '../../providers/individual_sensors_store.dart';
@@ -100,9 +101,13 @@ class _EnergyFlowCardState extends ConsumerState<EnergyFlowCard> {
   // drifting. A Timer at a much lower rate is a fraction of the CPU cost;
   // see this card's git history for the full reasoning (this was a real,
   // measured CPU problem once). 20fps (the original rate here) turned out
-  // to read as visibly choppy though, so this now runs at ~33fps — still
-  // roughly half the cost of a 60Hz ticker.
-  static const _tickInterval = Duration(milliseconds: 30);
+  // to read as visibly choppy on the dev machine this was tuned on, so it
+  // moved to ~33fps — but on the actual kiosk hardware (Pi 5 via flutter-pi,
+  // considerably less headroom than a dev machine's browser/simulator) 33fps
+  // stutters, both on its own and worse while the Energia page scrolls.
+  // 25fps is a middle ground between the two already-tried rates; revisit
+  // if it's still not smooth, or reads as choppy, on the real device.
+  static const _tickInterval = Duration(milliseconds: 40);
 
   // Total elapsed milliseconds since ticking started, *not* wrapped to any
   // fixed cycle — each flow derives its own loop position by taking this
@@ -123,34 +128,49 @@ class _EnergyFlowCardState extends ConsumerState<EnergyFlowCard> {
   void initState() {
     super.initState();
     ScreenPowerController.instance.isOn.addListener(_onScreenPowerChanged);
-    if (ScreenPowerController.instance.isOn.value) _startTicking();
+    _syncTicking();
   }
 
   // The screen-off overlay in ScreenPowerGuard sits on top of this card, not
   // in place of it, so without this the mesh would keep repainting 20x/sec
   // under an opaque black box for as long as the screen stays off — pure
   // wasted CPU (this was the app's single biggest idle CPU cost, measured).
-  void _onScreenPowerChanged() {
-    if (ScreenPowerController.instance.isOn.value) {
+  void _onScreenPowerChanged() => _syncTicking();
+
+  // Ticks only while the screen is actually on *and* the Energia page isn't
+  // mid-scroll (see `energyPageScrollingProvider`) — both conditions decided
+  // here together, rather than each owning a separate start/stop path, so
+  // they can never fight over the timer's on/off state.
+  void _syncTicking() {
+    final shouldTick = ScreenPowerController.instance.isOn.value && !ref.read(energyPageScrollingProvider);
+    if (shouldTick) {
       _startTicking();
     } else {
-      _timer?.cancel();
-      _timer = null;
+      _pauseTicking();
     }
   }
 
   void _startTicking() {
     if (_timer != null) return;
-    _stopwatch
-      ..reset()
-      ..start();
-    var lastElapsedMs = 0;
+    // `start()`, not `reset()+start()`: resuming from a pause (screen back
+    // on, scroll gesture ended) continues the mesh from where it left off
+    // instead of snapping every dot back to the start of its path, which —
+    // unlike the screen-off case, invisible behind the blanked panel — would
+    // be a visible glitch every time a scroll gesture ends.
+    _stopwatch.start();
+    var lastElapsedMs = _stopwatch.elapsedMilliseconds;
     _timer = Timer.periodic(_tickInterval, (_) {
       final elapsedMs = _stopwatch.elapsedMilliseconds;
       final deltaMs = elapsedMs - lastElapsedMs;
       lastElapsedMs = elapsedMs;
       _elapsedMs.value += deltaMs;
     });
+  }
+
+  void _pauseTicking() {
+    _timer?.cancel();
+    _timer = null;
+    _stopwatch.stop();
   }
 
   @override
@@ -164,6 +184,10 @@ class _EnergyFlowCardState extends ConsumerState<EnergyFlowCard> {
 
   @override
   Widget build(BuildContext context) {
+    // Side-effect only — this card's own contents don't depend on scroll
+    // state, so `listen` (react to the change) rather than `watch` (which
+    // would also rebuild this widget every scroll start/end for no reason).
+    ref.listen(energyPageScrollingProvider, (_, _) => _syncTicking());
     final config = ref.watch(energyEntityConfigProvider);
     final sensors = ref.watch(individualSensorsProvider);
     // Selecting the derived kW/SoC readings (not the raw entity map) means

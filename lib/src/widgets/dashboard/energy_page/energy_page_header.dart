@@ -121,19 +121,47 @@ class _BlinkDot extends StatefulWidget {
   State<_BlinkDot> createState() => _BlinkDotState();
 }
 
-class _BlinkDotState extends State<_BlinkDot> with SingleTickerProviderStateMixin {
-  late final _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat(reverse: true);
+/// A `SingleTickerProviderStateMixin` + `AnimationController(..repeat())`
+/// here ticks every frame at the display's full refresh rate for as long as
+/// this dot is mounted — i.e. the whole time the Energia page is open — for
+/// a 9px dot that only needs to look like it's gently pulsing. That's the
+/// exact CPU anti-pattern `EnergyFlowCard`'s own mesh ticker already went
+/// through once (see its `_tickInterval` doc comment): a throttled `Timer`
+/// computing an eased value from elapsed time costs a fraction as much as a
+/// vsync-driven controller for ambient motion like this.
+class _BlinkDotState extends State<_BlinkDot> {
+  static const _period = Duration(milliseconds: 1200);
+  static const _tickInterval = Duration(milliseconds: 100);
+
+  final _stopwatch = Stopwatch()..start();
+  Timer? _timer;
+  double _opacity = 1.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateOpacity();
+    _timer = Timer.periodic(_tickInterval, (_) => setState(_updateOpacity));
+  }
+
+  void _updateOpacity() {
+    final t = (_stopwatch.elapsedMilliseconds % _period.inMilliseconds) / _period.inMilliseconds;
+    // Triangle wave 0->1->0 across one period, eased the same as the
+    // original CurvedAnimation, then mapped onto the same [0.2, 1.0] range.
+    final triangle = t < 0.5 ? t * 2 : (1 - t) * 2;
+    _opacity = 0.2 + 0.8 * Curves.easeInOut.transform(triangle);
+  }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: CurvedAnimation(parent: _controller, curve: Curves.easeInOut).drive(Tween(begin: 1.0, end: 0.2)),
+    return Opacity(
+      opacity: _opacity,
       child: DecoratedBox(
         decoration: BoxDecoration(shape: BoxShape.circle, color: NocturneColors.batteryMark),
         child: SizedBox(width: 9, height: 9),
