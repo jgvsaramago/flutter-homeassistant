@@ -502,7 +502,16 @@ class _CarPhoto extends ConsumerWidget {
             ? _PhotoPlaceholder(radius: radius)
             : Image.network(
                 url,
-                fit: BoxFit.cover,
+                // `contain`, not `cover`: the car photos this app receives
+                // are rarely a clean 300:170 landscape crop, and `cover`
+                // was cropping/zooming them to fill the box edge-to-edge —
+                // reading as the car being wider than its own photo slot.
+                // `contain` guarantees the whole photo stays within bounds
+                // instead of cropping into the car itself, at the cost of
+                // letterboxing (transparent, same as `_PhotoPlaceholder`'s
+                // own unfilled background) on photos that aren't already
+                // close to this box's aspect ratio.
+                fit: BoxFit.contain,
                 headers: haImageAuthHeaders(connectionConfig, url),
                 errorBuilder: (context, error, stackTrace) =>
                     _PhotoPlaceholder(radius: radius),
