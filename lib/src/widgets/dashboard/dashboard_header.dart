@@ -54,13 +54,18 @@ class _DashboardHeaderState extends State<DashboardHeader> {
           ),
           Text(
             time,
+            // Proportional figures, deliberately not `tabularNums` — this
+            // app's own default numeral style everywhere else, chosen over
+            // tabular alignment so this "1" matches every other "1" in the
+            // app instead of using Inter's wider tabular-figure variant.
+            // The trade-off: the clock's width can shift by a pixel or two
+            // as digits change, since digits are no longer fixed-width.
             style: const TextStyle(
               fontFamily: 'Inter',
               fontSize: 80,
               fontWeight: FontWeight.w600,
               letterSpacing: -2,
               height: 1,
-              fontFeatures: [FontFeature.tabularFigures()],
             ),
           ),
         ],
