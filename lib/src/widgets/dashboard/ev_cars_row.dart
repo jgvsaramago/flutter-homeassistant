@@ -193,15 +193,18 @@ class _EvCard extends StatelessWidget {
               const SizedBox(height: 8),
               Expanded(
                 child: Center(
-                  child: FractionallySizedBox(
-                    widthFactor: 0.9,
-                    child: SizedBox(
-                      height: 88,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(
-                          NocturneRadii.chip,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: FractionallySizedBox(
+                      widthFactor: 0.74,
+                      child: SizedBox(
+                        height: 74,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(
+                            NocturneRadii.chip,
+                          ),
+                          child: _CarPhoto(url: _normalizedUrl(car.photoUrl)),
                         ),
-                        child: _CarPhoto(url: _normalizedUrl(car.photoUrl)),
                       ),
                     ),
                   ),

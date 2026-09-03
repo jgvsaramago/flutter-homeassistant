@@ -55,6 +55,7 @@ class _DashboardHeaderState extends State<DashboardHeader> {
           Text(
             time,
             style: const TextStyle(
+              fontFamily: 'Inter',
               fontSize: 80,
               fontWeight: FontWeight.w600,
               letterSpacing: -2,

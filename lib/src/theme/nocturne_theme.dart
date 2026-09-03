@@ -335,7 +335,13 @@ abstract final class NocturneElevation {
 /// temperature, duration, kWh) should merge in [tabularNums]. Sizes/weights/
 /// spacing are unaffected by theme; only `color` varies.
 abstract final class NocturneText {
-  static const tabularNums = TextStyle(fontFeatures: [FontFeature.tabularFigures()]);
+  // `fontFamily` pinned explicitly, not left to inherit from the ambient
+  // `DefaultTextStyle`: every call site merges this onto its own style,
+  // and an explicit value here can't be lost regardless of merge order —
+  // unlike relying on inheritance, which is what silently fell back to a
+  // system font specifically wherever `fontFeatures` was set (the clock;
+  // this same constant elsewhere in music/calendar sheets).
+  static const tabularNums = TextStyle(fontFamily: 'Inter', fontFeatures: [FontFeature.tabularFigures()]);
 
   // Every member here pins `decoration: TextDecoration.none` explicitly.
   // Without it, text rendered inside a `Sheet` (pushed via a bare
