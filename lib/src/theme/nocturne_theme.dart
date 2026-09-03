@@ -407,7 +407,17 @@ ThemeData buildNocturneTheme() {
                 ))
           .copyWith(surfaceContainer: NocturneColors.surface, surfaceContainerHigh: NocturneColors.surface, surfaceContainerHighest: NocturneColors.neutral800);
 
-  final base = ThemeData(colorScheme: colorScheme, useMaterial3: true, brightness: light ? Brightness.light : Brightness.dark);
+  final base = ThemeData(
+    colorScheme: colorScheme,
+    useMaterial3: true,
+    brightness: light ? Brightness.light : Brightness.dark,
+    // The design's own typeface (see README.md/styles-reference.css) — was
+    // never actually wired up before, so every screen was silently
+    // rendering in whatever generic sans-serif the host happened to fall
+    // back to instead, which reads visibly larger than Inter at the same
+    // nominal font size.
+    fontFamily: 'Inter',
+  );
 
   return base.copyWith(
     scaffoldBackgroundColor: NocturneColors.bg,

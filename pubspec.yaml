@@ -89,6 +89,20 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Inter — the Nocturne design system's typeface (see README.md/
+  # styles-reference.css). Three static weights, matching every weight the
+  # app's own type scale actually uses (400/500 body & labels, 500/600
+  # headings/numerals — never bolder than 600).
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
