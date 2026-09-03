@@ -41,8 +41,8 @@ class _EnergyPageSettingsCardState extends ConsumerState<EnergyPageSettingsCard>
   late double? _installedKwp;
   late int? _panelCount;
   late String _panelOrientation;
-  late double? _importPrice;
-  late double? _exportPrice;
+  late String _importPriceEntityId;
+  late String _exportPriceEntityId;
   late String _inverterStatusEntityId;
   late String _inverterTemperatureEntityId;
   late String _inverterEfficiencyEntityId;
@@ -58,8 +58,8 @@ class _EnergyPageSettingsCardState extends ConsumerState<EnergyPageSettingsCard>
     _installedKwp = config.installedKwp;
     _panelCount = config.panelCount;
     _panelOrientation = config.panelOrientation ?? '';
-    _importPrice = config.importPricePerKwh;
-    _exportPrice = config.exportPricePerKwh;
+    _importPriceEntityId = config.importPriceEntityId ?? '';
+    _exportPriceEntityId = config.exportPriceEntityId ?? '';
     _inverterStatusEntityId = config.inverterStatusEntityId ?? '';
     _inverterTemperatureEntityId = config.inverterTemperatureEntityId ?? '';
     _inverterEfficiencyEntityId = config.inverterEfficiencyEntityId ?? '';
@@ -84,8 +84,8 @@ class _EnergyPageSettingsCardState extends ConsumerState<EnergyPageSettingsCard>
       installedKwp: _installedKwp,
       panelCount: _panelCount,
       panelOrientation: _panelOrientation,
-      importPricePerKwh: _importPrice,
-      exportPricePerKwh: _exportPrice,
+      importPriceEntityId: _importPriceEntityId,
+      exportPriceEntityId: _exportPriceEntityId,
       inverterStatusEntityId: _inverterStatusEntityId,
       inverterTemperatureEntityId: _inverterTemperatureEntityId,
       inverterEfficiencyEntityId: _inverterEfficiencyEntityId,
@@ -131,18 +131,20 @@ class _EnergyPageSettingsCardState extends ConsumerState<EnergyPageSettingsCard>
 
             const _SectionHeader(icon: Icons.euro_outlined, title: 'TARIFÁRIO', subtitle: 'Usado para calcular a poupança na página de Energia.'),
             const SizedBox(height: 18),
-            _DecimalField(
+            EntityIdField(
               label: 'Preço da eletricidade importada',
-              suffix: '€/kWh',
-              initialValue: _importPrice,
-              onChanged: (v) => _touch(() => _importPrice = v),
+              hint: 'sensor.preco_eletricidade',
+              domainFilter: 'sensor',
+              initialValue: _importPriceEntityId,
+              onChanged: (v) => _touch(() => _importPriceEntityId = v),
             ),
             const SizedBox(height: 16),
-            _DecimalField(
+            EntityIdField(
               label: 'Preço da eletricidade injetada',
-              suffix: '€/kWh',
-              initialValue: _exportPrice,
-              onChanged: (v) => _touch(() => _exportPrice = v),
+              hint: 'sensor.preco_eletricidade_injetada',
+              domainFilter: 'sensor',
+              initialValue: _exportPriceEntityId,
+              onChanged: (v) => _touch(() => _exportPriceEntityId = v),
             ),
 
             const Divider(height: 44),

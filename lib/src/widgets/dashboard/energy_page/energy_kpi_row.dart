@@ -1,12 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../models/ha_entity.dart';
 import '../../../providers/energy_forecast_provider.dart';
 import '../../../providers/energy_history_provider.dart';
 import '../../../providers/energy_page_settings_provider.dart';
 import '../../../providers/energy_savings_provider.dart';
+import '../../../providers/ha_providers.dart';
 import '../../../theme/nocturne_theme.dart';
 import '../../../utils/pt_format.dart';
+
+/// Reads a tariff/price entity's current state as €/kWh — null when
+/// unconfigured or unavailable, same "--" fallback every other optional
+/// entity on this page already gets.
+double? _readPrice(Map<String, HaEntity> entities, String? entityId) {
+  if (entityId == null || entityId.trim().isEmpty) return null;
+  final entity = entities[entityId];
+  if (entity == null || entity.isUnavailable) return null;
+  return double.tryParse(entity.state);
+}
 
 /// Section 2 of the Energia page: Produzido / Consumo / Injetado / Poupança
 /// — every value derived from today's real HA history (see
@@ -27,8 +39,9 @@ class EnergyKpiRow extends ConsumerWidget {
     final injected = history.hasSolar ? history.injectedTodayKwh : null;
     final expectedToday = forecast.todayTotalKwh;
 
-    final importPrice = pageConfig.importPricePerKwh;
-    final exportPrice = pageConfig.exportPricePerKwh;
+    final entities = ref.watch(entitiesProvider.select((async) => async.value ?? const {}));
+    final importPrice = _readPrice(entities, pageConfig.importPriceEntityId);
+    final exportPrice = _readPrice(entities, pageConfig.exportPriceEntityId);
     final selfConsumed = produced == null ? null : produced - (injected ?? 0);
     final receivable = (injected != null && exportPrice != null) ? injected * exportPrice : null;
     final savingsToday = (selfConsumed != null && importPrice != null) ? selfConsumed * importPrice + (receivable ?? 0) : null;

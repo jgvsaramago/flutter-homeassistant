@@ -13,8 +13,8 @@ class EnergyPageConfig {
     this.installedKwp,
     this.panelCount,
     this.panelOrientation,
-    this.importPricePerKwh,
-    this.exportPricePerKwh,
+    this.importPriceEntityId,
+    this.exportPriceEntityId,
     this.inverterStatusEntityId,
     this.inverterTemperatureEntityId,
     this.inverterEfficiencyEntityId,
@@ -30,12 +30,13 @@ class EnergyPageConfig {
   final int? panelCount;
   final String? panelOrientation;
 
-  /// €/kWh paid for grid imports — values the "poupança" KPI's self-consumed
-  /// solar.
-  final double? importPricePerKwh;
+  /// Entity whose state is the current €/kWh paid for grid imports (e.g. a
+  /// dynamic tariff/spot-price sensor) — values the "poupança" KPI's
+  /// self-consumed solar.
+  final String? importPriceEntityId;
 
-  /// €/kWh received for grid exports.
-  final double? exportPricePerKwh;
+  /// Entity whose state is the current €/kWh received for grid exports.
+  final String? exportPriceEntityId;
 
   final String? inverterStatusEntityId;
   final String? inverterTemperatureEntityId;
@@ -62,8 +63,8 @@ class EnergyPageConfig {
       installedKwp == null &&
       panelCount == null &&
       panelOrientation == null &&
-      importPricePerKwh == null &&
-      exportPricePerKwh == null &&
+      importPriceEntityId == null &&
+      exportPriceEntityId == null &&
       inverterStatusEntityId == null &&
       inverterTemperatureEntityId == null &&
       inverterEfficiencyEntityId == null &&
@@ -76,8 +77,8 @@ class EnergyPageConfig {
     'installedKwp': installedKwp,
     'panelCount': panelCount,
     'panelOrientation': panelOrientation,
-    'importPricePerKwh': importPricePerKwh,
-    'exportPricePerKwh': exportPricePerKwh,
+    'importPriceEntityId': importPriceEntityId,
+    'exportPriceEntityId': exportPriceEntityId,
     'inverterStatusEntityId': inverterStatusEntityId,
     'inverterTemperatureEntityId': inverterTemperatureEntityId,
     'inverterEfficiencyEntityId': inverterEfficiencyEntityId,
@@ -93,8 +94,8 @@ class EnergyPageConfig {
       installedKwp: (json['installedKwp'] as num?)?.toDouble(),
       panelCount: json['panelCount'] as int?,
       panelOrientation: json['panelOrientation'] as String?,
-      importPricePerKwh: (json['importPricePerKwh'] as num?)?.toDouble(),
-      exportPricePerKwh: (json['exportPricePerKwh'] as num?)?.toDouble(),
+      importPriceEntityId: json['importPriceEntityId'] as String?,
+      exportPriceEntityId: json['exportPriceEntityId'] as String?,
       inverterStatusEntityId: json['inverterStatusEntityId'] as String?,
       inverterTemperatureEntityId: json['inverterTemperatureEntityId'] as String?,
       inverterEfficiencyEntityId: json['inverterEfficiencyEntityId'] as String?,

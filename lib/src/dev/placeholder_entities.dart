@@ -111,6 +111,8 @@ Map<String, HaEntity> buildPlaceholderEntities() {
       // 7-day Solcast-style forecast (today's also carries a detailed
       // half-hourly attribute for the production chart's "previsto" bars),
       // and a weather entity for that forecast's condition/temperature.
+      entity('sensor.demo_import_price', '0.18', {'friendly_name': 'Demo Import Price', 'unit_of_measurement': '€/kWh'}),
+      entity('sensor.demo_export_price', '0.07', {'friendly_name': 'Demo Export Price', 'unit_of_measurement': '€/kWh'}),
       entity('sensor.demo_inverter_status', 'on', {'friendly_name': 'Demo Inverter Status'}),
       entity('sensor.demo_inverter_temperature', '42', {'friendly_name': 'Demo Inverter Temperature', 'unit_of_measurement': '°C'}),
       entity('sensor.demo_inverter_efficiency', '98.1', {'friendly_name': 'Demo Inverter Efficiency', 'unit_of_measurement': '%'}),
@@ -185,8 +187,8 @@ final placeholderOverrides = [
       installedKwp: 4.8,
       panelCount: 12,
       panelOrientation: 'sul 30°',
-      importPricePerKwh: 0.18,
-      exportPricePerKwh: 0.07,
+      importPriceEntityId: 'sensor.demo_import_price',
+      exportPriceEntityId: 'sensor.demo_export_price',
       inverterStatusEntityId: 'sensor.demo_inverter_status',
       inverterTemperatureEntityId: 'sensor.demo_inverter_temperature',
       inverterEfficiencyEntityId: 'sensor.demo_inverter_efficiency',
