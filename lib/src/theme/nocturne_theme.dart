@@ -423,7 +423,13 @@ ThemeData buildNocturneTheme() {
     scaffoldBackgroundColor: NocturneColors.bg,
     canvasColor: NocturneColors.bg,
     dividerColor: NocturneColors.divider,
-    textTheme: base.textTheme.apply(bodyColor: NocturneColors.text, displayColor: NocturneColors.text),
+    // `fontFamily:` repeated here even though `base` was already built with
+    // it: `TextTheme.apply`'s own `fontFamily` param defaults to null, which
+    // per its docs *keeps* each style's existing family rather than
+    // clearing it — this should be redundant, but costs nothing to pin
+    // explicitly rather than trust that inherited behavior silently.
+    textTheme: base.textTheme.apply(bodyColor: NocturneColors.text, displayColor: NocturneColors.text, fontFamily: 'Inter'),
+    primaryTextTheme: base.primaryTextTheme.apply(fontFamily: 'Inter'),
     iconTheme: IconThemeData(color: NocturneColors.text),
     cardTheme: CardThemeData(
       color: NocturneColors.surface,

@@ -43,7 +43,20 @@ class HomeAssistantApp extends StatelessWidget {
         // the on-screen keyboard both sit above literally everything the app
         // can show. Keyboard nested inside the power guard so tapping it
         // still counts as activity for the auto-off idle timer.
-        builder: (context, child) => ScreenPowerGuard(child: OnScreenKeyboardHost(child: child!)),
+        //
+        // The `DefaultTextStyle.merge` here is belt-and-suspenders on top of
+        // `ThemeData.fontFamily` below: every `Text` with a custom
+        // `TextStyle` already inherits an unset `fontFamily` from the
+        // nearest `DefaultTextStyle` (which itself is normally seeded from
+        // `Theme.of(context).textTheme`) — but forcing it explicitly here,
+        // above the whole subtree, means Inter applies regardless of
+        // whatever ends up between here and any given `Text` (a `Sheet`
+        // pushed via a bare `PageRouteBuilder`, e.g. — see `NocturneText`'s
+        // own doc comment about that same gap for `TextDecoration.none`).
+        builder: (context, child) => DefaultTextStyle.merge(
+          style: const TextStyle(fontFamily: 'Inter'),
+          child: ScreenPowerGuard(child: OnScreenKeyboardHost(child: child!)),
+        ),
         home: const RootScreen(),
       ),
     );
