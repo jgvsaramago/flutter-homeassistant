@@ -193,8 +193,13 @@ class _ArrowButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Enabled and disabled used near-identical tones before (neutral900 bg
+    // both ways, neutral300 vs neutral500 icon) — barely distinguishable.
+    // Enabled now reads as a real, tappable control (neutral800 bg, full
+    // text-colour icon); disabled stays visible but clearly inert
+    // (neutral900 bg, neutral700 icon).
     return Material(
-      color: NocturneColors.neutral900,
+      color: enabled ? NocturneColors.neutral800 : NocturneColors.neutral900,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: enabled ? onTap : null,
@@ -202,7 +207,7 @@ class _ArrowButton extends StatelessWidget {
         child: SizedBox(
           width: 52,
           height: 52,
-          child: Icon(icon, size: 26, color: enabled ? NocturneColors.neutral300 : NocturneColors.neutral500),
+          child: Icon(icon, size: 26, color: enabled ? NocturneColors.text : NocturneColors.neutral700),
         ),
       ),
     );

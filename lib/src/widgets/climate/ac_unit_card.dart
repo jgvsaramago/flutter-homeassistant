@@ -149,9 +149,23 @@ class _LeftBlock extends StatelessWidget {
       width: 210,
       padding: const EdgeInsets.fromLTRB(22, 24, 22, 24),
       color: bg,
+      // A fixed 16px gap between each row, not `mainAxisAlignment:
+      // spaceBetween` — this Column sits inside an `IntrinsicHeight`-sized
+      // Row (see `AcUnitCard`), and Flutter's intrinsic-height computation
+      // for a Flex ignores `mainAxisAlignment` entirely (it just sums the
+      // children's own sizes with zero gap). Whenever this block's natural
+      // content height happened to be close to the right block's, the
+      // *actual* layout pass then had less than 16px of slack left to
+      // distribute between the three rows — sometimes far less — which is
+      // exactly what read as "no consistent spacing" between the target
+      // number and its neighbours. An explicit gap has no such dependency
+      // on how much (if any) extra height IntrinsicHeight happens to hand
+      // this block, so it's never less than intended, at the cost of
+      // giving up `space-between`'s "grow evenly with extra room" — any
+      // leftover height just collects below the last row instead, which
+      // reads fine on a solid-colour panel like this one.
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             verb.toUpperCase(),
@@ -159,6 +173,7 @@ class _LeftBlock extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 14, letterSpacing: 1.4, fontWeight: FontWeight.w500, color: verbColor),
           ),
+          const SizedBox(height: 16),
           // Scales down rather than overflows if a particular climate
           // entity's target ever renders wider than the 166px left block
           // has room for (a 3-decimal step, an unusually large min/max
@@ -182,6 +197,7 @@ class _LeftBlock extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 16),
           if (on && target != null)
             Row(
               children: [
