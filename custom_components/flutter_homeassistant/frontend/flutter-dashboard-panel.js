@@ -34,6 +34,16 @@
 
   const FORECAST_DAY_LABELS = ["Hoje", "Amanhã", "D+3", "D+4", "D+5", "D+6", "D+7"];
 
+  // Which Climatização-page stat-tile average a room's temperature/humidity
+  // count toward — mirrors RoomClimateZone in lib/src/providers/rooms_store.dart.
+  // "floor0" is also what a null/unset value means there, so it's listed
+  // first and used as this panel's own default for a room with none saved yet.
+  const ZONE_OPTIONS = [
+    { value: "floor0", label: "Piso 0" },
+    { value: "attic", label: "Sótão" },
+    { value: "excluded", label: "Nenhuma" },
+  ];
+
   function field(key, type, label, opts = {}) {
     return { key, type, label, ...opts };
   }
@@ -47,6 +57,16 @@
       fields: [
         field("name", "text", "Nome", { hint: "Sala" }),
         field("temperatureEntityId", "entity", "Temperatura", { hint: "sensor.quarto_temperature", domains: ["sensor"] }),
+        field("humidityEntityId", "entity", "Humidade (opcional)", {
+          hint: "sensor.quarto_humidity",
+          domains: ["sensor"],
+          desc: "Usada só nos tiles de temperatura/humidade da página Climatização — não afeta o cartão de Divisões.",
+        }),
+        field("climateZone", "select", "Zona", {
+          options: ZONE_OPTIONS,
+          default: "floor0",
+          desc: 'Que média da página Climatização esta divisão soma — "Piso 0", "Sótão" ou nenhuma.',
+        }),
         field("secondaryEntityId", "entity", "Sensor secundário (opcional)", { hint: "sensor.quarto_humidity ou lock.quarto" }),
         field("lightEntityId", "entity", "Luz", { hint: "light.quarto ou switch.quarto" }),
         field("windowEntityId", "entity", "Janela", { hint: "binary_sensor.quarto_window", domains: ["binary_sensor"] }),
@@ -285,6 +305,34 @@
         input.value = value ? String(value).slice(0, 10) : "";
         input.addEventListener("input", () => onChange(input.value || null));
         wrap.append(label, input);
+        return wrap;
+      }
+      case "select": {
+        const wrap = document.createElement("div");
+        wrap.className = "text-field";
+        const label = document.createElement("div");
+        label.className = "text-field-label";
+        label.textContent = fieldDef.label;
+        const row = document.createElement("div");
+        row.className = "select-row";
+        let current = value ?? fieldDef.default ?? fieldDef.options[0].value;
+        const paint = () => {
+          row.innerHTML = "";
+          fieldDef.options.forEach((opt) => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "select-btn" + (current === opt.value ? " selected" : "");
+            btn.textContent = opt.label;
+            btn.addEventListener("click", () => {
+              current = opt.value;
+              onChange(current);
+              paint();
+            });
+            row.appendChild(btn);
+          });
+        };
+        paint();
+        wrap.append(label, row);
         return wrap;
       }
       case "icon-select":
@@ -589,6 +637,9 @@
     .swatch-row { display:flex; gap:8px; flex-wrap:wrap; }
     .swatch-btn, .color-btn { width:36px; height:36px; border-radius:50%; border:2px solid transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; background: var(--card-background-color); }
     .swatch-btn.selected, .color-btn.selected { border-color: var(--primary-color); }
+    .select-row { display:flex; gap:6px; flex-wrap:wrap; }
+    .select-btn { padding:6px 14px; border-radius:999px; border:1px solid var(--divider-color); background: var(--card-background-color); color: var(--primary-text-color); font-size:13px; cursor:pointer; }
+    .select-btn.selected { border-color: var(--primary-color); color: var(--primary-color); background: rgba(var(--rgb-primary-color), 0.1); }
     .save-row { display:flex; align-items:center; gap:12px; margin-top:16px; }
     .save-msg { font-size:13px; color: var(--secondary-text-color); }
     .error { color: var(--error-color); margin-bottom:8px; }
