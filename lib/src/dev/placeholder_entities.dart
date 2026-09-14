@@ -131,7 +131,24 @@ Map<String, HaEntity> buildPlaceholderEntities() {
       entity('sensor.demo_room_quarto_temp', '20.1', {'friendly_name': 'Quarto Temperature', 'unit_of_measurement': '°C', 'device_class': 'temperature'}),
       entity('cover.demo_room_quarto', 'open', {'friendly_name': 'Estores do Quarto', 'current_position': 70}),
       entity('media_player.demo_room_quarto', 'idle', {'friendly_name': 'Altifalante do Quarto'}),
-      entity('climate.demo_room_escritorio', 'heat', {'friendly_name': 'AC do Escritório'}),
+      entity('climate.demo_room_escritorio', 'heat', {
+        'friendly_name': 'AC do Escritório',
+        'temperature': 21.0,
+        'current_temperature': 20.9,
+        'target_temp_step': 0.5,
+        'min_temp': 16,
+        'max_temp': 30,
+        'hvac_modes': ['off', 'cool', 'heat', 'dry', 'fan_only'],
+      }),
+      entity('climate.demo_room_sala', 'off', {
+        'friendly_name': 'AC da Sala',
+        'temperature': 22.0,
+        'current_temperature': 21.5,
+        'target_temp_step': 0.5,
+        'min_temp': 16,
+        'max_temp': 30,
+        'hvac_modes': ['off', 'cool', 'heat', 'dry', 'fan_only'],
+      }),
       entity('sensor.demo_room_escritorio_temp', '20.9', {'friendly_name': 'Escritório Temperature', 'unit_of_measurement': '°C', 'device_class': 'temperature'}),
       entity('sensor.demo_room_escritorio_co2', '612', {'friendly_name': 'Escritório CO2', 'unit_of_measurement': 'ppm', 'device_class': 'carbon_dioxide'}),
       entity('media_player.demo_room_escritorio', 'playing', {'friendly_name': 'Altifalante do Escritório'}),
@@ -142,6 +159,7 @@ Map<String, HaEntity> buildPlaceholderEntities() {
       entity('lock.demo_room_entrada', 'locked', {'friendly_name': 'Fechadura da Entrada'}),
       entity('sensor.demo_room_entrada_temp', '21.0', {'friendly_name': 'Entrada Temperature', 'unit_of_measurement': '°C', 'device_class': 'temperature'}),
       entity('sensor.demo_room_sotao_temp', '24.6', {'friendly_name': 'Sótão Temperature', 'unit_of_measurement': '°C', 'device_class': 'temperature'}),
+      entity('sensor.demo_room_sotao_humidity', '38', {'friendly_name': 'Sótão Humidity', 'unit_of_measurement': '%', 'device_class': 'humidity'}),
     ])
       e.entityId: e,
   };
@@ -236,8 +254,10 @@ final placeholderOverrides = [
       RoomConfig(
         name: 'Sala',
         temperatureEntityId: 'sensor.demo_room_sala_temp',
+        humidityEntityId: 'sensor.demo_room_sala_humidity',
         secondaryEntityId: 'sensor.demo_room_sala_humidity',
         lightEntityId: 'light.demo_room_sala',
+        climateEntityId: 'climate.demo_room_sala',
         coverEntityId: 'cover.demo_room_sala',
         speakerEntityId: 'media_player.demo_room_sala',
       ),
@@ -258,6 +278,7 @@ final placeholderOverrides = [
       RoomConfig(
         name: 'Cozinha',
         temperatureEntityId: 'sensor.demo_room_cozinha_temp',
+        humidityEntityId: 'sensor.demo_room_cozinha_humidity',
         secondaryEntityId: 'sensor.demo_room_cozinha_humidity',
         lightEntityId: 'light.demo_room_cozinha',
         coverEntityId: 'cover.demo_room_cozinha',
@@ -267,7 +288,12 @@ final placeholderOverrides = [
         temperatureEntityId: 'sensor.demo_room_entrada_temp',
         secondaryEntityId: 'lock.demo_room_entrada',
       ),
-      RoomConfig(name: 'Sótão', temperatureEntityId: 'sensor.demo_room_sotao_temp'),
+      RoomConfig(
+        name: 'Sótão',
+        temperatureEntityId: 'sensor.demo_room_sotao_temp',
+        humidityEntityId: 'sensor.demo_room_sotao_humidity',
+        climateZone: RoomClimateZone.attic,
+      ),
     ],
   ),
 ];

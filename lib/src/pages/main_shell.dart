@@ -26,12 +26,11 @@ import '../widgets/shell/app_nav_bar.dart';
 const _resetToHomeAfterScreenOff = Duration(seconds: 5);
 
 // Labels/icons follow the design reference's own nav set (Casa/Divisões/
-// Energia/Aspirador/Automações) wherever a real screen actually matches —
-// Casa, Divisões and Energia map directly onto Homepage/Rooms/Energy. The
-// reference has no Climate or Settings equivalent (and this app has no
-// vacuum or automations screen to put under "Aspirador"/"Automações"), so
-// those two keep their own Portuguese labels in the same style rather than
-// being mislabeled as functionality that isn't actually there.
+// Clima/Energia/Automações, per PROMPT-04) wherever a real screen actually
+// matches — Casa, Divisões, Clima and Energia map directly onto Homepage/
+// Rooms/Climate/Energy. This app has no automations screen, so that last
+// slot keeps its own Portuguese "Definições" label in the same style
+// rather than being mislabeled as functionality that isn't actually there.
 const _navItems = [
   NavItem(icon: Icons.home_outlined, selectedIcon: Icons.home, label: 'Casa'),
   NavItem(

@@ -18,12 +18,14 @@ class _RoomDraftEntry {
     required this.id,
     required this.name,
     required this.temperatureEntityId,
+    required this.humidityEntityId,
     required this.secondaryEntityId,
     required this.lightEntityId,
     required this.windowEntityId,
     required this.climateEntityId,
     required this.speakerEntityId,
     required this.coverEntityId,
+    required this.climateZone,
     required this.expanded,
   });
 
@@ -31,12 +33,14 @@ class _RoomDraftEntry {
     id: id,
     name: '',
     temperatureEntityId: '',
+    humidityEntityId: '',
     secondaryEntityId: '',
     lightEntityId: '',
     windowEntityId: '',
     climateEntityId: '',
     speakerEntityId: '',
     coverEntityId: '',
+    climateZone: RoomClimateZone.floor0,
     // A freshly-added row has nothing to hide yet and the user is about to
     // fill it in — open by default. An already-configured room loaded from
     // storage (see .from below) starts collapsed instead, so a long room
@@ -48,24 +52,28 @@ class _RoomDraftEntry {
     id: id,
     name: room.name,
     temperatureEntityId: room.temperatureEntityId ?? '',
+    humidityEntityId: room.humidityEntityId ?? '',
     secondaryEntityId: room.secondaryEntityId ?? '',
     lightEntityId: room.lightEntityId ?? '',
     windowEntityId: room.windowEntityId ?? '',
     climateEntityId: room.climateEntityId ?? '',
     speakerEntityId: room.speakerEntityId ?? '',
     coverEntityId: room.coverEntityId ?? '',
+    climateZone: room.climateZone ?? RoomClimateZone.floor0,
     expanded: false,
   );
 
   final int id;
   String name;
   String temperatureEntityId;
+  String humidityEntityId;
   String secondaryEntityId;
   String lightEntityId;
   String windowEntityId;
   String climateEntityId;
   String speakerEntityId;
   String coverEntityId;
+  String climateZone;
   bool expanded;
 
   /// True when the user has put something into this row besides the name —
@@ -74,11 +82,14 @@ class _RoomDraftEntry {
   /// where the entities they'd typed went.
   bool get hasEntityData => configuredEntityCount > 0;
 
-  /// How many of the 7 optional entity fields are filled in — shown as a
+  /// How many of the 8 optional entity fields are filled in — shown as a
   /// quick summary while the row is collapsed, so there's still some
   /// visibility into a room's configuration without expanding it.
+  /// [climateZone] doesn't count — it's a category on an already-configured
+  /// room, not entity data of its own.
   int get configuredEntityCount => [
     temperatureEntityId,
+    humidityEntityId,
     secondaryEntityId,
     lightEntityId,
     windowEntityId,
@@ -90,12 +101,14 @@ class _RoomDraftEntry {
   RoomConfig toConfig() => RoomConfig(
     name: name.trim(),
     temperatureEntityId: temperatureEntityId,
+    humidityEntityId: humidityEntityId,
     secondaryEntityId: secondaryEntityId,
     lightEntityId: lightEntityId,
     windowEntityId: windowEntityId,
     climateEntityId: climateEntityId,
     speakerEntityId: speakerEntityId,
     coverEntityId: coverEntityId,
+    climateZone: climateZone,
   );
 }
 
@@ -307,7 +320,7 @@ class _RoomRow extends StatelessWidget {
                 child: Text(
                   entry.configuredEntityCount == 0
                       ? 'Nenhuma entidade configurada'
-                      : '${entry.configuredEntityCount} de 7 entidades configuradas',
+                      : '${entry.configuredEntityCount} de 8 entidades configuradas',
                   style: NocturneText.caption,
                 ),
               ),
@@ -322,6 +335,35 @@ class _RoomRow extends StatelessWidget {
                 initialValue: entry.temperatureEntityId,
                 domainFilter: 'sensor',
                 onChanged: (v) => onUpdate(entry.id, (e) => e.temperatureEntityId = v),
+              ),
+              const SizedBox(height: 12),
+              EntityIdField(
+                label: 'Humidade (opcional)',
+                hint: 'sensor.quarto_humidity',
+                initialValue: entry.humidityEntityId,
+                domainFilter: 'sensor',
+                onChanged: (v) => onUpdate(entry.id, (e) => e.humidityEntityId = v),
+              ),
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.only(left: 2),
+                child: Text(
+                  'Usada só nos separadores de temperatura/humidade da página Climatização — não afeta o cartão de Divisões.',
+                  style: NocturneText.caption,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _ZoneSelector(
+                value: entry.climateZone,
+                onChanged: (v) => onUpdate(entry.id, (e) => e.climateZone = v),
+              ),
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.only(left: 2),
+                child: Text(
+                  'Que média da página Climatização esta divisão soma — "Piso 0", "Sótão" ou nenhuma.',
+                  style: NocturneText.caption,
+                ),
               ),
               const SizedBox(height: 12),
               EntityIdField(
@@ -360,6 +402,14 @@ class _RoomRow extends StatelessWidget {
                 initialValue: entry.climateEntityId,
                 onChanged: (v) => onUpdate(entry.id, (e) => e.climateEntityId = v),
               ),
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.only(left: 2),
+                child: Text(
+                  'Uma entidade climate.* aqui também gera o cartão de AC desta divisão na página Climatização.',
+                  style: NocturneText.caption,
+                ),
+              ),
               const SizedBox(height: 12),
               EntityIdField(
                 label: 'Altifalante',
@@ -375,6 +425,14 @@ class _RoomRow extends StatelessWidget {
                 initialValue: entry.coverEntityId,
                 domainFilter: 'cover',
                 onChanged: (v) => onUpdate(entry.id, (e) => e.coverEntityId = v),
+              ),
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.only(left: 2),
+                child: Text(
+                  'Também gera o cartão de estores desta divisão na página Climatização.',
+                  style: NocturneText.caption,
+                ),
               ),
               const SizedBox(height: 16),
               const Divider(height: 1),
@@ -392,6 +450,33 @@ class _RoomRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Picks which Climatização stat-tile average (if any) this room's
+/// temperature/humidity feed into — a 3-way segmented control rather than
+/// an `EntityIdField`, since [RoomClimateZone] is a fixed small set, not an
+/// open-ended HA id.
+class _ZoneSelector extends StatelessWidget {
+  const _ZoneSelector({required this.value, required this.onChanged});
+
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  static const _options = [
+    (value: RoomClimateZone.floor0, label: 'Piso 0'),
+    (value: RoomClimateZone.attic, label: 'Sótão'),
+    (value: RoomClimateZone.excluded, label: 'Nenhuma'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedButton<String>(
+      segments: [for (final o in _options) ButtonSegment(value: o.value, label: Text(o.label))],
+      selected: {value},
+      showSelectedIcon: false,
+      onSelectionChanged: (selection) => onChanged(selection.first),
     );
   }
 }
