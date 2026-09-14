@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/ha_entity.dart';
 import '../providers/ha_providers.dart';
 import '../providers/rooms_provider.dart';
-import '../providers/rooms_store.dart';
 import '../theme/nocturne_theme.dart';
 import '../widgets/climate/ac_unit_card.dart';
 import '../widgets/climate/climate_zone_stats.dart';
@@ -12,14 +11,14 @@ import '../widgets/climate/shutter_card.dart';
 
 bool _hasId(String? id) => id != null && id.trim().isNotEmpty;
 
-/// A room counts as an AC unit on this page only when [RoomConfig.climateEntityId]
+/// A room counts as an AC unit on this page only when its `climateEntityId`
 /// is actually a `climate.*` entity — a plain `switch.*` (still valid for
 /// the Divisões room card's simpler on/off icon) has none of the
 /// attributes (`hvac_modes`, target temperature, ...) this page's AC card
 /// needs.
-bool _isAcRoom(RoomConfig room) => _hasId(room.climateEntityId) && room.climateEntityId!.startsWith('climate.');
+bool _isAcRoom(RoomEntry room) => _hasId(room.config.climateEntityId) && room.config.climateEntityId!.startsWith('climate.');
 
-bool _isShutterRoom(RoomConfig room) => _hasId(room.coverEntityId);
+bool _isShutterRoom(RoomEntry room) => _hasId(room.config.coverEntityId);
 
 /// Groups entity ids by domain and calls the service once per group — same
 /// idiom `RoomsScreen`'s own bulk actions use, duplicated locally rather
@@ -33,27 +32,44 @@ Future<void> _callServiceGrouped(WidgetRef ref, String domain, String service, I
   await client.callService(domain, service, target: {'entity_id': ids});
 }
 
+String _joinPt(List<String> items) {
+  if (items.isEmpty) return '';
+  if (items.length == 1) return items[0];
+  if (items.length == 2) return '${items[0]} e ${items[1]}';
+  return '${items.sublist(0, items.length - 1).join(', ')} e ${items.last}';
+}
+
+String _summary(List<FloorStat> floors) {
+  if (floors.isEmpty) {
+    return 'Nenhuma divisão configurada. Adicione divisões em Definições → Divisões.';
+  }
+  return '${_joinPt([for (final f in floors) '${f.label} a ${formatDegreeComma(f.avgTemp)}'])}.';
+}
+
 /// The "Clima" tab — Home Assistant `climate.*`/`cover.*` entities wired
 /// per room via Definições → Divisões (see `RoomConfig.climateEntityId`/
 /// `coverEntityId`), rendered as the reference design's Climatização page:
-/// floor/sótão stat tiles, one AC card per configured unit, and one shutter
-/// card per configured cover. Unlike every other tab, this one is allowed
-/// to scroll — see `PROMPT-04-climate-page.md` Part B.
+/// per-floor stat tiles, one AC card per configured unit, and one shutter
+/// card per configured cover. Rooms are HA areas (see `RoomEntry`), so both
+/// the floor grouping and each stat tile's temperature/humidity come
+/// straight from HA's own area/floor registries — nothing here is entered
+/// a second time. Unlike every other tab, this one is allowed to scroll —
+/// see `PROMPT-04-climate-page.md` Part B.
 class ClimateScreen extends ConsumerWidget {
   const ClimateScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final rooms = ref.watch(roomsProvider);
+    final rooms = ref.watch(roomEntriesProvider);
     final entities = ref.watch(entitiesProvider).value ?? const <String, HaEntity>{};
 
     final acRooms = rooms.where(_isAcRoom).toList();
     final shutterRooms = rooms.where(_isShutterRoom).toList();
-    final stats = computeClimateZoneStats(rooms, entities);
+    final floorStats = computeFloorStats(rooms, entities);
 
-    final acOnIds = [for (final r in acRooms) if (_isAcOn(entities[r.climateEntityId])) r.climateEntityId!];
-    final shuttersNotOpenIds = [for (final r in shutterRooms) if (_coverPos(entities[r.coverEntityId]) < 100) r.coverEntityId!];
-    final shuttersNotClosedIds = [for (final r in shutterRooms) if (_coverPos(entities[r.coverEntityId]) > 0) r.coverEntityId!];
+    final acOnIds = [for (final r in acRooms) if (_isAcOn(entities[r.config.climateEntityId])) r.config.climateEntityId!];
+    final shuttersNotOpenIds = [for (final r in shutterRooms) if (_coverPos(entities[r.config.coverEntityId]) < 100) r.config.coverEntityId!];
+    final shuttersNotClosedIds = [for (final r in shutterRooms) if (_coverPos(entities[r.config.coverEntityId]) > 0) r.config.coverEntityId!];
 
     return CustomScrollView(
       slivers: [
@@ -65,12 +81,8 @@ class ClimateScreen extends ConsumerWidget {
               children: [
                 const Text('Climatização', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w600, letterSpacing: -0.5)),
                 const SizedBox(height: 8),
-                Text(
-                  'Piso 0 a ${formatDegreeComma(stats.floor0Temp)} e sótão a ${formatDegreeComma(stats.atticTemp)}.',
-                  style: TextStyle(fontSize: 19, color: NocturneColors.neutral400, height: 1.45),
-                ),
-                const SizedBox(height: 16),
-                _StatTileRow(stats: stats),
+                Text(_summary(floorStats), style: TextStyle(fontSize: 19, color: NocturneColors.neutral400, height: 1.45)),
+                if (floorStats.isNotEmpty) ...[const SizedBox(height: 16), _StatTileRow(floors: floorStats)],
                 const SizedBox(height: 20),
                 _SectionHeader(
                   title: 'AR CONDICIONADO',
@@ -93,7 +105,7 @@ class ClimateScreen extends ConsumerWidget {
             sliver: SliverList.separated(
               itemCount: acRooms.length,
               separatorBuilder: (context, index) => const SizedBox(height: 10),
-              itemBuilder: (context, index) => AcUnitCard(room: acRooms[index], entity: entities[acRooms[index].climateEntityId]),
+              itemBuilder: (context, index) => AcUnitCard(roomName: acRooms[index].name, entity: entities[acRooms[index].config.climateEntityId]),
             ),
           ),
         SliverToBoxAdapter(
@@ -124,7 +136,10 @@ class ClimateScreen extends ConsumerWidget {
               // and, while moving, the 112px stop button) always has
               // comfortable room regardless of how wide a column ends up.
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10, mainAxisExtent: 168),
-              delegate: SliverChildBuilderDelegate((context, index) => ShutterCard(room: shutterRooms[index], entity: entities[shutterRooms[index].coverEntityId]), childCount: shutterRooms.length),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => ShutterCard(roomName: shutterRooms[index].name, entity: entities[shutterRooms[index].config.coverEntityId]),
+                childCount: shutterRooms.length,
+              ),
             ),
           ),
         const SliverToBoxAdapter(child: SizedBox(height: 90)),
@@ -142,25 +157,35 @@ int _coverPos(HaEntity? entity) {
 
 bool _isAcOn(HaEntity? entity) => entity != null && !entity.isUnavailable && entity.state != 'off';
 
+/// A wrapping row of temp/humidity tile pairs, one pair per floor — 4 per
+/// row (matching the reference design's fixed 4-tile layout for the common
+/// 2-floor case), wrapping onto further rows for a household with more
+/// floors than that. [LayoutBuilder] sizes each tile to a quarter of the
+/// available width since [Wrap] itself has no notion of "N equal columns".
 class _StatTileRow extends StatelessWidget {
-  const _StatTileRow({required this.stats});
+  const _StatTileRow({required this.floors});
 
-  final ClimateZoneStats stats;
+  final List<FloorStat> floors;
 
   static const _humidityColor = Color(0xFF2F7CC4);
+  static const _gap = 10.0;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: _StatTile(label: 'MÉDIA PISO 0', value: formatDegreeComma(stats.floor0Temp))),
-        const SizedBox(width: 10),
-        Expanded(child: _StatTile(label: 'HUMIDADE PISO 0', value: formatPercent(stats.floor0Humidity), color: _humidityColor)),
-        const SizedBox(width: 10),
-        Expanded(child: _StatTile(label: 'MÉDIA SÓTÃO', value: formatDegreeComma(stats.atticTemp))),
-        const SizedBox(width: 10),
-        Expanded(child: _StatTile(label: 'HUMIDADE SÓTÃO', value: formatPercent(stats.atticHumidity), color: _humidityColor)),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tileWidth = (constraints.maxWidth - _gap * 3) / 4;
+        return Wrap(
+          spacing: _gap,
+          runSpacing: _gap,
+          children: [
+            for (final floor in floors) ...[
+              SizedBox(width: tileWidth, child: _StatTile(label: 'MÉDIA ${floor.label.toUpperCase()}', value: formatDegreeComma(floor.avgTemp))),
+              SizedBox(width: tileWidth, child: _StatTile(label: 'HUMIDADE ${floor.label.toUpperCase()}', value: formatPercent(floor.avgHumidity), color: _humidityColor)),
+            ],
+          ],
+        );
+      },
     );
   }
 }

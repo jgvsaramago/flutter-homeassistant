@@ -2,7 +2,9 @@ import 'dart:math' as math;
 
 import '../providers/energy_entities_store.dart';
 import '../ha_client/ha_connection_config.dart';
+import '../models/ha_area.dart';
 import '../models/ha_entity.dart';
+import '../models/ha_floor.dart';
 import '../providers/energy_entities_provider.dart';
 import '../providers/energy_page_settings_provider.dart';
 import '../providers/energy_page_settings_store.dart';
@@ -249,12 +251,29 @@ final placeholderOverrides = [
       IndividualSensorConfig(name: 'Máquina de lavar', powerEntityId: 'sensor.demo_washer_power', icon: IndividualSensorIconKey.washer),
     ],
   ),
+  // Divisões now mirror HA areas (see `RoomConfig`'s own doc) — the demo
+  // area/floor lists below stand in for what `getAreas()`/`getFloors()`
+  // would fetch from a real HA instance, each area's temperature/humidity
+  // sourced the same way HA's own Areas & Zones settings would (rather
+  // than a field on `RoomConfig`, which only keeps this app's own entity
+  // mapping now).
+  areasProvider.overrideWith(
+    (ref) => const [
+      HaArea(areaId: 'sala', name: 'Sala', floorId: 'floor0', temperatureEntityId: 'sensor.demo_room_sala_temp', humidityEntityId: 'sensor.demo_room_sala_humidity'),
+      HaArea(areaId: 'quarto', name: 'Quarto Principal', floorId: 'floor0', temperatureEntityId: 'sensor.demo_room_quarto_temp'),
+      HaArea(areaId: 'escritorio', name: 'Escritório', floorId: 'floor0', temperatureEntityId: 'sensor.demo_room_escritorio_temp'),
+      HaArea(areaId: 'cozinha', name: 'Cozinha', floorId: 'floor0', temperatureEntityId: 'sensor.demo_room_cozinha_temp', humidityEntityId: 'sensor.demo_room_cozinha_humidity'),
+      HaArea(areaId: 'entrada', name: 'Entrada', floorId: 'floor0', temperatureEntityId: 'sensor.demo_room_entrada_temp'),
+      HaArea(areaId: 'sotao', name: 'Sótão', floorId: 'attic', temperatureEntityId: 'sensor.demo_room_sotao_temp', humidityEntityId: 'sensor.demo_room_sotao_humidity'),
+    ],
+  ),
+  floorsProvider.overrideWith(
+    (ref) => const [HaFloor(floorId: 'floor0', name: 'Piso 0', level: 0), HaFloor(floorId: 'attic', name: 'Sótão', level: 1)],
+  ),
   roomsProvider.overrideWith(
     (ref) => const [
       RoomConfig(
-        name: 'Sala',
-        temperatureEntityId: 'sensor.demo_room_sala_temp',
-        humidityEntityId: 'sensor.demo_room_sala_humidity',
+        areaId: 'sala',
         secondaryEntityId: 'sensor.demo_room_sala_humidity',
         lightEntityId: 'light.demo_room_sala',
         climateEntityId: 'climate.demo_room_sala',
@@ -262,38 +281,20 @@ final placeholderOverrides = [
         speakerEntityId: 'media_player.demo_room_sala',
       ),
       RoomConfig(
-        name: 'Quarto Principal',
-        temperatureEntityId: 'sensor.demo_room_quarto_temp',
+        areaId: 'quarto',
         windowEntityId: 'binary_sensor.demo_room_quarto_window',
         coverEntityId: 'cover.demo_room_quarto',
         speakerEntityId: 'media_player.demo_room_quarto',
       ),
       RoomConfig(
-        name: 'Escritório',
-        temperatureEntityId: 'sensor.demo_room_escritorio_temp',
+        areaId: 'escritorio',
         secondaryEntityId: 'sensor.demo_room_escritorio_co2',
         climateEntityId: 'climate.demo_room_escritorio',
         speakerEntityId: 'media_player.demo_room_escritorio',
       ),
-      RoomConfig(
-        name: 'Cozinha',
-        temperatureEntityId: 'sensor.demo_room_cozinha_temp',
-        humidityEntityId: 'sensor.demo_room_cozinha_humidity',
-        secondaryEntityId: 'sensor.demo_room_cozinha_humidity',
-        lightEntityId: 'light.demo_room_cozinha',
-        coverEntityId: 'cover.demo_room_cozinha',
-      ),
-      RoomConfig(
-        name: 'Entrada',
-        temperatureEntityId: 'sensor.demo_room_entrada_temp',
-        secondaryEntityId: 'lock.demo_room_entrada',
-      ),
-      RoomConfig(
-        name: 'Sótão',
-        temperatureEntityId: 'sensor.demo_room_sotao_temp',
-        humidityEntityId: 'sensor.demo_room_sotao_humidity',
-        climateZone: RoomClimateZone.attic,
-      ),
+      RoomConfig(areaId: 'cozinha', secondaryEntityId: 'sensor.demo_room_cozinha_humidity', lightEntityId: 'light.demo_room_cozinha', coverEntityId: 'cover.demo_room_cozinha'),
+      RoomConfig(areaId: 'entrada', secondaryEntityId: 'lock.demo_room_entrada'),
+      RoomConfig(areaId: 'sotao'),
     ],
   ),
 ];

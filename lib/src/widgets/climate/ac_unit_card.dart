@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/ha_entity.dart';
 import '../../providers/ha_providers.dart';
-import '../../providers/rooms_store.dart';
 import '../../theme/nocturne_theme.dart';
 import 'ac_mode.dart';
 
@@ -11,14 +10,14 @@ import 'ac_mode.dart';
 /// "mode block" layout (option 1b): a fixed-width left block (mode/target/
 /// steppers) beside a flexible right block (room name, toggle, mode chips).
 ///
-/// Backed by a real `climate.*` entity (see [RoomConfig.climateEntityId]);
+/// Backed by a real `climate.*` entity (see `RoomConfig.climateEntityId`);
 /// the 4 mode chips only show the ones the entity's own `hvac_modes`
 /// attribute actually supports, so an AC that can't dehumidify, say, never
 /// offers a chip that would just fail.
 class AcUnitCard extends ConsumerWidget {
-  const AcUnitCard({super.key, required this.room, required this.entity});
+  const AcUnitCard({super.key, required this.roomName, required this.entity});
 
-  final RoomConfig room;
+  final String roomName;
   final HaEntity? entity;
 
   static const _minTempFallback = 16.0;
@@ -90,7 +89,7 @@ class AcUnitCard extends ConsumerWidget {
               ),
               Expanded(
                 child: _RightBlock(
-                  name: room.name,
+                  name: roomName,
                   nowLabel: _current == null ? '-- agora' : '${_current!.toStringAsFixed(1).replaceAll('.', ',')}° agora',
                   on: _on,
                   unavailable: _unavailable,

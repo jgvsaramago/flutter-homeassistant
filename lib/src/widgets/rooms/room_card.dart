@@ -40,7 +40,7 @@ class RoomCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      view.config.name,
+                      view.name,
                       style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w500, height: 1.2),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

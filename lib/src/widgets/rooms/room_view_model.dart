@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/ha_entity.dart';
+import '../../providers/rooms_provider.dart';
 import '../../providers/rooms_store.dart';
 import '../../theme/nocturne_theme.dart';
 
@@ -12,6 +13,7 @@ import '../../theme/nocturne_theme.dart';
 /// doc for what changed and why).
 class RoomView {
   const RoomView({
+    required this.name,
     required this.config,
     required this.tempText,
     required this.subText,
@@ -31,6 +33,8 @@ class RoomView {
     required this.hasSpeaker,
   });
 
+  /// The HA area's own name — never typed into this app (see [RoomEntry]).
+  final String name;
   final RoomConfig config;
   final String tempText;
   final String? subText;
@@ -123,8 +127,8 @@ Color _dotColor({required bool windowOpen, required bool lightOn, required bool 
 /// unset falls back to the blinds' own position, then omits the line
 /// entirely rather than guess at a phrase like the reference's per-room
 /// hand-written copy ("Secador · 40 min") that has no generic equivalent.
-String? _subText(Map<String, HaEntity> entities, RoomConfig room) {
-  final secondary = _lookup(entities, room.secondaryEntityId);
+String? _subText(Map<String, HaEntity> entities, RoomConfig config) {
+  final secondary = _lookup(entities, config.secondaryEntityId);
   if (secondary != null && !secondary.isUnavailable) {
     if (secondary.domain == 'lock') {
       return secondary.state == 'locked' ? 'Porta trancada' : 'Porta destrancada';
@@ -140,7 +144,7 @@ String? _subText(Map<String, HaEntity> entities, RoomConfig room) {
     return secondary.displayState;
   }
 
-  final cover = _lookup(entities, room.coverEntityId);
+  final cover = _lookup(entities, config.coverEntityId);
   if (cover != null && !cover.isUnavailable) {
     final position = cover.attributes['current_position'];
     if (position is num) return 'Estores ${position.round()}%';
@@ -150,17 +154,22 @@ String? _subText(Map<String, HaEntity> entities, RoomConfig room) {
   return null;
 }
 
-/// Resolves one [RoomConfig] against live entity state into everything its
+/// Resolves one [RoomEntry] against live entity state into everything its
 /// card needs to paint — the one place that logic lives, so the widget
 /// tree stays a pure render of this, never re-deriving colours inline.
-RoomView buildRoomView(RoomConfig config, Map<String, HaEntity> entities) {
+/// Temperature comes from the area's own sensor ([RoomEntry.area]'s
+/// `temperatureEntityId`, set in HA's own Areas & Zones settings) rather
+/// than a field in [RoomConfig] — this app never asks for it a second time.
+RoomView buildRoomView(RoomEntry entry, Map<String, HaEntity> entities) {
+  final config = entry.config;
   final lightOn = _isLightOn(entities, config.lightEntityId);
   final windowOpen = _isWindowOpen(entities, config.windowEntityId);
   final acOn = _isAcOn(entities, config.climateEntityId);
 
   return RoomView(
+    name: entry.name,
     config: config,
-    tempText: formatTempComma(_numeric(_lookup(entities, config.temperatureEntityId))),
+    tempText: formatTempComma(_numeric(_lookup(entities, entry.area.temperatureEntityId))),
     subText: _subText(entities, config),
     dotColor: _dotColor(windowOpen: windowOpen, lightOn: lightOn, acOn: acOn),
     lightOn: lightOn,

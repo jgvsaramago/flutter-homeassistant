@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/ha_entity.dart';
 import '../../providers/ha_providers.dart';
-import '../../providers/rooms_store.dart';
 import '../../theme/nocturne_theme.dart';
 
 /// One shutter card on the Climatização page — the reference design's
@@ -12,15 +11,15 @@ import '../../theme/nocturne_theme.dart';
 /// two arrows (idle) and a single stop button (moving) rather than showing
 /// three buttons at once.
 ///
-/// Backed by a real `cover.*` entity (see [RoomConfig.coverEntityId]).
+/// Backed by a real `cover.*` entity (see `RoomConfig.coverEntityId`).
 /// Position comes from the entity's `current_position` attribute when the
 /// integration reports one; a cover with only open/closed states falls
 /// back to 100/0, same convention `RoomView`'s own blinds colour already
 /// uses.
 class ShutterCard extends ConsumerWidget {
-  const ShutterCard({super.key, required this.room, required this.entity});
+  const ShutterCard({super.key, required this.roomName, required this.entity});
 
-  final RoomConfig room;
+  final String roomName;
   final HaEntity? entity;
 
   bool get _unavailable => entity == null || entity!.isUnavailable;
@@ -74,7 +73,7 @@ class ShutterCard extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  room.name,
+                  roomName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 20, height: 1.15, fontWeight: FontWeight.w500, color: NocturneColors.text),

@@ -34,45 +34,32 @@
 
   const FORECAST_DAY_LABELS = ["Hoje", "Amanhã", "D+3", "D+4", "D+5", "D+6", "D+7"];
 
-  // Which Climatização-page stat-tile average a room's temperature/humidity
-  // count toward — mirrors RoomClimateZone in lib/src/providers/rooms_store.dart.
-  // "floor0" is also what a null/unset value means there, so it's listed
-  // first and used as this panel's own default for a room with none saved yet.
-  const ZONE_OPTIONS = [
-    { value: "floor0", label: "Piso 0" },
-    { value: "attic", label: "Sótão" },
-    { value: "excluded", label: "Nenhuma" },
-  ];
-
   function field(key, type, label, opts = {}) {
     return { key, type, label, ...opts };
   }
 
   const DOMAINS = {
+    // Area-backed (see renderAreaListDomain): one row per HA area, not a
+    // user-created list. Name, floor, and temperature/humidity all come
+    // straight from the area itself (HA's own Areas & Zones settings) —
+    // only these 6 fields are this app's own mapping, mirroring
+    // RoomConfig in lib/src/providers/rooms_store.dart.
     rooms: {
-      shape: "list",
-      requiredField: "name",
-      collapsible: true,
-      itemLabel: (item) => item.name || "(sem nome)",
+      shape: "area-list",
       fields: [
-        field("name", "text", "Nome", { hint: "Sala" }),
-        field("temperatureEntityId", "entity", "Temperatura", { hint: "sensor.quarto_temperature", domains: ["sensor"] }),
-        field("humidityEntityId", "entity", "Humidade (opcional)", {
-          hint: "sensor.quarto_humidity",
-          domains: ["sensor"],
-          desc: "Usada só nos tiles de temperatura/humidade da página Climatização — não afeta o cartão de Divisões.",
-        }),
-        field("climateZone", "select", "Zona", {
-          options: ZONE_OPTIONS,
-          default: "floor0",
-          desc: 'Que média da página Climatização esta divisão soma — "Piso 0", "Sótão" ou nenhuma.',
-        }),
-        field("secondaryEntityId", "entity", "Sensor secundário (opcional)", { hint: "sensor.quarto_humidity ou lock.quarto" }),
+        field("secondaryEntityId", "entity", "Sensor secundário (opcional)", { hint: "sensor.quarto_co2 ou lock.quarto" }),
         field("lightEntityId", "entity", "Luz", { hint: "light.quarto ou switch.quarto" }),
         field("windowEntityId", "entity", "Janela", { hint: "binary_sensor.quarto_window", domains: ["binary_sensor"] }),
-        field("climateEntityId", "entity", "Ar condicionado", { hint: "climate.quarto ou switch.quarto_ac" }),
+        field("climateEntityId", "entity", "Ar condicionado", {
+          hint: "climate.quarto ou switch.quarto_ac",
+          desc: "Uma entidade climate.* aqui também gera o cartão de AC desta divisão na página Climatização.",
+        }),
         field("speakerEntityId", "entity", "Altifalante", { hint: "media_player.quarto", domains: ["media_player"] }),
-        field("coverEntityId", "entity", "Estores", { hint: "cover.quarto_estores", domains: ["cover"] }),
+        field("coverEntityId", "entity", "Estores", {
+          hint: "cover.quarto_estores",
+          domains: ["cover"],
+          desc: "Também gera o cartão de estores desta divisão na página Climatização.",
+        }),
       ],
     },
     temperature_entities: {
@@ -307,34 +294,6 @@
         wrap.append(label, input);
         return wrap;
       }
-      case "select": {
-        const wrap = document.createElement("div");
-        wrap.className = "text-field";
-        const label = document.createElement("div");
-        label.className = "text-field-label";
-        label.textContent = fieldDef.label;
-        const row = document.createElement("div");
-        row.className = "select-row";
-        let current = value ?? fieldDef.default ?? fieldDef.options[0].value;
-        const paint = () => {
-          row.innerHTML = "";
-          fieldDef.options.forEach((opt) => {
-            const btn = document.createElement("button");
-            btn.type = "button";
-            btn.className = "select-btn" + (current === opt.value ? " selected" : "");
-            btn.textContent = opt.label;
-            btn.addEventListener("click", () => {
-              current = opt.value;
-              onChange(current);
-              paint();
-            });
-            row.appendChild(btn);
-          });
-        };
-        paint();
-        wrap.append(label, row);
-        return wrap;
-      }
       case "icon-select":
       case "color-select": {
         const opts = fieldDef.type === "icon-select" ? SENSOR_ICONS : CALENDAR_COLORS;
@@ -521,6 +480,153 @@
     root.appendChild(wrap);
   }
 
+  // Rooms mirror HA's own areas — one row per area (see DOMAINS.rooms'
+  // own doc), not a user-created list, so there's no add/remove/reorder
+  // here at all: just per-area field editing and a save. Name/floor come
+  // straight from `config/area_registry/list`/`config/floor_registry/list`
+  // (a core old enough to have no floor registry command just gets every
+  // area grouped under "Sem piso" via the empty `.catch`).
+  async function renderAreaListDomain(root, hass, key, domainDef) {
+    const [areas, floors, saved] = await Promise.all([
+      hass.callWS({ type: "config/area_registry/list" }),
+      hass.callWS({ type: "config/floor_registry/list" }).catch(() => []),
+      wsGet(hass, key),
+    ]);
+
+    const floorById = {};
+    floors.forEach((f) => (floorById[f.floor_id] = f));
+
+    // A saved entry from before this app pointed rooms at real areas
+    // (identified by a free-typed `name`, no `areaId`) is matched onto
+    // whichever current area has the same name — same migration the Dart
+    // app's own RoomsStore.read does — so a room configured before this
+    // change isn't silently dropped.
+    const savedByAreaId = {};
+    const savedByLowerName = {};
+    (Array.isArray(saved) ? saved : []).forEach((it) => {
+      if (it.areaId) savedByAreaId[it.areaId] = it;
+      else if (it.name) savedByLowerName[String(it.name).trim().toLowerCase()] = it;
+    });
+
+    const sortedAreas = [...areas].sort((a, b) => {
+      const levelOf = (area) => {
+        const floor = floorById[area.floor_id];
+        return floor && typeof floor.level === "number" ? floor.level : Number.MAX_SAFE_INTEGER;
+      };
+      const byLevel = levelOf(a) - levelOf(b);
+      return byLevel !== 0 ? byLevel : (a.name || "").localeCompare(b.name || "");
+    });
+
+    const items = sortedAreas.map((area) => {
+      const existing = savedByAreaId[area.area_id] || savedByLowerName[(area.name || "").trim().toLowerCase()] || {};
+      const item = { areaId: area.area_id, _area: area, _floor: floorById[area.floor_id] || null, _expanded: false };
+      domainDef.fields.forEach((f) => {
+        item[f.key] = existing[f.key] ?? null;
+      });
+      return item;
+    });
+
+    const wrap = document.createElement("div");
+    wrap.className = "domain-section";
+    const cardsWrap = document.createElement("div");
+    wrap.appendChild(cardsWrap);
+
+    function paintCards() {
+      cardsWrap.innerHTML = "";
+      if (items.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "item-summary";
+        empty.textContent = "Nenhuma área encontrada na Home Assistant. Cria áreas em Definições → Áreas e Zonas.";
+        cardsWrap.appendChild(empty);
+        return;
+      }
+      items.forEach((item) => {
+        const card = document.createElement("ha-card");
+        card.className = "item-card";
+
+        const header = document.createElement("div");
+        header.className = "item-header";
+        const titleWrap = document.createElement("div");
+        titleWrap.className = "item-header-text";
+        const title = document.createElement("span");
+        title.textContent = item._area.name || item.areaId;
+        const floorLine = document.createElement("span");
+        floorLine.className = "item-floor";
+        floorLine.textContent = item._floor ? item._floor.name : "Sem piso";
+        titleWrap.append(title, floorLine);
+        header.appendChild(titleWrap);
+
+        const controls = document.createElement("div");
+        controls.className = "item-controls";
+        controls.appendChild(
+          mkIconButton(item._expanded ? "mdi:chevron-up" : "mdi:chevron-down", item._expanded ? "Colapsar" : "Expandir", () => {
+            item._expanded = !item._expanded;
+            paintCards();
+          })
+        );
+        header.appendChild(controls);
+        card.appendChild(header);
+
+        if (!item._expanded) {
+          const filledCount = domainDef.fields.filter((f) => item[f.key]).length;
+          const summary = document.createElement("div");
+          summary.className = "item-summary";
+          summary.textContent = filledCount === 0 ? "Nenhum campo configurado" : `${filledCount} de ${domainDef.fields.length} campos configurados`;
+          card.appendChild(summary);
+        } else {
+          const body = document.createElement("div");
+          body.className = "item-body";
+          domainDef.fields.forEach((f) => {
+            renderFieldRow(body, hass, f, item[f.key], (v) => {
+              item[f.key] = v;
+            });
+          });
+          card.appendChild(body);
+        }
+        cardsWrap.appendChild(card);
+      });
+    }
+
+    paintCards();
+
+    const saveRow = document.createElement("div");
+    saveRow.className = "save-row";
+    const saveBtn = document.createElement("ha-button");
+    saveBtn.setAttribute("raised", "");
+    saveBtn.textContent = "Guardar";
+    const msg = document.createElement("span");
+    msg.className = "save-msg";
+    saveBtn.addEventListener("click", async () => {
+      // An area with nothing configured isn't saved as a divisão at all —
+      // an HA instance with dozens of areas shouldn't turn into dozens of
+      // empty Divisões cards just because every one of them is listed here.
+      const configured = items.filter((it) => domainDef.fields.some((f) => it[f.key]));
+      const cleaned = configured.map((it) => {
+        const out = { areaId: it.areaId };
+        domainDef.fields.forEach((f) => {
+          out[f.key] = normalizeValue(f.type, it[f.key]);
+        });
+        return out;
+      });
+      saveBtn.disabled = true;
+      try {
+        await wsSet(hass, key, cleaned);
+        msg.textContent = "Guardado.";
+      } catch (err) {
+        msg.textContent = `Erro ao guardar: ${err.message || err}`;
+      } finally {
+        saveBtn.disabled = false;
+        setTimeout(() => {
+          msg.textContent = "";
+        }, 5000);
+      }
+    });
+    saveRow.append(saveBtn, msg);
+    wrap.appendChild(saveRow);
+
+    root.appendChild(wrap);
+  }
+
   async function renderSingletonDomain(root, hass, key, domainDef) {
     const loaded = (await wsGet(hass, key)) || {};
     const data = deepClone(loaded);
@@ -637,9 +743,8 @@
     .swatch-row { display:flex; gap:8px; flex-wrap:wrap; }
     .swatch-btn, .color-btn { width:36px; height:36px; border-radius:50%; border:2px solid transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; background: var(--card-background-color); }
     .swatch-btn.selected, .color-btn.selected { border-color: var(--primary-color); }
-    .select-row { display:flex; gap:6px; flex-wrap:wrap; }
-    .select-btn { padding:6px 14px; border-radius:999px; border:1px solid var(--divider-color); background: var(--card-background-color); color: var(--primary-text-color); font-size:13px; cursor:pointer; }
-    .select-btn.selected { border-color: var(--primary-color); color: var(--primary-color); background: rgba(var(--rgb-primary-color), 0.1); }
+    .item-header-text { display:flex; flex-direction:column; gap:2px; }
+    .item-floor { font-size:12px; color: var(--secondary-text-color); font-weight:400; }
     .save-row { display:flex; align-items:center; gap:12px; margin-top:16px; }
     .save-msg { font-size:13px; color: var(--secondary-text-color); }
     .error { color: var(--error-color); margin-bottom:8px; }
@@ -741,6 +846,8 @@
         try {
           if (domainDef.shape === "list") {
             await renderListDomain(body, this._hass, key, domainDef);
+          } else if (domainDef.shape === "area-list") {
+            await renderAreaListDomain(body, this._hass, key, domainDef);
           } else {
             await renderSingletonDomain(body, this._hass, key, domainDef);
           }

@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../ha_client/ha_connection_config.dart';
 import '../ha_client/ha_credentials_store.dart';
 import '../ha_client/ha_websocket_client.dart';
+import '../models/ha_area.dart';
 import '../models/ha_entity.dart';
+import '../models/ha_floor.dart';
 import '../services/screen_power_controller.dart';
 import 'calendar_entities_provider.dart';
 import 'energy_entities_provider.dart';
@@ -246,6 +248,37 @@ final areaByEntityIdProvider = FutureProvider<Map<String, String>>((ref) async {
   return ref.read(haWebSocketClientProvider).getAreaByEntityId();
 });
 
+/// Config persisted in HA itself, read once at startup — same idiom as
+/// [areaByEntityIdProvider], but the raw area registry rather than a
+/// derived entity_id -> name map. The Divisões room list is built from
+/// this (see `RoomConfig`/`roomEntriesProvider`), so it needs the areas
+/// themselves (id, name, floor, temperature/humidity sensors), not just
+/// their names.
+final savedAreasProvider = FutureProvider<List<HaArea>>((ref) async {
+  final config = ref.watch(connectionConfigProvider);
+  if (config == null) return const [];
+  await ref.read(entitiesProvider.future);
+  return ref.read(haWebSocketClientProvider).getAreas();
+});
+
+/// The area list currently in use — set from [savedAreasProvider] at
+/// startup (see `settingsHydrationProvider`), same pattern as
+/// `roomsProvider`. Starts empty; a stale/never-hydrated app just shows no
+/// divisões rather than guessing.
+final areasProvider = StateProvider<List<HaArea>>((ref) => const []);
+
+/// Same idea as [savedAreasProvider]/[areasProvider], for HA's floor
+/// registry — feeds the Climatização page's per-floor stat tiles via
+/// whichever floor each area (see [HaArea.floorId]) belongs to.
+final savedFloorsProvider = FutureProvider<List<HaFloor>>((ref) async {
+  final config = ref.watch(connectionConfigProvider);
+  if (config == null) return const [];
+  await ref.read(entitiesProvider.future);
+  return ref.read(haWebSocketClientProvider).getFloors();
+});
+
+final floorsProvider = StateProvider<List<HaFloor>>((ref) => const []);
+
 /// Loads all 8 dashboard-config settings from HA once the connection is up,
 /// hydrating each domain's "live" `StateProvider` — the one-time job
 /// `RootScreen._bootstrap` used to do directly against `SharedPreferences`
@@ -320,6 +353,24 @@ final settingsHydrationProvider = FutureProvider<void>((ref) async {
     }
   } catch (_) {
     // Proceed with the energy card's device slots left empty.
+  }
+  // Areas/floors are hydrated before rooms below: `savedRoomsProvider`
+  // reads `savedAreasProvider.future` itself to migrate any pre-Area-picker
+  // saved room (identified by name, not area id) — awaiting it here too is
+  // just Riverpod's normal FutureProvider caching, not a second fetch.
+  try {
+    final savedAreas = await ref.read(savedAreasProvider.future);
+    ref.read(areasProvider.notifier).state = savedAreas;
+  } catch (_) {
+    // Proceed with the Divisões page's own empty state.
+  }
+  try {
+    final savedFloors = await ref.read(savedFloorsProvider.future);
+    ref.read(floorsProvider.notifier).state = savedFloors;
+  } catch (_) {
+    // Proceed without floor grouping on the Climatização page — areas with
+    // no resolvable floor still show their AC/shutter cards, just no stat
+    // tile.
   }
   try {
     final savedRooms = await ref.read(savedRoomsProvider.future);

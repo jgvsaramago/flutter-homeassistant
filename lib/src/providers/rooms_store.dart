@@ -1,58 +1,36 @@
 import '../ha_client/ha_websocket_client.dart';
+import '../models/ha_area.dart';
 import 'settings_json_utils.dart';
 
-/// Which Climatização-page stat-tile zone a room's temperature/humidity
-/// count toward. Stored as a plain string (rather than a Dart `enum`) so an
-/// unrecognized/future value round-trips through settings JSON harmlessly
-/// instead of throwing — same defensive convention `blankStringsToNull`'s
-/// callers already rely on elsewhere.
-abstract final class RoomClimateZone {
-  /// Default — also what a null/unset value means, so every room already
-  /// configured before this field existed keeps counting toward "Piso 0"
-  /// exactly as it implicitly did.
-  static const floor0 = 'floor0';
-  static const attic = 'attic';
-
-  /// Counts toward neither stat-tile average (e.g. a garage or a shared
-  /// building area) — mirrors the reference design's own exclusion list.
-  static const excluded = 'excluded';
-}
-
-/// One room card on the Divisões page — a household picks its own rooms and
-/// wires each one to whatever real HA entities it has (all optional; an
-/// unset field just means that room shows no reading/icon for it, same
-/// convention as every other entity config in this app). No entity ids are
-/// baked in by default: this app has no fixed idea of what rooms exist.
+/// One room's entity mapping on the Divisões page — the room itself is a
+/// real HA area (see [areaId]/`HaArea`), not something typed into this app;
+/// this only stores which of the area's devices power each icon/control.
+/// All optional — an unset field just means that room shows no reading/icon
+/// for it, same convention as every other entity config in this app.
 ///
 /// [climateEntityId] and [coverEntityId] double as the Climatização page's
-/// own dynamic entity list: an AC unit card is rendered for every room with
-/// a [climateEntityId], a shutter card for every room with a
+/// own dynamic entity list: an AC unit card is rendered for every area with
+/// a [climateEntityId], a shutter card for every area with a
 /// [coverEntityId] — so adding/removing either on that page is just editing
-/// the room list here, rather than a second parallel settings list.
+/// this mapping. Temperature/humidity are *not* stored here at all: they
+/// come straight from the area's own sensors (`HaArea.temperatureEntityId`/
+/// `humidityEntityId`, set in HA's own Areas & Zones settings), which also
+/// feed the Climatização page's per-floor stat tiles.
 class RoomConfig {
   const RoomConfig({
-    required this.name,
-    this.temperatureEntityId,
-    this.humidityEntityId,
+    required this.areaId,
     this.secondaryEntityId,
     this.lightEntityId,
     this.windowEntityId,
     this.climateEntityId,
     this.speakerEntityId,
     this.coverEntityId,
-    this.climateZone,
   });
 
-  final String name;
-
-  /// Room temperature — a `sensor.*` entity, shown as the card's hero number.
-  final String? temperatureEntityId;
-
-  /// Room humidity — a `sensor.*` entity (device class `humidity`). Only
-  /// consumed by the Climatização page's floor/sótão humidity tiles; the
-  /// Divisões room card itself still reads humidity out of
-  /// [secondaryEntityId] like every other status-line source.
-  final String? humidityEntityId;
+  /// The HA area this room mirrors (`HaArea.areaId`) — the room's identity;
+  /// its display name/floor/temperature/humidity always come live from the
+  /// matching `HaArea`, never stored here.
+  final String areaId;
 
   /// Drives the card's status line — any entity. Interpreted by domain/
   /// device class: humidity/CO₂ sensors get a friendly reading, `lock.*`
@@ -81,66 +59,49 @@ class RoomConfig {
   /// action, and doubles as one shutter card on the Climatização page.
   final String? coverEntityId;
 
-  /// One of [RoomClimateZone]'s values; null means [RoomClimateZone.floor0].
-  final String? climateZone;
-
   RoomConfig copyWith({
-    String? name,
-    String? temperatureEntityId,
-    String? humidityEntityId,
+    String? areaId,
     String? secondaryEntityId,
     String? lightEntityId,
     String? windowEntityId,
     String? climateEntityId,
     String? speakerEntityId,
     String? coverEntityId,
-    String? climateZone,
   }) {
     return RoomConfig(
-      name: name ?? this.name,
-      temperatureEntityId: temperatureEntityId ?? this.temperatureEntityId,
-      humidityEntityId: humidityEntityId ?? this.humidityEntityId,
+      areaId: areaId ?? this.areaId,
       secondaryEntityId: secondaryEntityId ?? this.secondaryEntityId,
       lightEntityId: lightEntityId ?? this.lightEntityId,
       windowEntityId: windowEntityId ?? this.windowEntityId,
       climateEntityId: climateEntityId ?? this.climateEntityId,
       speakerEntityId: speakerEntityId ?? this.speakerEntityId,
       coverEntityId: coverEntityId ?? this.coverEntityId,
-      climateZone: climateZone ?? this.climateZone,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'name': name,
-    'temperatureEntityId': temperatureEntityId,
-    'humidityEntityId': humidityEntityId,
+    'areaId': areaId,
     'secondaryEntityId': secondaryEntityId,
     'lightEntityId': lightEntityId,
     'windowEntityId': windowEntityId,
     'climateEntityId': climateEntityId,
     'speakerEntityId': speakerEntityId,
     'coverEntityId': coverEntityId,
-    'climateZone': climateZone,
   };
 
   factory RoomConfig.fromJson(Map<String, dynamic> json) => RoomConfig(
-    name: json['name'] as String? ?? '',
-    temperatureEntityId: json['temperatureEntityId'] as String?,
-    humidityEntityId: json['humidityEntityId'] as String?,
+    areaId: json['areaId'] as String? ?? '',
     secondaryEntityId: json['secondaryEntityId'] as String?,
     lightEntityId: json['lightEntityId'] as String?,
     windowEntityId: json['windowEntityId'] as String?,
     climateEntityId: json['climateEntityId'] as String?,
     speakerEntityId: json['speakerEntityId'] as String?,
     coverEntityId: json['coverEntityId'] as String?,
-    climateZone: json['climateZone'] as String?,
   );
 }
 
-/// Persists the Divisões room list via the `flutter_homeassistant` HA
-/// integration, so any device running this app shares the same room list.
-/// Unlike the energy card's 4 device slots, rooms have no fixed physical
-/// layout to cap against, so the list is uncapped.
+/// Persists the Divisões entity mappings via the `flutter_homeassistant` HA
+/// integration, so any device running this app shares the same mapping.
 class RoomsStore {
   RoomsStore(this._client);
 
@@ -148,14 +109,37 @@ class RoomsStore {
 
   static const _key = 'rooms';
 
-  Future<List<RoomConfig>> read() async {
+  /// [areas] is the *current* HA area list, needed for two things: dropping
+  /// a mapping whose area no longer exists (renamed/deleted in HA since it
+  /// was configured), and migrating a pre-Area-picker save — back when a
+  /// room was a free-typed `name` rather than a real `areaId` — onto
+  /// whichever current area has a matching name. A room that can't be
+  /// matched either way is dropped; there's nothing left to key it by once
+  /// its area is gone.
+  Future<List<RoomConfig>> read(List<HaArea> areas) async {
     final raw = await _client.getSettings(_key);
     if (raw is! List) return const [];
-    return raw.cast<Map<String, dynamic>>().map(RoomConfig.fromJson).toList();
+
+    final areaIds = {for (final a in areas) a.areaId};
+    final areaIdByLowerName = {for (final a in areas) a.name.trim().toLowerCase(): a.areaId};
+
+    final result = <RoomConfig>[];
+    for (final entry in raw.cast<Map<String, dynamic>>()) {
+      var config = RoomConfig.fromJson(entry);
+      if (config.areaId.isEmpty) {
+        final legacyName = (entry['name'] as String?)?.trim().toLowerCase();
+        final matchedId = legacyName == null || legacyName.isEmpty ? null : areaIdByLowerName[legacyName];
+        if (matchedId == null) continue;
+        config = config.copyWith(areaId: matchedId);
+      } else if (!areaIds.contains(config.areaId)) {
+        continue;
+      }
+      result.add(config);
+    }
+    return result;
   }
 
   Future<void> save(List<RoomConfig> rooms) async {
-    final valid = rooms.where((r) => r.name.trim().isNotEmpty).toList();
-    await _client.setSettings(_key, blankStringsToNull(valid.map((r) => r.toJson()).toList()));
+    await _client.setSettings(_key, blankStringsToNull(rooms.map((r) => r.toJson()).toList()));
   }
 }

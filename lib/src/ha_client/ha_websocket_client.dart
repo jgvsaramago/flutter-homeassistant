@@ -4,8 +4,10 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../models/ha_area.dart';
 import '../models/ha_calendar_event.dart';
 import '../models/ha_entity.dart';
+import '../models/ha_floor.dart';
 import '../models/ha_history_point.dart';
 import 'ha_connection_config.dart';
 import 'ha_exceptions.dart';
@@ -237,6 +239,25 @@ class HaWebSocketClient {
       if (areaName != null) result[entityId] = areaName;
     }
     return result;
+  }
+
+  /// The raw area registry, one entry per HA area — the Divisões room list's
+  /// source of truth (see `RoomConfig`), rather than the entity_id -> name
+  /// map [getAreaByEntityId] resolves for other callers.
+  Future<List<HaArea>> getAreas() async {
+    final areas = await _list('config/area_registry/list');
+    return areas.map(HaArea.fromJson).toList();
+  }
+
+  /// The raw floor registry — an [HaArea] references one of these via
+  /// `floor_id`. A core old enough to have no floor registry command at all
+  /// throws `HaCommandException` here like any other unrecognized command
+  /// would; the caller (`savedFloorsProvider`, via `settingsHydrationProvider`'s
+  /// per-domain try/catch) already treats that the same as "nothing saved
+  /// yet" rather than a hard failure.
+  Future<List<HaFloor>> getFloors() async {
+    final floors = await _list('config/floor_registry/list');
+    return floors.map(HaFloor.fromJson).toList();
   }
 
   Future<List<Map<String, dynamic>>> _list(String commandType) async {

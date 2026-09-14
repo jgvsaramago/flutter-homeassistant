@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/ha_entity.dart';
 import '../providers/ha_providers.dart';
 import '../providers/rooms_provider.dart';
-import '../providers/rooms_store.dart';
 import '../theme/nocturne_theme.dart';
 import '../widgets/entity_grid_slivers.dart';
 import '../widgets/rooms/room_card.dart';
@@ -19,13 +18,13 @@ bool _hasId(String? id) => id != null && id.trim().isNotEmpty;
 /// automation) is exactly the case a bulk action should still catch.
 typedef _BulkActions = ({Set<String> lightIds, bool anyLightOn, Set<String> coverIds, bool anyCoverOpen});
 
-_BulkActions _resolveBulkActions(List<RoomConfig> rooms, Map<String, HaEntity> entities) {
-  final lightIds = <String>{for (final r in rooms) if (_hasId(r.lightEntityId)) r.lightEntityId!};
+_BulkActions _resolveBulkActions(List<RoomEntry> rooms, Map<String, HaEntity> entities) {
+  final lightIds = <String>{for (final r in rooms) if (_hasId(r.config.lightEntityId)) r.config.lightEntityId!};
   final anyLightOn = lightIds.any((id) {
     final e = entities[id];
     return e != null && !e.isUnavailable && e.isOn;
   });
-  final coverIds = <String>{for (final r in rooms) if (_hasId(r.coverEntityId)) r.coverEntityId!};
+  final coverIds = <String>{for (final r in rooms) if (_hasId(r.config.coverEntityId)) r.config.coverEntityId!};
   final anyCoverOpen = coverIds.any((id) => entities[id]?.state != 'closed');
   return (lightIds: lightIds, anyLightOn: anyLightOn, coverIds: coverIds, anyCoverOpen: anyCoverOpen);
 }
@@ -74,7 +73,7 @@ class RoomsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final rooms = ref.watch(roomsProvider);
+    final rooms = ref.watch(roomEntriesProvider);
     final entities = ref.watch(entitiesProvider).value ?? const {};
 
     final views = [for (final room in rooms) buildRoomView(room, entities)];
@@ -83,7 +82,7 @@ class RoomsScreen extends ConsumerWidget {
     final acOn = views.where((v) => v.acOn).length;
     final temps = [
       for (final room in rooms)
-        if (_hasId(room.temperatureEntityId)) entities[room.temperatureEntityId],
+        if (_hasId(room.area.temperatureEntityId)) entities[room.area.temperatureEntityId],
     ].whereType<HaEntity>().where((e) => !e.isUnavailable).map((e) => double.tryParse(e.state)).whereType<double>().toList();
     final avgTemp = temps.isEmpty ? null : temps.reduce((a, b) => a + b) / temps.length;
 
