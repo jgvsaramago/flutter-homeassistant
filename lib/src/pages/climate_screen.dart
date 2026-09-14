@@ -39,8 +39,12 @@ String _joinPt(List<String> items) {
   return '${items.sublist(0, items.length - 1).join(', ')} e ${items.last}';
 }
 
-String _summary(List<FloorStat> floors) {
-  if (floors.isEmpty) {
+// `floors` always has exactly one entry per `_visibleFloorLabels` (see
+// `computeFloorStats`) regardless of whether any divisão is configured at
+// all — `roomsConfigured` is what actually decides between the two
+// messages below, not the (never-empty) floor list.
+String _summary(List<FloorStat> floors, bool roomsConfigured) {
+  if (!roomsConfigured) {
     return 'Nenhuma divisão configurada. Adicione divisões em Definições → Divisões.';
   }
   return '${_joinPt([for (final f in floors) '${f.label} a ${formatDegreeComma(f.avgTemp)}'])}.';
@@ -81,8 +85,8 @@ class ClimateScreen extends ConsumerWidget {
               children: [
                 const Text('Climatização', style: TextStyle(fontSize: 34, fontWeight: FontWeight.w600, letterSpacing: -0.5)),
                 const SizedBox(height: 8),
-                Text(_summary(floorStats), style: TextStyle(fontSize: 19, color: NocturneColors.neutral400, height: 1.45)),
-                if (floorStats.isNotEmpty) ...[const SizedBox(height: 16), _StatTileRow(floors: floorStats)],
+                Text(_summary(floorStats, rooms.isNotEmpty), style: TextStyle(fontSize: 19, color: NocturneColors.neutral400, height: 1.45)),
+                if (rooms.isNotEmpty) ...[const SizedBox(height: 16), _StatTileRow(floors: floorStats)],
                 const SizedBox(height: 20),
                 _SectionHeader(
                   title: 'AR CONDICIONADO',

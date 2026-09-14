@@ -2,21 +2,26 @@ import '../../models/ha_entity.dart';
 import '../../providers/rooms_provider.dart';
 
 /// One floor's average temperature/humidity for the Climatização page's
-/// stat tile row — one pair of tiles per floor that has at least one area
-/// contributing a reading, sourced from each area's own temperature/
-/// humidity sensor (`HaArea.temperatureEntityId`/`humidityEntityId`, set in
-/// HA's own Areas & Zones settings) rather than anything configured a
-/// second time in this app.
+/// stat tile row, sourced from each area's own temperature/humidity sensor
+/// (`HaArea.temperatureEntityId`/`humidityEntityId`, set in HA's own Areas
+/// & Zones settings) rather than anything configured a second time in this
+/// app.
 class FloorStat {
   const FloorStat({required this.label, required this.avgTemp, required this.avgHumidity});
 
-  /// The floor's own name from HA, or "Sem piso" for areas with no floor
-  /// assigned — grouped together so they still show up rather than being
-  /// silently dropped from the page entirely.
   final String label;
   final double? avgTemp;
   final double? avgHumidity;
 }
+
+/// Only these two floors get a stat tile pair, in this fixed order —
+/// matched against [HaFloor.name] case-insensitively. A household's HA
+/// instance may have other floors (a garage, an exterior zone, ...) that
+/// have no business on this page; unlike an area (which only shows up here
+/// at all once the user wires an entity to it in Divisões), a floor has no
+/// per-app opt-in, so this page picks the two it actually wants rather
+/// than showing one tile pair per floor HA happens to have.
+const _visibleFloorLabels = ['Piso 0', 'Sótão'];
 
 double? _numeric(Map<String, HaEntity> entities, String? entityId) {
   if (entityId == null || entityId.trim().isEmpty) return null;
@@ -31,39 +36,25 @@ double? _average(Iterable<double> values) {
   return list.reduce((a, b) => a + b) / list.length;
 }
 
-const _noFloorLabel = 'Sem piso';
-
-/// Groups [rooms] by [RoomEntry.floor] (level order, then name; areas with
-/// no floor last) and averages each group's area temperature/humidity
-/// sensors. A floor with zero rooms actually reporting a numeric value
-/// still gets a tile (both "--"), same as the original design's fixed
-/// Piso 0/Sótão tiles did when unconfigured — only a floor with *no rooms
-/// at all* is omitted.
+/// Always returns exactly one [FloorStat] per [_visibleFloorLabels] entry,
+/// in that order — "--"/"--" for one with no matching HA floor or no rooms
+/// on it, same as the original fixed-tile design showed when unconfigured,
+/// rather than the tile disappearing.
 List<FloorStat> computeFloorStats(List<RoomEntry> rooms, Map<String, HaEntity> entities) {
-  final byFloorKey = <String, List<RoomEntry>>{};
-  final labelByKey = <String, String>{};
-  final levelByKey = <String, int>{};
+  final roomsByLowerLabel = <String, List<RoomEntry>>{for (final label in _visibleFloorLabels) label.toLowerCase(): []};
 
   for (final room in rooms) {
-    final floor = room.floor;
-    final key = floor?.floorId ?? '';
-    byFloorKey.putIfAbsent(key, () => []).add(room);
-    labelByKey[key] = floor?.name ?? _noFloorLabel;
-    levelByKey[key] = floor?.level ?? (1 << 30);
+    final floorName = room.floor?.name.trim().toLowerCase();
+    final bucket = floorName == null ? null : roomsByLowerLabel[floorName];
+    bucket?.add(room);
   }
 
-  final keys = byFloorKey.keys.toList()
-    ..sort((a, b) {
-      final byLevel = levelByKey[a]!.compareTo(levelByKey[b]!);
-      return byLevel != 0 ? byLevel : labelByKey[a]!.compareTo(labelByKey[b]!);
-    });
-
   return [
-    for (final key in keys)
+    for (final label in _visibleFloorLabels)
       FloorStat(
-        label: labelByKey[key]!,
-        avgTemp: _average(byFloorKey[key]!.map((r) => _numeric(entities, r.area.temperatureEntityId)).whereType<double>()),
-        avgHumidity: _average(byFloorKey[key]!.map((r) => _numeric(entities, r.area.humidityEntityId)).whereType<double>()),
+        label: label,
+        avgTemp: _average(roomsByLowerLabel[label.toLowerCase()]!.map((r) => _numeric(entities, r.area.temperatureEntityId)).whereType<double>()),
+        avgHumidity: _average(roomsByLowerLabel[label.toLowerCase()]!.map((r) => _numeric(entities, r.area.humidityEntityId)).whereType<double>()),
       ),
   ];
 }
