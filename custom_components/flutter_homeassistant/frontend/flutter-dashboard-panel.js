@@ -62,6 +62,16 @@
         }),
       ],
     },
+    house_mode: {
+      shape: "singleton",
+      fields: [
+        field("entityId", "entity", "Modo da casa", {
+          hint: "input_select.modo_da_casa",
+          domains: ["input_select", "select"],
+          desc: "Entidade mostrada como seletor de modo na Homepage da app (ex.: Casa, Fora, Férias, Noite). Cria-a em Definições → Ajudantes → Adicionar ajudante → Lista suspensa.",
+        }),
+      ],
+    },
     temperature_entities: {
       shape: "singleton",
       fields: [
@@ -181,6 +191,7 @@
   };
 
   const MENU = [
+    { title: "Modo da Casa", icon: "mdi:home-switch", keys: ["house_mode"] },
     { title: "Divisões", icon: "mdi:floor-plan", keys: ["rooms"] },
     { title: "Temperatura", icon: "mdi:thermometer", keys: ["temperature_entities"] },
     { title: "Calendário", icon: "mdi:calendar", keys: ["calendar_entities"] },

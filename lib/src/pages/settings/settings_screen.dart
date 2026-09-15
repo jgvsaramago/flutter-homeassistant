@@ -11,7 +11,6 @@ import 'calendar_settings_screen.dart';
 import 'energy_page_settings_screen.dart';
 import 'energy_settings_screen.dart';
 import 'ev_cars_settings_screen.dart';
-import 'house_mode_settings_screen.dart';
 import 'music_settings_screen.dart';
 import 'rooms_settings_screen.dart';
 import 'temperature_settings_screen.dart';
@@ -98,17 +97,6 @@ class SettingsScreen extends ConsumerWidget {
               title: 'Página de Energia',
               subtitle: 'Potência instalada, tarifário, inversor, previsão solar e manutenção',
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EnergyPageSettingsScreen())),
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
-            child: SettingsNavTile(
-              icon: Icons.house_outlined,
-              title: 'Modo da Casa',
-              subtitle: 'Entidade input_select do seletor de modo na Homepage',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HouseModeSettingsScreen())),
             ),
           ),
         ),
