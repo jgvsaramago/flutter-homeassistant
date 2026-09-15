@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/ha_entity.dart';
 import '../../providers/ha_providers.dart';
+import '../../providers/house_mode_provider.dart';
 import '../../sheets/dashboard/temperature_sheet.dart';
 import '../../theme/nocturne_theme.dart';
 
@@ -53,10 +54,12 @@ _StatusSummary _summarizeStatus(Map<String, HaEntity> entities) {
 /// Section 2 of the Homepage: the climate hero — a full-width gradient card
 /// merging what used to be a separate status-badge row and an indoor/
 /// outdoor climate card. Tapping it opens the same climate detail sheet the
-/// old climate card opened. Home-mode selection (Normal/Ausente/Dormir/
-/// Trabalho) had no backing HA entity even before this redesign — it was
-/// local-only UI state controlling nothing — so it's now a static "Normal"
-/// pill matching the design reference, rather than a real picker.
+/// old climate card opened. The house-mode pill (`_ModePill`) is backed by
+/// a real HA `input_select`/`select` entity, configured via the
+/// `flutter_homeassistant` HA integration's own sidebar panel (Definições →
+/// Flutter Dashboard → Modo da Casa) rather than a Flutter settings screen —
+/// see `house_mode_store.dart`'s own doc. Falls back to a static "Normal"
+/// label, matching the design reference, when nothing is configured yet.
 class ClimateHero extends ConsumerWidget {
   const ClimateHero({super.key});
 
@@ -177,7 +180,12 @@ class _AirQualityChip extends StatelessWidget {
 
 /// Fixed colours regardless of theme — this pill's surface is opaque white
 /// in both the light and dark hero, so it must never pick up a theme token.
-class _ModePill extends StatelessWidget {
+///
+/// Tapping opens the configured entity's own option list and calls
+/// `select.select_option` — see the class doc above for where that entity
+/// is configured. Unconfigured/not-found falls back to an inert "Normal"
+/// label, same as before this pill had any backing entity.
+class _ModePill extends ConsumerWidget {
   const _ModePill();
 
   static const _iconColor = Color(0xFF6355BD);
@@ -185,19 +193,38 @@ class _ModePill extends StatelessWidget {
   static const _chevronColor = Color(0xFF767881);
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.94), borderRadius: BorderRadius.circular(NocturneRadii.pill)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.home_outlined, size: 16, color: _iconColor),
-          const SizedBox(width: 7),
-          const Text('Normal', softWrap: false, style: TextStyle(color: _labelColor, fontSize: 15, fontWeight: FontWeight.w600)),
-          const SizedBox(width: 2),
-          const Icon(Icons.chevron_right, size: 14, color: _chevronColor),
-        ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(houseModeConfigProvider);
+    final entity = config.isEmpty ? null : ref.watch(entitiesProvider).value?[config.entityId];
+    final options = (entity?.attributes['options'] as List?)?.whereType<String>().toList() ?? const [];
+
+    Future<void> select(String option) async {
+      await ref.read(haWebSocketClientProvider).callService(
+        'select',
+        'select_option',
+        serviceData: {'option': option},
+        target: {'entity_id': entity!.entityId},
+      );
+    }
+
+    return PopupMenuButton<String>(
+      enabled: options.isNotEmpty,
+      onSelected: select,
+      itemBuilder: (context) => [for (final option in options) PopupMenuItem(value: option, child: Text(option))],
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(NocturneRadii.chip)),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.94), borderRadius: BorderRadius.circular(NocturneRadii.pill)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.home_outlined, size: 16, color: _iconColor),
+            const SizedBox(width: 7),
+            Text(entity?.state ?? 'Normal', softWrap: false, style: const TextStyle(color: _labelColor, fontSize: 15, fontWeight: FontWeight.w600)),
+            const SizedBox(width: 2),
+            const Icon(Icons.chevron_right, size: 14, color: _chevronColor),
+          ],
+        ),
       ),
     );
   }
