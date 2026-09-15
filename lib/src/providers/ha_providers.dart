@@ -14,6 +14,7 @@ import 'calendar_entities_provider.dart';
 import 'energy_entities_provider.dart';
 import 'energy_page_settings_provider.dart';
 import 'ev_cars_provider.dart';
+import 'house_mode_provider.dart';
 import 'individual_sensors_provider.dart';
 import 'mass_providers.dart';
 import 'rooms_provider.dart';
@@ -380,6 +381,14 @@ final settingsHydrationProvider = FutureProvider<void>((ref) async {
     }
   } catch (_) {
     // Proceed with the Divisões page's own empty state.
+  }
+  try {
+    final savedHouseMode = await ref.read(savedHouseModeConfigProvider.future);
+    if (!savedHouseMode.isEmpty) {
+      ref.read(houseModeConfigProvider.notifier).state = savedHouseMode;
+    }
+  } catch (_) {
+    // Proceed with no house-mode entity configured — the Homepage chip hides itself.
   }
 });
 

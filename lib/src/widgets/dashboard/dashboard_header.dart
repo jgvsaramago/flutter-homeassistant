@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-/// Section 1 of the Homepage: greeting + live clock. Ticks every 15 seconds
-/// (matching the design reference) since only hours:minutes are shown.
+import 'house_mode_chip.dart';
+
+/// Section 1 of the Homepage: greeting + house-mode chip + live clock.
+/// Ticks every 15 seconds (matching the design reference) since only
+/// hours:minutes are shown.
 class DashboardHeader extends StatefulWidget {
   const DashboardHeader({super.key});
 
@@ -52,6 +55,7 @@ class _DashboardHeaderState extends State<DashboardHeader> {
               style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w600, height: 1.15),
             ),
           ),
+          const HouseModeChip(),
           Text(
             time,
             // Proportional figures, deliberately not `tabularNums` — this

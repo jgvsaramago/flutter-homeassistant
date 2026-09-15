@@ -11,6 +11,8 @@ import '../providers/energy_page_settings_store.dart';
 import '../providers/ev_cars_provider.dart';
 import '../providers/ev_cars_store.dart';
 import '../providers/ha_providers.dart';
+import '../providers/house_mode_provider.dart';
+import '../providers/house_mode_store.dart';
 import '../providers/individual_sensors_provider.dart';
 import '../providers/individual_sensors_store.dart';
 import '../providers/rooms_provider.dart';
@@ -162,6 +164,10 @@ Map<String, HaEntity> buildPlaceholderEntities() {
       entity('sensor.demo_room_entrada_temp', '21.0', {'friendly_name': 'Entrada Temperature', 'unit_of_measurement': '°C', 'device_class': 'temperature'}),
       entity('sensor.demo_room_sotao_temp', '24.6', {'friendly_name': 'Sótão Temperature', 'unit_of_measurement': '°C', 'device_class': 'temperature'}),
       entity('sensor.demo_room_sotao_humidity', '38', {'friendly_name': 'Sótão Humidity', 'unit_of_measurement': '%', 'device_class': 'humidity'}),
+      entity('select.demo_house_mode', 'Casa', {
+        'friendly_name': 'Modo da Casa',
+        'options': ['Casa', 'Fora', 'Férias', 'Noite'],
+      }),
     ])
       e.entityId: e,
   };
@@ -243,6 +249,7 @@ final placeholderOverrides = [
       ),
     ),
   ),
+  houseModeConfigProvider.overrideWith((ref) => const HouseModeConfig(entityId: 'select.demo_house_mode')),
   individualSensorsProvider.overrideWith(
     (ref) => const [
       IndividualSensorConfig(name: 'AQS', powerEntityId: 'sensor.demo_aqs_power', temperatureEntityId: 'sensor.demo_aqs_temperature', icon: IndividualSensorIconKey.boiler),
