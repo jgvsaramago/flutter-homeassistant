@@ -123,120 +123,122 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
       CalView.agenda => _AgendaView(start: _anchor, events: events, now: now),
     };
 
-    return KSection(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: KText.pageTitle),
-                    const SizedBox(height: 2),
-                    Text(
-                      sub,
-                      style: KText.s(20, weight: FontWeight.w500, color: KColors.muted),
-                    ),
-                  ],
-                ),
-              ),
-              KCircleButton(icon: KIcons.chevronLeft, onTap: () => _shift(-1)),
-              const SizedBox(width: 12),
-              KCircleButton(icon: KIcons.chevronRight, onTap: () => _shift(1)),
-              const SizedBox(width: 12),
-              KButton(
-                label: 'Hoje',
-                onTap: () => setState(() {
-                  _anchor = dateOnly(now);
-                  _navDir = 0;
-                  _navTick++;
-                }),
-              ),
-              const SizedBox(width: 12),
-              KButton.primary(
-                label: 'Novo evento',
-                icon: KIcons.plus,
-                onTap: () async {
-                  final d = await showEventModal(context, day: view == CalView.day || _anchor.isAfter(now) ? _anchor : now);
-                  if (d != null && mounted) setState(() => _anchor = d);
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 24,
-            runSpacing: 16,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(color: KColors.chip, borderRadius: BorderRadius.circular(40)),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final v in CalView.values) ...[
-                      if (v != CalView.day) const SizedBox(width: 4),
-                      KChip(label: v.label, on: v == view, height: 60, padX: 24, offBg: Colors.transparent, onTap: () => _setView(v)),
+    return KFadeUp(
+      child: KSection(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: KText.pageTitle),
+                      const SizedBox(height: 2),
+                      Text(
+                        sub,
+                        style: KText.s(20, weight: FontWeight.w500, color: KColors.muted),
+                      ),
                     ],
+                  ),
+                ),
+                KCircleButton(icon: KIcons.chevronLeft, onTap: () => _shift(-1)),
+                const SizedBox(width: 12),
+                KCircleButton(icon: KIcons.chevronRight, onTap: () => _shift(1)),
+                const SizedBox(width: 12),
+                KButton(
+                  label: 'Hoje',
+                  onTap: () => setState(() {
+                    _anchor = dateOnly(now);
+                    _navDir = 0;
+                    _navTick++;
+                  }),
+                ),
+                const SizedBox(width: 12),
+                KButton.primary(
+                  label: 'Novo evento',
+                  icon: KIcons.plus,
+                  onTap: () async {
+                    final d = await showEventModal(context, day: view == CalView.day || _anchor.isAfter(now) ? _anchor : now);
+                    if (d != null && mounted) setState(() => _anchor = d);
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 24,
+              runSpacing: 16,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(color: KColors.chip, borderRadius: BorderRadius.circular(40)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final v in CalView.values) ...[
+                        if (v != CalView.day) const SizedBox(width: 4),
+                        KChip(label: v.label, on: v == view, height: 60, padX: 24, offBg: Colors.transparent, onTap: () => _setView(v)),
+                      ],
+                    ],
+                  ),
+                ),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    for (final s in sources)
+                      () {
+                        final hide = _hidden.contains(s.entityId);
+                        return KPress(
+                          onTap: () => setState(() => hide ? _hidden.remove(s.entityId) : _hidden.add(s.entityId)),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            height: 64,
+                            padding: const EdgeInsets.fromLTRB(8, 0, 20, 0),
+                            decoration: BoxDecoration(
+                              color: hide ? Colors.white : s.color.tint,
+                              borderRadius: BorderRadius.circular(32),
+                              border: Border.all(color: hide ? KColors.border : s.color.tint, width: 1.5),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                KAvatar(initial: s.initial, color: hide ? KColors.disabledFg : s.color.color, size: 46, flag: s.holiday),
+                                const SizedBox(width: 12),
+                                Text(
+                                  s.name,
+                                  style: KText.s(22, weight: FontWeight.w600, color: hide ? KColors.muted : KColors.ink),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }(),
                   ],
                 ),
-              ),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final s in sources)
-                    () {
-                      final hide = _hidden.contains(s.entityId);
-                      return KPress(
-                        onTap: () => setState(() => hide ? _hidden.remove(s.entityId) : _hidden.add(s.entityId)),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          height: 64,
-                          padding: const EdgeInsets.fromLTRB(8, 0, 20, 0),
-                          decoration: BoxDecoration(
-                            color: hide ? Colors.white : s.color.tint,
-                            borderRadius: BorderRadius.circular(32),
-                            border: Border.all(color: hide ? KColors.border : s.color.tint, width: 1.5),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              KAvatar(initial: s.initial, color: hide ? KColors.disabledFg : s.color.color, size: 46, flag: s.holiday),
-                              const SizedBox(width: 12),
-                              Text(
-                                s.name,
-                                style: KText.s(22, weight: FontWeight.w600, color: hide ? KColors.muted : KColors.ink),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }(),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: TweenAnimationBuilder<double>(
-              key: ValueKey(_navTick),
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 340),
-              curve: kEase,
-              builder: (context, t, child) => Opacity(
-                opacity: t,
-                child: Transform.translate(offset: _navDir == 0 ? Offset(0, 16 * (1 - t)) : Offset(48 * _navDir * (1 - t), 0), child: child),
-              ),
-              child: body,
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+            Expanded(
+              child: TweenAnimationBuilder<double>(
+                key: ValueKey(_navTick),
+                tween: Tween(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 340),
+                curve: kEase,
+                builder: (context, t, child) => Opacity(
+                  opacity: t,
+                  child: Transform.translate(offset: _navDir == 0 ? Offset(0, 16 * (1 - t)) : Offset(48 * _navDir * (1 - t), 0), child: child),
+                ),
+                child: body,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

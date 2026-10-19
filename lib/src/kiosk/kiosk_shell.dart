@@ -179,7 +179,9 @@ class _KioskShellState extends ConsumerState<KioskShell> {
   }
 }
 
-/// The design's `dcPageIn`: each page rises 28 px and fades in.
+/// Swaps pages instantly: each page's sections run their own staggered
+/// fade-up ([KFadeUp]) as they mount, so animating the page as a whole
+/// here would double it up.
 class _PageSwitcher extends StatelessWidget {
   const _PageSwitcher({required this.page, required this.child});
 
@@ -187,24 +189,7 @@ class _PageSwitcher extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 450),
-      reverseDuration: const Duration(milliseconds: 120),
-      switchInCurve: kEase,
-      switchOutCurve: Curves.easeIn,
-      layoutBuilder: (current, previous) => Stack(children: [...previous, ?current]),
-      transitionBuilder: (child, anim) => FadeTransition(
-        opacity: anim,
-        child: AnimatedBuilder(
-          animation: anim,
-          builder: (context, c) => Transform.translate(offset: Offset(0, 28 * (1 - anim.value)), child: c),
-          child: child,
-        ),
-      ),
-      child: KeyedSubtree(key: ValueKey(page), child: child),
-    );
-  }
+  Widget build(BuildContext context) => KeyedSubtree(key: ValueKey(page), child: child);
 }
 
 class _ToastLayer extends StatelessWidget {

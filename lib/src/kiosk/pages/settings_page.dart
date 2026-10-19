@@ -29,46 +29,51 @@ class SettingsPage extends ConsumerWidget {
       HaConnectionState.error => ('Erro', KColors.red),
       HaConnectionState.disconnected => ('Desligado', KColors.faint),
     };
-    return KSection(
-      padding: const EdgeInsets.all(28),
-      child: ListView(
-        children: [
-          Text('Definições', style: KText.pageTitle),
-          const SizedBox(height: 4),
-          Text('Deste ecrã', style: KText.s(20, weight: FontWeight.w500, color: KColors.muted)),
-          const SizedBox(height: 24),
-          _Panel(
-            title: 'Ligações',
-            child: Column(
-              children: [
-                _StatusRow(label: 'Home Assistant', value: haLabel, dot: haColor),
-                _StatusRow(label: 'Endereço', value: url),
-                _StatusRow(label: 'Entidades', value: '$count'),
-                ValueListenableBuilder<MqttConnectionStatus>(
-                  valueListenable: MqttConnectionController.instance.status,
-                  builder: (context, s, _) {
-                    final (label, color) = switch (s) {
-                      MqttConnectionStatus.connected => ('Ligado', KColors.green),
-                      MqttConnectionStatus.connecting => ('A ligar', KColors.amber),
-                      MqttConnectionStatus.error => ('Erro', KColors.red),
-                      MqttConnectionStatus.disconnected => ('Desligado', KColors.faint),
-                      MqttConnectionStatus.disabled => ('Não configurado', KColors.faint),
-                    };
-                    return _StatusRow(label: 'MQTT', value: label, dot: color, last: true);
-                  },
-                ),
-              ],
+    return KFadeUp(
+      child: KSection(
+        padding: const EdgeInsets.all(28),
+        child: ListView(
+          children: [
+            Text('Definições', style: KText.pageTitle),
+            const SizedBox(height: 4),
+            Text(
+              'Deste ecrã',
+              style: KText.s(20, weight: FontWeight.w500, color: KColors.muted),
             ),
-          ),
-          if (const ScreenBrightnessService().isSupported) ...[const SizedBox(height: 16), const _BrightnessPanel()],
-          if (SystemControlService().isSupported) ...[const SizedBox(height: 16), const _RestartPanel()],
-          const SizedBox(height: 28),
-          Text(
-            'Divisões, energia, calendários, carros, família e o resto do ecrã configuram-se no Home Assistant, '
-            'em Flutter Dashboard na barra lateral.',
-            style: KText.s(20, color: KColors.muted, height: 1.4),
-          ),
-        ],
+            const SizedBox(height: 24),
+            _Panel(
+              title: 'Ligações',
+              child: Column(
+                children: [
+                  _StatusRow(label: 'Home Assistant', value: haLabel, dot: haColor),
+                  _StatusRow(label: 'Endereço', value: url),
+                  _StatusRow(label: 'Entidades', value: '$count'),
+                  ValueListenableBuilder<MqttConnectionStatus>(
+                    valueListenable: MqttConnectionController.instance.status,
+                    builder: (context, s, _) {
+                      final (label, color) = switch (s) {
+                        MqttConnectionStatus.connected => ('Ligado', KColors.green),
+                        MqttConnectionStatus.connecting => ('A ligar', KColors.amber),
+                        MqttConnectionStatus.error => ('Erro', KColors.red),
+                        MqttConnectionStatus.disconnected => ('Desligado', KColors.faint),
+                        MqttConnectionStatus.disabled => ('Não configurado', KColors.faint),
+                      };
+                      return _StatusRow(label: 'MQTT', value: label, dot: color, last: true);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            if (const ScreenBrightnessService().isSupported) ...[const SizedBox(height: 16), const _BrightnessPanel()],
+            if (SystemControlService().isSupported) ...[const SizedBox(height: 16), const _RestartPanel()],
+            const SizedBox(height: 28),
+            Text(
+              'Divisões, energia, calendários, carros, família e o resto do ecrã configuram-se no Home Assistant, '
+              'em Flutter Dashboard na barra lateral.',
+              style: KText.s(20, color: KColors.muted, height: 1.4),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -87,7 +92,11 @@ class _Panel extends StatelessWidget {
       decoration: BoxDecoration(color: KColors.sub, borderRadius: BorderRadius.circular(28)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [Text(title, style: KText.s(26, weight: FontWeight.w600)), const SizedBox(height: 16), child],
+        children: [
+          Text(title, style: KText.s(26, weight: FontWeight.w600)),
+          const SizedBox(height: 16),
+          child,
+        ],
       ),
     );
   }
@@ -105,11 +114,22 @@ class _StatusRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 64,
-      decoration: BoxDecoration(border: last ? null : const Border(bottom: BorderSide(color: KColors.divider, width: 1.5))),
+      decoration: BoxDecoration(
+        border: last ? null : const Border(bottom: BorderSide(color: KColors.divider, width: 1.5)),
+      ),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: KText.s(22, color: KColors.ink2))),
-          if (dot != null) ...[Container(width: 12, height: 12, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)), const SizedBox(width: 10)],
+          Expanded(
+            child: Text(label, style: KText.s(22, color: KColors.ink2)),
+          ),
+          if (dot != null) ...[
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 10),
+          ],
           Text(value, style: KText.s(22, weight: FontWeight.w600)),
         ],
       ),
@@ -175,7 +195,10 @@ class _BrightnessPanelState extends State<_BrightnessPanel> {
               child: Slider(value: (p ?? 0).clamp(0, 100), max: 100, onChanged: p == null ? null : _changed),
             ),
           ),
-          SizedBox(width: 90, child: Text(p == null ? '--' : '${p.round()}%', textAlign: TextAlign.right, style: KText.d(32))),
+          SizedBox(
+            width: 90,
+            child: Text(p == null ? '--' : '${p.round()}%', textAlign: TextAlign.right, style: KText.d(32)),
+          ),
         ],
       ),
     );
@@ -210,14 +233,11 @@ class _RestartPanelState extends State<_RestartPanel> {
       title: 'Reiniciar o ecrã',
       child: Row(
         children: [
-          Expanded(child: Text('O ecrã fica indisponível durante cerca de um minuto.', style: KText.s(20, color: KColors.muted))),
-          const SizedBox(width: 16),
-          KButton(
-            label: _restarting ? 'A reiniciar…' : 'Reiniciar',
-            icon: KIcons.refresh,
-            height: 64,
-            onTap: _restarting ? null : _restart,
+          Expanded(
+            child: Text('O ecrã fica indisponível durante cerca de um minuto.', style: KText.s(20, color: KColors.muted)),
           ),
+          const SizedBox(width: 16),
+          KButton(label: _restarting ? 'A reiniciar…' : 'Reiniciar', icon: KIcons.refresh, height: 64, onTap: _restarting ? null : _restart),
         ],
       ),
     );
@@ -242,7 +262,12 @@ class _ConfirmRestart extends StatelessWidget {
             children: [
               KButton(label: 'Cancelar', height: 72, padding: const EdgeInsets.symmetric(horizontal: 40), onTap: () => Navigator.of(context).pop(false)),
               const SizedBox(width: 14),
-              KButton.primary(label: 'Reiniciar', height: 72, padding: const EdgeInsets.symmetric(horizontal: 44), onTap: () => Navigator.of(context).pop(true)),
+              KButton.primary(
+                label: 'Reiniciar',
+                height: 72,
+                padding: const EdgeInsets.symmetric(horizontal: 44),
+                onTap: () => Navigator.of(context).pop(true),
+              ),
             ],
           ),
         ],

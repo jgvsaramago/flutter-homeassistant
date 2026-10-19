@@ -36,21 +36,24 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Column(
       children: [
-        _HouseSection(),
+        KFadeUp(child: _HouseSection()),
         SizedBox(height: 32),
-        Expanded(child: _WeekSection()),
+        Expanded(child: KFadeUp(index: 1, child: _WeekSection())),
         SizedBox(height: 32),
-        SizedBox(
-          height: 440,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: _TasksCard()),
-              SizedBox(width: 24),
-              Expanded(child: _MealsCard()),
-              SizedBox(width: 24),
-              Expanded(child: _ShoppingCard()),
-            ],
+        KFadeUp(
+          index: 2,
+          child: SizedBox(
+            height: 440,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: _TasksCard()),
+                SizedBox(width: 24),
+                Expanded(child: _MealsCard()),
+                SizedBox(width: 24),
+                Expanded(child: _ShoppingCard()),
+              ],
+            ),
           ),
         ),
       ],

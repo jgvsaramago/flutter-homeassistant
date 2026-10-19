@@ -36,73 +36,75 @@ class _MealsPageState extends ConsumerState<MealsPage> {
     final plan = ref.watch(mealPlanProvider);
     final monday = addDays(mondayOf(now), _offset * 7);
     final sunday = addDays(monday, 6);
-    return KSection(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Refeições', style: KText.pageTitle),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Semana ${PtDates.isoWeek(monday)} · ${PtDates.short(monday)} – ${PtDates.short(sunday)}',
-                      style: KText.s(20, weight: FontWeight.w500, color: KColors.muted),
-                    ),
-                  ],
-                ),
-              ),
-              KCircleButton(icon: KIcons.chevronLeft, onTap: () => _nav(-1)),
-              const SizedBox(width: 12),
-              KCircleButton(icon: KIcons.chevronRight, onTap: () => _nav(1)),
-              const SizedBox(width: 12),
-              KButton(label: 'Hoje', onTap: () => _nav(0)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Row(
+    return KFadeUp(
+      child: KSection(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               children: [
-                const SizedBox(width: 162),
-                for (final t in MealType.values)
-                  Expanded(
-                    child: Text(
-                      t.caps,
-                      style: KText.s(17, weight: FontWeight.w700, color: KColors.muted, spacing: 1.2),
-                    ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Refeições', style: KText.pageTitle),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Semana ${PtDates.isoWeek(monday)} · ${PtDates.short(monday)} – ${PtDates.short(sunday)}',
+                        style: KText.s(20, weight: FontWeight.w500, color: KColors.muted),
+                      ),
+                    ],
                   ),
+                ),
+                KCircleButton(icon: KIcons.chevronLeft, onTap: () => _nav(-1)),
+                const SizedBox(width: 12),
+                KCircleButton(icon: KIcons.chevronRight, onTap: () => _nav(1)),
+                const SizedBox(width: 12),
+                KButton(label: 'Hoje', onTap: () => _nav(0)),
               ],
             ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: TweenAnimationBuilder<double>(
-              key: ValueKey(_tick),
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 340),
-              curve: kEase,
-              builder: (context, t, child) => Opacity(
-                opacity: t,
-                child: Transform.translate(offset: _dir == 0 ? Offset(0, 16 * (1 - t)) : Offset(48 * _dir * (1 - t), 0), child: child),
-              ),
-              child: Column(
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Row(
                 children: [
-                  for (var i = 0; i < 7; i++) ...[
-                    if (i > 0) const SizedBox(height: 10),
+                  const SizedBox(width: 162),
+                  for (final t in MealType.values)
                     Expanded(
-                      child: _DayRow(day: addDays(monday, i), now: now, plan: plan),
+                      child: Text(
+                        t.caps,
+                        style: KText.s(17, weight: FontWeight.w700, color: KColors.muted, spacing: 1.2),
+                      ),
                     ),
-                  ],
                 ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            Expanded(
+              child: TweenAnimationBuilder<double>(
+                key: ValueKey(_tick),
+                tween: Tween(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 340),
+                curve: kEase,
+                builder: (context, t, child) => Opacity(
+                  opacity: t,
+                  child: Transform.translate(offset: _dir == 0 ? Offset(0, 16 * (1 - t)) : Offset(48 * _dir * (1 - t), 0), child: child),
+                ),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < 7; i++) ...[
+                      if (i > 0) const SizedBox(height: 10),
+                      Expanded(
+                        child: _DayRow(day: addDays(monday, i), now: now, plan: plan),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

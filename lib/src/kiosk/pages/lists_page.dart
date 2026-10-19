@@ -43,230 +43,232 @@ class _ListsPageState extends ConsumerState<ListsPage> {
     final done = items.where((i) => i.done).toList();
     final actions = ref.read(todoActionsProvider);
 
-    return KSection(
-      padding: const EdgeInsets.all(28),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 400,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 22),
-                  child: Text('Listas', style: KText.pageTitle),
-                ),
-                Expanded(
-                  child: ListView(
-                    children: [
-                      for (final l in lists) ...[
-                        _ListButton(list: l, on: l.entityId == current?.entityId, onTap: () => ref.read(selectedListProvider.notifier).state = l.entityId),
-                        const SizedBox(height: 14),
-                      ],
-                      KPress(
-                        onTap: () => showKModal(context, (_) => const _NewListModal()),
-                        child: KDashedBox(
-                          radius: 26,
-                          child: SizedBox(
-                            height: 88,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const KIcon(KIcons.plus, size: 28, color: KColors.ink2, stroke: 2.2),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Nova lista',
-                                  style: KText.s(22, weight: FontWeight.w600, color: KColors.ink2),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+    return KFadeUp(
+      child: KSection(
+        padding: const EdgeInsets.all(28),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: 400,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 22),
+                    child: Text('Listas', style: KText.pageTitle),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 28),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(color: KColors.sub, borderRadius: BorderRadius.circular(30)),
-              child: current == null
-                  ? Center(
-                      child: Text('Nenhuma lista no Home Assistant', style: KText.s(24, color: KColors.muted)),
-                    )
-                  : Column(
-                      key: ValueKey(current.entityId),
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                  Expanded(
+                    child: ListView(
                       children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                        for (final l in lists) ...[
+                          _ListButton(list: l, on: l.entityId == current?.entityId, onTap: () => ref.read(selectedListProvider.notifier).state = l.entityId),
+                          const SizedBox(height: 14),
+                        ],
+                        KPress(
+                          onTap: () => showKModal(context, (_) => const _NewListModal()),
+                          child: KDashedBox(
+                            radius: 26,
+                            child: SizedBox(
+                              height: 88,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Text(current.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: KText.d(44, spacing: -1)),
-                                  const SizedBox(height: 4),
+                                  const KIcon(KIcons.plus, size: 28, color: KColors.ink2, stroke: 2.2),
+                                  const SizedBox(width: 12),
                                   Text(
-                                    pending.isEmpty ? 'Tudo feito' : '${pending.length} ${pending.length == 1 ? 'artigo' : 'artigos'} por fazer',
-                                    style: KText.s(21, color: KColors.muted),
+                                    'Nova lista',
+                                    style: KText.s(22, weight: FontWeight.w600, color: KColors.ink2),
                                   ),
                                 ],
                               ),
                             ),
-                            if (done.isNotEmpty)
-                              KButton(
-                                label: 'Limpar concluídos',
-                                height: 60,
-                                fontSize: 20,
-                                padding: const EdgeInsets.symmetric(horizontal: 24),
-                                onTap: () => actions.clearDone(current.entityId).catchError(KToast.error),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        KPress(
-                          onTap: () => showItemModal(context, list: current, existing: items),
-                          child: Container(
-                            height: 80,
-                            padding: const EdgeInsets.fromLTRB(18, 0, 24, 0),
-                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 56,
-                                  height: 56,
-                                  decoration: const BoxDecoration(color: KColors.accent, shape: BoxShape.circle),
-                                  child: const Center(child: KIcon(KIcons.plus, size: 28, color: Colors.white, stroke: 2.2)),
-                                ),
-                                const SizedBox(width: 16),
-                                Text(
-                                  'Adicionar artigo…',
-                                  style: KText.s(24, weight: FontWeight.w500, color: KColors.muted),
-                                ),
-                              ],
-                            ),
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        Expanded(
-                          child: itemsAsync != null && itemsAsync.isLoading && !itemsAsync.hasValue
-                              ? const Center(child: CircularProgressIndicator(color: KColors.accent))
-                              : ListView(
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 28),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(color: KColors.sub, borderRadius: BorderRadius.circular(30)),
+                child: current == null
+                    ? Center(
+                        child: Text('Nenhuma lista no Home Assistant', style: KText.s(24, color: KColors.muted)),
+                      )
+                    : Column(
+                        key: ValueKey(current.entityId),
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    for (final it in pending)
-                                      Padding(
-                                        padding: const EdgeInsets.only(bottom: 10),
-                                        child: Container(
-                                          constraints: const BoxConstraints(minHeight: 80),
-                                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
-                                          child: Row(
-                                            children: [
-                                              KPress(
-                                                onTap: () => actions.update(current.entityId, it, done: true).catchError(KToast.error),
-                                                child: const SizedBox(width: 92, height: 80, child: Center(child: KCheckCircle(done: false, size: 46))),
-                                              ),
-                                              Expanded(
-                                                child: KPress(
-                                                  onTap: () => showItemModal(context, list: current, item: it, existing: items),
-                                                  child: Padding(
-                                                    padding: const EdgeInsets.only(right: 24),
-                                                    child: Row(
-                                                      children: [
-                                                        Expanded(
-                                                          child: Text(it.name, style: KText.s(24, weight: FontWeight.w500)),
-                                                        ),
-                                                        if (it.detail.isNotEmpty) ...[
-                                                          const SizedBox(width: 16),
-                                                          Text(it.detail, style: KText.s(20, color: KColors.muted)),
-                                                        ],
-                                                        const SizedBox(width: 16),
-                                                        const KIcon(KIcons.chevronRight, size: 24, color: KColors.faint),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    if (pending.isEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 48),
-                                        child: Text(
-                                          'Nada por fazer nesta lista',
-                                          textAlign: TextAlign.center,
-                                          style: KText.s(24, color: KColors.muted),
-                                        ),
-                                      ),
-                                    if (done.isNotEmpty) ...[
-                                      KPress(
-                                        onTap: () => setState(() => _showDone = !_showDone),
-                                        child: Padding(
-                                          padding: const EdgeInsets.fromLTRB(4, 14, 4, 0),
-                                          child: SizedBox(
-                                            height: 64,
+                                    Text(current.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: KText.d(44, spacing: -1)),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      pending.isEmpty ? 'Tudo feito' : '${pending.length} ${pending.length == 1 ? 'artigo' : 'artigos'} por fazer',
+                                      style: KText.s(21, color: KColors.muted),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (done.isNotEmpty)
+                                KButton(
+                                  label: 'Limpar concluídos',
+                                  height: 60,
+                                  fontSize: 20,
+                                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                                  onTap: () => actions.clearDone(current.entityId).catchError(KToast.error),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          KPress(
+                            onTap: () => showItemModal(context, list: current, existing: items),
+                            child: Container(
+                              height: 80,
+                              padding: const EdgeInsets.fromLTRB(18, 0, 24, 0),
+                              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 56,
+                                    height: 56,
+                                    decoration: const BoxDecoration(color: KColors.accent, shape: BoxShape.circle),
+                                    child: const Center(child: KIcon(KIcons.plus, size: 28, color: Colors.white, stroke: 2.2)),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Text(
+                                    'Adicionar artigo…',
+                                    style: KText.s(24, weight: FontWeight.w500, color: KColors.muted),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Expanded(
+                            child: itemsAsync != null && itemsAsync.isLoading && !itemsAsync.hasValue
+                                ? const Center(child: CircularProgressIndicator(color: KColors.accent))
+                                : ListView(
+                                    children: [
+                                      for (final it in pending)
+                                        Padding(
+                                          padding: const EdgeInsets.only(bottom: 10),
+                                          child: Container(
+                                            constraints: const BoxConstraints(minHeight: 80),
+                                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
                                             child: Row(
                                               children: [
-                                                AnimatedRotation(
-                                                  turns: _showDone ? .25 : 0,
-                                                  duration: const Duration(milliseconds: 250),
-                                                  child: const KIcon(KIcons.chevronRight, size: 24, color: KColors.ink2, stroke: 2.2),
+                                                KPress(
+                                                  onTap: () => actions.update(current.entityId, it, done: true).catchError(KToast.error),
+                                                  child: const SizedBox(width: 92, height: 80, child: Center(child: KCheckCircle(done: false, size: 46))),
                                                 ),
-                                                const SizedBox(width: 10),
-                                                Text(
-                                                  'Concluídos (${done.length})',
-                                                  style: KText.s(21, weight: FontWeight.w700, color: KColors.ink2),
+                                                Expanded(
+                                                  child: KPress(
+                                                    onTap: () => showItemModal(context, list: current, item: it, existing: items),
+                                                    child: Padding(
+                                                      padding: const EdgeInsets.only(right: 24),
+                                                      child: Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: Text(it.name, style: KText.s(24, weight: FontWeight.w500)),
+                                                          ),
+                                                          if (it.detail.isNotEmpty) ...[
+                                                            const SizedBox(width: 16),
+                                                            Text(it.detail, style: KText.s(20, color: KColors.muted)),
+                                                          ],
+                                                          const SizedBox(width: 16),
+                                                          const KIcon(KIcons.chevronRight, size: 24, color: KColors.faint),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
                                                 ),
                                               ],
                                             ),
                                           ),
                                         ),
-                                      ),
-                                      if (_showDone)
-                                        for (final it in done)
-                                          Padding(
-                                            padding: const EdgeInsets.only(bottom: 10),
-                                            child: KPress(
-                                              onTap: () => actions.update(current.entityId, it, done: false).catchError(KToast.error),
-                                              child: Container(
-                                                constraints: const BoxConstraints(minHeight: 80),
-                                                padding: const EdgeInsets.fromLTRB(22, 0, 28, 0),
-                                                decoration: BoxDecoration(color: const Color(0x8CFFFFFF), borderRadius: BorderRadius.circular(22)),
-                                                child: Row(
-                                                  children: [
-                                                    const KCheckCircle(done: true, size: 46),
-                                                    const SizedBox(width: 20),
-                                                    Expanded(
-                                                      child: Text(
-                                                        it.name,
-                                                        style: KText.s(
-                                                          22,
-                                                          weight: FontWeight.w500,
-                                                          color: KColors.faint,
-                                                        ).copyWith(decoration: TextDecoration.lineThrough),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
+                                      if (pending.isEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 48),
+                                          child: Text(
+                                            'Nada por fazer nesta lista',
+                                            textAlign: TextAlign.center,
+                                            style: KText.s(24, color: KColors.muted),
+                                          ),
+                                        ),
+                                      if (done.isNotEmpty) ...[
+                                        KPress(
+                                          onTap: () => setState(() => _showDone = !_showDone),
+                                          child: Padding(
+                                            padding: const EdgeInsets.fromLTRB(4, 14, 4, 0),
+                                            child: SizedBox(
+                                              height: 64,
+                                              child: Row(
+                                                children: [
+                                                  AnimatedRotation(
+                                                    turns: _showDone ? .25 : 0,
+                                                    duration: const Duration(milliseconds: 250),
+                                                    child: const KIcon(KIcons.chevronRight, size: 24, color: KColors.ink2, stroke: 2.2),
+                                                  ),
+                                                  const SizedBox(width: 10),
+                                                  Text(
+                                                    'Concluídos (${done.length})',
+                                                    style: KText.s(21, weight: FontWeight.w700, color: KColors.ink2),
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ),
+                                        ),
+                                        if (_showDone)
+                                          for (final it in done)
+                                            Padding(
+                                              padding: const EdgeInsets.only(bottom: 10),
+                                              child: KPress(
+                                                onTap: () => actions.update(current.entityId, it, done: false).catchError(KToast.error),
+                                                child: Container(
+                                                  constraints: const BoxConstraints(minHeight: 80),
+                                                  padding: const EdgeInsets.fromLTRB(22, 0, 28, 0),
+                                                  decoration: BoxDecoration(color: const Color(0x8CFFFFFF), borderRadius: BorderRadius.circular(22)),
+                                                  child: Row(
+                                                    children: [
+                                                      const KCheckCircle(done: true, size: 46),
+                                                      const SizedBox(width: 20),
+                                                      Expanded(
+                                                        child: Text(
+                                                          it.name,
+                                                          style: KText.s(
+                                                            22,
+                                                            weight: FontWeight.w500,
+                                                            color: KColors.faint,
+                                                          ).copyWith(decoration: TextDecoration.lineThrough),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                      ],
                                     ],
-                                  ],
-                                ),
-                        ),
-                      ],
-                    ),
+                                  ),
+                          ),
+                        ],
+                      ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

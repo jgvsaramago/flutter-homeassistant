@@ -601,6 +601,57 @@ class KCheckCircle extends StatelessWidget {
   }
 }
 
+/// The design's `dcPageIn`: a section rises 28 px while fading in. On a
+/// page with several sections each gets the next [index], so they arrive
+/// one after another, top first.
+class KFadeUp extends StatefulWidget {
+  const KFadeUp({super.key, this.index = 0, required this.child});
+
+  /// Position from the top; each step waits [step] longer.
+  final int index;
+  final Widget child;
+
+  static const _base = Duration(milliseconds: 50);
+  static const step = Duration(milliseconds: 100);
+  static const _duration = Duration(milliseconds: 450);
+
+  @override
+  State<KFadeUp> createState() => _KFadeUpState();
+}
+
+class _KFadeUpState extends State<KFadeUp> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: KFadeUp._duration);
+  late final Animation<double> _t = CurvedAnimation(parent: _c, curve: kEase);
+  Timer? _start;
+
+  @override
+  void initState() {
+    super.initState();
+    _start = Timer(KFadeUp._base + KFadeUp.step * widget.index, () {
+      if (mounted) _c.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _start?.cancel();
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _t,
+      builder: (context, child) => Opacity(
+        opacity: _t.value.clamp(0.0, 1.0),
+        child: Transform.translate(offset: Offset(0, 28 * (1 - _t.value)), child: child),
+      ),
+      child: widget.child,
+    );
+  }
+}
+
 // ─── Modals ────────────────────────────────────────────────────────────
 
 /// Opens a redesign modal: a dimmed backdrop and a card that rises in

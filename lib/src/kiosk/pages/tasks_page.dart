@@ -34,120 +34,122 @@ class _TasksPageState extends ConsumerState<TasksPage> {
     final dayDone = dayList.where((c) => state.isDone(day, c)).length;
     final isToday = sameDay(day, now);
 
-    return KSection(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Tarefas', style: KText.pageTitle),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${isToday ? 'Hoje' : '${PtDates.weekdaysShort[day.weekday - 1]}, ${PtDates.short(day)}'} · ${dayList.isEmpty ? 'sem tarefas' : '$dayDone de ${dayList.length} feitas'}',
-                      style: KText.s(20, weight: FontWeight.w500, color: KColors.muted),
-                    ),
-                  ],
-                ),
-              ),
-              KButton.primary(
-                label: 'Nova tarefa',
-                icon: KIcons.plus,
-                height: 72,
-                fontSize: 24,
-                onTap: () => showTaskModal(context, day: day),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              for (var i = 0; i < 7; i++) ...[
-                if (i > 0) const SizedBox(width: 10),
+    return KFadeUp(
+      child: KSection(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
                 Expanded(
-                  child: () {
-                    final d = addDays(monday, i);
-                    final list = state.forDay(d);
-                    final n = list.where((c) => state.isDone(d, c)).length;
-                    final on = sameDay(d, day), today = sameDay(d, now);
-                    final sub = on ? KColors.onAccentMuted : (today ? KColors.todayInk : KColors.muted);
-                    return KPress(
-                      onTap: () => setState(() {
-                        _selected = d;
-                        _tick++;
-                      }),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        height: 148,
-                        decoration: BoxDecoration(
-                          color: on ? KColors.accent : (today ? KColors.todayBg : KColors.sub),
-                          borderRadius: BorderRadius.circular(26),
-                          border: Border.all(color: today && !on ? KColors.todayBorder : Colors.transparent, width: 3),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              PtDates.abbr[i],
-                              style: KText.s(17, weight: FontWeight.w700, spacing: 1.5, color: sub),
-                            ),
-                            const SizedBox(height: 8),
-                            Text('${d.day}', style: KText.d(36, height: 1, color: on ? Colors.white : KColors.ink)),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: 72,
-                              child: KProgress(
-                                value: list.isEmpty ? 0 : n / list.length,
-                                height: 8,
-                                track: on ? const Color(0x40FFFFFF) : KColors.border,
-                                fill: on ? Colors.white : KColors.accent,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              list.isEmpty ? '—' : '$n/${list.length}',
-                              style: KText.s(15, weight: FontWeight.w600, color: sub),
-                            ),
-                          ],
-                        ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Tarefas', style: KText.pageTitle),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${isToday ? 'Hoje' : '${PtDates.weekdaysShort[day.weekday - 1]}, ${PtDates.short(day)}'} · ${dayList.isEmpty ? 'sem tarefas' : '$dayDone de ${dayList.length} feitas'}',
+                        style: KText.s(20, weight: FontWeight.w500, color: KColors.muted),
                       ),
-                    );
-                  }(),
+                    ],
+                  ),
+                ),
+                KButton.primary(
+                  label: 'Nova tarefa',
+                  icon: KIcons.plus,
+                  height: 72,
+                  fontSize: 24,
+                  onTap: () => showTaskModal(context, day: day),
                 ),
               ],
-            ],
-          ),
-          const SizedBox(height: 20),
-          Expanded(
-            child: TweenAnimationBuilder<double>(
-              key: ValueKey(_tick),
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 340),
-              curve: kEase,
-              builder: (context, t, child) => Opacity(
-                opacity: t,
-                child: Transform.translate(offset: Offset(0, 16 * (1 - t)), child: child),
-              ),
-              child: dayList.isEmpty
-                  ? _EmptyDay(day: isToday ? 'hoje' : '${PtDates.weekdays[day.weekday - 1].split('-').first}, ${day.day} de ${PtDates.months[day.month - 1]}')
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final (i, m) in members.indexed) ...[
-                          if (i > 0) const SizedBox(width: 16),
-                          Expanded(
-                            child: _PersonColumn(member: m, day: day, isToday: isToday, chores: dayList.where((c) => c.who == m.id).toList(), state: state),
-                          ),
-                        ],
-                      ],
-                    ),
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                for (var i = 0; i < 7; i++) ...[
+                  if (i > 0) const SizedBox(width: 10),
+                  Expanded(
+                    child: () {
+                      final d = addDays(monday, i);
+                      final list = state.forDay(d);
+                      final n = list.where((c) => state.isDone(d, c)).length;
+                      final on = sameDay(d, day), today = sameDay(d, now);
+                      final sub = on ? KColors.onAccentMuted : (today ? KColors.todayInk : KColors.muted);
+                      return KPress(
+                        onTap: () => setState(() {
+                          _selected = d;
+                          _tick++;
+                        }),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          height: 148,
+                          decoration: BoxDecoration(
+                            color: on ? KColors.accent : (today ? KColors.todayBg : KColors.sub),
+                            borderRadius: BorderRadius.circular(26),
+                            border: Border.all(color: today && !on ? KColors.todayBorder : Colors.transparent, width: 3),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                PtDates.abbr[i],
+                                style: KText.s(17, weight: FontWeight.w700, spacing: 1.5, color: sub),
+                              ),
+                              const SizedBox(height: 8),
+                              Text('${d.day}', style: KText.d(36, height: 1, color: on ? Colors.white : KColors.ink)),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: 72,
+                                child: KProgress(
+                                  value: list.isEmpty ? 0 : n / list.length,
+                                  height: 8,
+                                  track: on ? const Color(0x40FFFFFF) : KColors.border,
+                                  fill: on ? Colors.white : KColors.accent,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                list.isEmpty ? '—' : '$n/${list.length}',
+                                style: KText.s(15, weight: FontWeight.w600, color: sub),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }(),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: TweenAnimationBuilder<double>(
+                key: ValueKey(_tick),
+                tween: Tween(begin: 0, end: 1),
+                duration: const Duration(milliseconds: 340),
+                curve: kEase,
+                builder: (context, t, child) => Opacity(
+                  opacity: t,
+                  child: Transform.translate(offset: Offset(0, 16 * (1 - t)), child: child),
+                ),
+                child: dayList.isEmpty
+                    ? _EmptyDay(day: isToday ? 'hoje' : '${PtDates.weekdays[day.weekday - 1].split('-').first}, ${day.day} de ${PtDates.months[day.month - 1]}')
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final (i, m) in members.indexed) ...[
+                            if (i > 0) const SizedBox(width: 16),
+                            Expanded(
+                              child: _PersonColumn(member: m, day: day, isToday: isToday, chores: dayList.where((c) => c.who == m.id).toList(), state: state),
+                            ),
+                          ],
+                        ],
+                      ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
