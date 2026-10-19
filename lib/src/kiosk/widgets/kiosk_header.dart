@@ -177,7 +177,11 @@ class _ForecastTile extends StatelessWidget {
 
 double _textWidth(String text, TextStyle style) {
   if (text.isEmpty) return 0;
-  final painter = TextPainter(text: TextSpan(text: text, style: style), textDirection: TextDirection.ltr, maxLines: 1)..layout();
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: TextDirection.ltr,
+    maxLines: 1,
+  )..layout();
   final w = painter.width;
   painter.dispose();
   return w;

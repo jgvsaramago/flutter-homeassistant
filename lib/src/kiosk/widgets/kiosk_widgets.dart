@@ -283,7 +283,13 @@ class KChip extends StatelessWidget {
         // instead of stretching to the width a Wrap offers it.
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          children: [Text(label, maxLines: 1, style: KText.s(fontSize, weight: FontWeight.w600, color: on ? Colors.white : KColors.ink))],
+          children: [
+            Text(
+              label,
+              maxLines: 1,
+              style: KText.s(fontSize, weight: FontWeight.w600, color: on ? Colors.white : KColors.ink),
+            ),
+          ],
         ),
       ),
     );

@@ -375,9 +375,10 @@ class _SecurityCard extends ConsumerWidget {
               ),
             ),
           ],
+          const SizedBox(height: 16),
+          label('FECHADURAS E PORTÕES'),
+          if (locks.isEmpty) ...[const SizedBox(height: 10), Text(locksSetupHint, style: KText.s(17, color: KColors.muted))],
           if (locks.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            label('FECHADURAS E PORTÕES'),
             for (final l in locks) ...[
               const SizedBox(height: 10),
               Container(

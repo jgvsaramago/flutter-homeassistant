@@ -239,21 +239,21 @@ LockInfo _lock(HaEntity e, String name) {
   return LockInfo(entityId: e.entityId, name: name, kind: kind, secured: secured, available: !e.isUnavailable);
 }
 
+/// The locks and gates the Casa screen shows — only the ones chosen in the
+/// HA sidebar panel (Flutter Dashboard › Ecrã Casa › Fechaduras e portões).
+/// Deliberately no auto-detection: HA's `lock.*` entities include things
+/// like a car's door and charge-cable locks, which don't belong here.
 final locksProvider = Provider<List<LockInfo>>((ref) {
   final entities = ref.watch(kioskEntitiesProvider);
   final configured = ref.watch(houseConfigProvider.select((c) => c.locks));
-  if (configured.isNotEmpty) {
-    return [
-      for (final c in configured)
-        if (entities[c.entityId] case final e?) _lock(e, c.name.isEmpty ? e.friendlyName : c.name),
-    ];
-  }
-  final out = [
-    for (final e in entities.values)
-      if (e.domain == 'lock' || (e.domain == 'cover' && (e.deviceClass == 'garage' || e.deviceClass == 'gate'))) _lock(e, e.friendlyName),
-  ]..sort((a, b) => a.kind.index != b.kind.index ? a.kind.index - b.kind.index : a.name.compareTo(b.name));
-  return out;
+  return [
+    for (final c in configured)
+      if (entities[c.entityId] case final e?) _lock(e, c.name.isEmpty ? e.friendlyName : c.name),
+  ];
 });
+
+/// Where to pick them, shown while none are configured.
+const locksSetupHint = 'Escolha as fechaduras no Home Assistant: Flutter Dashboard › Ecrã Casa';
 
 class LockActions {
   LockActions(this._ref);
@@ -404,7 +404,11 @@ final securitySensorsProvider = Provider<List<SensorLine>>((ref) {
       final last = (motion.toList()..sort((a, b) => b.lastChanged.compareTo(a.lastChanged))).first;
       final mins = DateTime.now().difference(last.lastChanged).inMinutes;
       final where = (areas[last.entityId] ?? last.friendlyName).toLowerCase();
-      final ago = mins < 1 ? 'agora mesmo' : mins < 60 ? 'há $mins min' : (mins < 24 * 60 ? 'há ${mins ~/ 60} h' : 'há mais de um dia');
+      final ago = mins < 1
+          ? 'agora mesmo'
+          : mins < 60
+          ? 'há $mins min'
+          : (mins < 24 * 60 ? 'há ${mins ~/ 60} h' : 'há mais de um dia');
       lines.add(SensorLine('Movimento: $where, $ago', KColors.faint2));
     }
   }

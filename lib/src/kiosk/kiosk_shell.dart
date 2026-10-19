@@ -8,6 +8,7 @@ import '../services/screen_power_controller.dart';
 import '../sheets/sheet_registry.dart';
 import 'data/calendar_data.dart';
 import 'data/chores_data.dart';
+import 'data/house_config.dart';
 import 'data/kiosk_hydration.dart';
 import 'data/meals_data.dart';
 import 'modals/assistant_modal.dart';
@@ -87,6 +88,12 @@ class _KioskShellState extends ConsumerState<KioskShell> {
     // their edits whenever someone opens the page.
     if (page == KioskPage.meals || page == KioskPage.home) ref.read(mealPlanProvider.notifier).load().ignore();
     if (page == KioskPage.tasks || page == KioskPage.home) ref.read(choresProvider.notifier).load().ignore();
+    // Same for the Casa mapping edited in HA's sidebar panel (locks, scenes…).
+    if (page == KioskPage.house || page == KioskPage.home) {
+      ref.read(houseConfigStoreProvider).read().then((c) {
+        if (mounted) ref.read(houseConfigProvider.notifier).state = c;
+      }).ignore();
+    }
     ref.read(kioskPageProvider.notifier).state = page;
   }
 
