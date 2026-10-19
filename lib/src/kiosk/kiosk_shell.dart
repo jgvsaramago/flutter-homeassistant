@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/ha_providers.dart';
 import '../services/screen_power_controller.dart';
+import '../services/voice_satellite.dart';
 import '../sheets/sheet_registry.dart';
 import 'data/calendar_data.dart';
 import 'data/chores_data.dart';
@@ -47,6 +48,7 @@ class KioskShell extends ConsumerStatefulWidget {
 class _KioskShellState extends ConsumerState<KioskShell> {
   Timer? _resetToHomeTimer;
   Timer? _calendarRefresh;
+  StreamSubscription<SatelliteEvent>? _voice;
 
   @override
   void initState() {
@@ -61,6 +63,12 @@ class _KioskShellState extends ConsumerState<KioskShell> {
     SheetRegistry.instance.requestedId.addListener(_onSheetRequested);
     SheetRegistry.instance.closeRequests.addListener(_onCloseRequested);
     ScreenPowerController.instance.isOn.addListener(_onScreenPowerChanged);
+    // Saying the wake word opens the Assistente so the conversation shows
+    // on screen.
+    VoiceSatellite.instance.start();
+    _voice = VoiceSatellite.instance.events.listen((e) {
+      if (e is SatelliteWake && mounted) showAssistant(context, byVoice: true);
+    });
     // Calendars edited elsewhere (a phone, HA itself) show up within a few
     // minutes without anyone touching the panel.
     _calendarRefresh = Timer.periodic(const Duration(minutes: 5), (_) {
@@ -78,6 +86,7 @@ class _KioskShellState extends ConsumerState<KioskShell> {
     ScreenPowerController.instance.isOn.removeListener(_onScreenPowerChanged);
     _resetToHomeTimer?.cancel();
     _calendarRefresh?.cancel();
+    _voice?.cancel();
     super.dispose();
   }
 

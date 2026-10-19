@@ -543,6 +543,17 @@ class _KBlinkState extends State<KBlink> with SingleTickerProviderStateMixin {
   }
 
   @override
+  void didUpdateWidget(KBlink old) {
+    super.didUpdateWidget(old);
+    if (widget.enabled == old.enabled) return;
+    if (widget.enabled) {
+      _c.repeat(reverse: true);
+    } else {
+      _c.stop();
+    }
+  }
+
+  @override
   void dispose() {
     _c.dispose();
     super.dispose();

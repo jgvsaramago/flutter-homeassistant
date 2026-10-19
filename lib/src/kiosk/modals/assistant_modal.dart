@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/ha_entity.dart';
 import '../../providers/ha_providers.dart';
+import '../../services/voice_satellite.dart';
 import '../../widgets/on_screen_keyboard_controller.dart';
 import '../data/kiosk_entities.dart';
 import '../data/pt_dates.dart';
@@ -10,7 +13,15 @@ import '../theme/kiosk_icons.dart';
 import '../theme/kiosk_tokens.dart';
 import '../widgets/kiosk_widgets.dart';
 
-Future<void> showAssistant(BuildContext context) => showKModal(context, (_) => const AssistantModal());
+Future<void> showAssistant(BuildContext context, {bool byVoice = false}) async {
+  if (AssistantModal.isOpen) return;
+  AssistantModal.isOpen = true;
+  try {
+    await showKModal(context, (_) => AssistantModal(byVoice: byVoice));
+  } finally {
+    AssistantModal.isOpen = false;
+  }
+}
 
 /// The conversation agent of HA's preferred Assist pipeline — the same one
 /// a voice satellite in the house would talk to.
@@ -36,11 +47,18 @@ class _Msg {
 }
 
 /// The design's "Assistente": a conversation with Home Assistant's Assist.
-/// This panel has no microphone, so requests are typed on the on-screen
-/// keyboard; replies come back as text plus a card for each entity the
-/// assistant changed.
+/// Spoken requests go through Linux Voice Assistant on this Pi
+/// ([VoiceSatellite]) — the modal shows what it heard and answered, and its
+/// mic button starts/stops a pipeline. Requests can always be typed on the
+/// on-screen keyboard too (the only way while LVA isn't running); replies
+/// come back as text plus a card for each entity the assistant changed.
 class AssistantModal extends ConsumerStatefulWidget {
-  const AssistantModal({super.key});
+  const AssistantModal({super.key, this.byVoice = false});
+
+  /// Opened by the wake word: don't pop the keyboard up over it.
+  final bool byVoice;
+
+  static bool isOpen = false;
 
   @override
   ConsumerState<AssistantModal> createState() => _AssistantModalState();
@@ -53,6 +71,9 @@ class _AssistantModalState extends ConsumerState<AssistantModal> {
   final _messages = <_Msg>[];
   bool _thinking = false;
   String? _conversationId;
+  StreamSubscription<SatelliteEvent>? _voice;
+
+  static final _satellite = VoiceSatellite.instance;
 
   @override
   void initState() {
@@ -60,10 +81,34 @@ class _AssistantModalState extends ConsumerState<AssistantModal> {
     _focus.addListener(() {
       if (mounted) setState(() {});
     });
+    _voice = _satellite.events.listen(_onVoice);
+  }
+
+  void _onVoice(SatelliteEvent e) {
+    final msg = switch (e) {
+      SatelliteHeard(:final text) => _Msg.user(text),
+      SatelliteReply(:final text) => _Msg.bot(text, const []),
+      SatelliteError() => const _Msg.bot('Não percebi. Tente de novo.', []),
+      SatelliteWake() => null,
+    };
+    if (msg == null) return;
+    setState(() => _messages.add(msg));
+    _scrollDown();
+  }
+
+  void _toggleMic() {
+    if (_satellite.phase.value == SatellitePhase.idle) {
+      OnScreenKeyboardController.instance.close();
+      _focus.unfocus();
+      _satellite.startListening();
+    } else {
+      _satellite.stop();
+    }
   }
 
   @override
   void dispose() {
+    _voice?.cancel();
     _input.dispose();
     _focus.dispose();
     _scroll.dispose();
@@ -109,7 +154,23 @@ class _AssistantModalState extends ConsumerState<AssistantModal> {
   Widget build(BuildContext context) {
     final entities = ref.watch(kioskEntitiesProvider);
     final allEntities = ref.watch(entitiesProvider).valueOrNull ?? const <String, HaEntity>{};
-    final (status, statusBg, statusFg) = _thinking ? ('A pensar…', KColors.amberTint, KColors.amberInk) : ('Pronto', KColors.chip, KColors.ink2);
+    return ListenableBuilder(
+      listenable: Listenable.merge([_satellite.available, _satellite.phase]),
+      builder: (context, _) => _build(context, entities, allEntities),
+    );
+  }
+
+  Widget _build(BuildContext context, Map<String, HaEntity> entities, Map<String, HaEntity> allEntities) {
+    final voice = _satellite.available.value;
+    final phase = _satellite.phase.value;
+    final busy = _thinking || phase != SatellitePhase.idle;
+    final (status, statusBg, statusFg) = switch (phase) {
+      SatellitePhase.listening => ('A ouvir…', KColors.accentSoft, KColors.accent),
+      SatellitePhase.thinking => ('A pensar…', KColors.amberTint, KColors.amberInk),
+      SatellitePhase.speaking => ('A responder…', KColors.greenTint, KColors.greenInk),
+      SatellitePhase.idle when _thinking => ('A pensar…', KColors.amberTint, KColors.amberInk),
+      SatellitePhase.idle => ('Pronto', KColors.chip, KColors.ink2),
+    };
     return KModal(
       padding: const EdgeInsets.fromLTRB(36, 32, 36, 36),
       child: Column(
@@ -140,7 +201,7 @@ class _AssistantModalState extends ConsumerState<AssistantModal> {
                 child: Row(
                   children: [
                     KBlink(
-                      enabled: _thinking,
+                      enabled: busy,
                       period: const Duration(milliseconds: 800),
                       child: Container(
                         width: 10,
@@ -176,7 +237,7 @@ class _AssistantModalState extends ConsumerState<AssistantModal> {
             constraints: const BoxConstraints(maxHeight: 1000),
             child: _messages.isEmpty && !_thinking
                 ? Text(
-                    'Escreva, por exemplo, “Acende as luzes da cozinha” ou “Qual é a temperatura da água?”',
+                    '${voice ? 'Fale ou escreva' : 'Escreva'}, por exemplo, “Acende as luzes da cozinha” ou “Qual é a temperatura da água?”',
                     style: KText.s(20, color: KColors.muted, height: 1.4),
                   )
                 : ListView(
@@ -184,7 +245,7 @@ class _AssistantModalState extends ConsumerState<AssistantModal> {
                     shrinkWrap: true,
                     children: [
                       for (final m in _messages) Padding(padding: const EdgeInsets.only(bottom: 18), child: _bubble(m, {...allEntities, ...entities})),
-                      if (_thinking) const Align(alignment: Alignment.centerLeft, child: _Typing()),
+                      if (_thinking || phase == SatellitePhase.thinking) const Align(alignment: Alignment.centerLeft, child: _Typing()),
                     ],
                   ),
           ),
@@ -196,6 +257,23 @@ class _AssistantModalState extends ConsumerState<AssistantModal> {
             ),
             child: Row(
               children: [
+                if (voice) ...[
+                  KBlink(
+                    enabled: phase == SatellitePhase.listening,
+                    period: const Duration(milliseconds: 1200),
+                    child: KCircleButton(
+                      icon: KIcons.mic,
+                      size: 96,
+                      iconSize: 40,
+                      stroke: 2,
+                      bg: phase == SatellitePhase.idle ? KColors.chip : KColors.accent,
+                      fg: phase == SatellitePhase.idle ? KColors.ink : Colors.white,
+                      border: null,
+                      onTap: _toggleMic,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                ],
                 KCircleButton(
                   icon: KIcons.keyboard,
                   size: 96,
@@ -214,7 +292,7 @@ class _AssistantModalState extends ConsumerState<AssistantModal> {
                     hint: 'Escreva um pedido…',
                     height: 84,
                     fontSize: 24,
-                    autofocus: true,
+                    autofocus: !widget.byVoice,
                     options: KeyboardOptions(doneLabel: 'Enviar', onDone: _send),
                     trailing: KCircleButton(
                       icon: KIcons.send,
