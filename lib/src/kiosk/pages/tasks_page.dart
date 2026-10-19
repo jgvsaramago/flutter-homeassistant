@@ -48,7 +48,7 @@ class _TasksPageState extends ConsumerState<TasksPage> {
                     Text('Tarefas', style: KText.pageTitle),
                     const SizedBox(height: 2),
                     Text(
-                      '${isToday ? 'Hoje' : '${PtDates.weekdaysShort[day.weekday - 1]}, ${PtDates.short(day)}'} · $dayDone de ${dayList.length} feitas',
+                      '${isToday ? 'Hoje' : '${PtDates.weekdaysShort[day.weekday - 1]}, ${PtDates.short(day)}'} · ${dayList.isEmpty ? 'sem tarefas' : '$dayDone de ${dayList.length} feitas'}',
                       style: KText.s(20, weight: FontWeight.w500, color: KColors.muted),
                     ),
                   ],
@@ -132,17 +132,19 @@ class _TasksPageState extends ConsumerState<TasksPage> {
                 opacity: t,
                 child: Transform.translate(offset: Offset(0, 16 * (1 - t)), child: child),
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final (i, m) in members.indexed) ...[
-                    if (i > 0) const SizedBox(width: 16),
-                    Expanded(
-                      child: _PersonColumn(member: m, day: day, chores: dayList.where((c) => c.who == m.id).toList(), state: state),
+              child: dayList.isEmpty
+                  ? _EmptyDay(day: isToday ? 'hoje' : '${PtDates.weekdays[day.weekday - 1].split('-').first}, ${day.day} de ${PtDates.months[day.month - 1]}')
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final (i, m) in members.indexed) ...[
+                          if (i > 0) const SizedBox(width: 16),
+                          Expanded(
+                            child: _PersonColumn(member: m, day: day, isToday: isToday, chores: dayList.where((c) => c.who == m.id).toList(), state: state),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
-                ],
-              ),
             ),
           ),
         ],
@@ -152,10 +154,11 @@ class _TasksPageState extends ConsumerState<TasksPage> {
 }
 
 class _PersonColumn extends ConsumerWidget {
-  const _PersonColumn({required this.member, required this.day, required this.chores, required this.state});
+  const _PersonColumn({required this.member, required this.day, required this.isToday, required this.chores, required this.state});
 
   final FamilyMember member;
   final DateTime day;
+  final bool isToday;
   final List<Chore> chores;
   final ChoresState state;
 
@@ -191,7 +194,7 @@ class _PersonColumn extends ConsumerWidget {
                           child: KProgress(value: chores.isEmpty ? 0 : n / chores.length, height: 8, track: KColors.border, fill: c.color),
                         ),
                         const SizedBox(width: 10),
-                        Text('$n de ${chores.length}', style: KText.s(18, color: KColors.muted)),
+                        Text(chores.isEmpty ? 'Livre' : '$n de ${chores.length}', style: KText.s(18, color: KColors.muted)),
                       ],
                     ),
                   ],
@@ -229,11 +232,16 @@ class _PersonColumn extends ConsumerWidget {
           Expanded(
             child: chores.isEmpty
                 ? Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 32, 8, 0),
-                    child: Text(
-                      'Sem tarefas neste dia',
-                      textAlign: TextAlign.center,
-                      style: KText.s(20, color: KColors.muted),
+                    padding: const EdgeInsets.only(bottom: 40),
+                    child: _EmptyState(
+                      circle: 88,
+                      icon: 42,
+                      circleColor: Colors.white,
+                      iconColor: c.color,
+                      title: Text('Sem tarefas', style: KText.s(22, weight: FontWeight.w600)),
+                      body: '${_isHousehold(member) ? 'Nada para a família' : '${member.name} está livre'} ${isToday ? 'hoje' : 'neste dia'}',
+                      bodySize: 18,
+                      gap: 10,
                     ),
                   )
                 : ListView.separated(
@@ -288,6 +296,89 @@ class _PersonColumn extends ConsumerWidget {
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The shared member ("Família") as opposed to a person.
+bool _isHousehold(FamilyMember m) => m.id == 'familia' || m.name.toLowerCase() == 'família';
+
+/// No one has anything on the selected day (design: "Página Tarefas sem
+/// tarefas") — one panel instead of a column per person.
+class _EmptyDay extends StatelessWidget {
+  const _EmptyDay({required this.day});
+
+  final String day;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(color: KColors.sub, borderRadius: BorderRadius.circular(30)),
+      child: _EmptyState(
+        circle: 128,
+        icon: 60,
+        circleColor: Colors.white,
+        iconColor: KColors.accent,
+        title: Text('Sem tarefas neste dia', style: KText.d(40)),
+        body: 'Ninguém tem tarefas marcadas para $day.',
+        bodySize: 22,
+        gap: 16,
+      ),
+    );
+  }
+}
+
+/// Icon in a circle, a title and a line of text, centred — the design's
+/// empty states for tasks.
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.circle,
+    required this.icon,
+    required this.circleColor,
+    required this.iconColor,
+    required this.title,
+    required this.body,
+    required this.bodySize,
+    required this.gap,
+  });
+
+  final double circle, icon, bodySize, gap;
+  final Color circleColor, iconColor;
+  final Widget title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 400),
+      builder: (context, t, child) => Opacity(opacity: t, child: child),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: circle,
+                height: circle,
+                decoration: BoxDecoration(color: circleColor, shape: BoxShape.circle),
+                child: Center(
+                  child: KIcon(KIcons.tasks, size: icon, color: iconColor, stroke: 1.8),
+                ),
+              ),
+              SizedBox(height: gap),
+              title,
+              SizedBox(height: gap),
+              Text(
+                body,
+                textAlign: TextAlign.center,
+                style: KText.s(bodySize, color: KColors.muted),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

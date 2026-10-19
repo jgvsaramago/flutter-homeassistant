@@ -485,61 +485,82 @@ class _TasksCard extends ConsumerWidget {
             onTitle: () => _goTo(ref, KioskPage.tasks),
             onAdd: () => showTaskModal(context, day: now),
           ),
+          if (today.isNotEmpty) ...[const SizedBox(height: 18), KProgress(value: done / today.length)],
           const SizedBox(height: 18),
-          KProgress(value: today.isEmpty ? 0 : done / today.length),
-          const SizedBox(height: 18),
-          Expanded(
-            child: ClipRect(
-              child: Column(
-                children: [
-                  for (final c in today)
-                    () {
-                      final isDone = state.isDone(now, c);
-                      final m = members[c.who];
-                      return SizedBox(
-                        height: 60,
-                        child: Row(
-                          children: [
-                            KPress(
-                              onTap: () => ref.read(choresProvider.notifier).toggle(now, c).catchError(KToast.error),
-                              child: SizedBox(
-                                width: 56,
-                                height: 56,
-                                child: Center(
-                                  child: KCheckCircle(done: isDone, size: 40, color: KColors.accent),
+          if (today.isEmpty)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: const BoxDecoration(color: KColors.accentSoft, shape: BoxShape.circle),
+                      child: const Center(child: KIcon(KIcons.tasks, size: 38, color: KColors.accent, stroke: 1.8)),
+                    ),
+                    const SizedBox(height: 10),
+                    Text('Sem tarefas para hoje', style: KText.s(22, weight: FontWeight.w600)),
+                    const SizedBox(height: 10),
+                    Text('Aproveitem o dia livre.', style: KText.s(18, color: KColors.muted)),
+                  ],
+                ),
+              ),
+            )
+          else
+            Expanded(
+              child: ClipRect(
+                child: Column(
+                  children: [
+                    for (final c in today)
+                      () {
+                        final isDone = state.isDone(now, c);
+                        final m = members[c.who];
+                        return SizedBox(
+                          height: 60,
+                          child: Row(
+                            children: [
+                              KPress(
+                                onTap: () => ref.read(choresProvider.notifier).toggle(now, c).catchError(KToast.error),
+                                child: SizedBox(
+                                  width: 56,
+                                  height: 56,
+                                  child: Center(
+                                    child: KCheckCircle(done: isDone, size: 40, color: KColors.accent),
+                                  ),
                                 ),
                               ),
-                            ),
-                            Expanded(
-                              child: KPress(
-                                onTap: () => showTaskModal(context, chore: c, day: now),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        c.title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: KText.s(
-                                          22,
-                                          weight: FontWeight.w500,
-                                          color: isDone ? KColors.faint : KColors.ink,
-                                        ).copyWith(decoration: isDone ? TextDecoration.lineThrough : null),
+                              Expanded(
+                                child: KPress(
+                                  onTap: () => showTaskModal(context, chore: c, day: now),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          c.title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: KText.s(
+                                            22,
+                                            weight: FontWeight.w500,
+                                            color: isDone ? KColors.faint : KColors.ink,
+                                          ).copyWith(decoration: isDone ? TextDecoration.lineThrough : null),
+                                        ),
                                       ),
-                                    ),
-                                    if (m != null) KAvatar(initial: m.initial, color: m.color.color, size: 36, fontSize: 16),
-                                  ],
+                                      if (m != null) KAvatar(initial: m.initial, color: m.color.color, size: 36, fontSize: 16),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }(),
-                ],
+                            ],
+                          ),
+                        );
+                      }(),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
