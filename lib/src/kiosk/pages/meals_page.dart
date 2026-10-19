@@ -168,7 +168,22 @@ class _DayRow extends StatelessWidget {
   }
 }
 
-class _MealCell extends StatelessWidget {
+/// What a long-pressed meal carries while it's being dragged.
+class _MealDrag {
+  const _MealDrag(this.day, this.type, this.meal);
+
+  final DateTime day;
+  final MealType type;
+  final Meal meal;
+}
+
+String _slotLabel(DateTime day, MealType type) => '${type.label.toLowerCase()} de ${PtDates.weekdays[day.weekday - 1].split('-').first}, ${day.day}';
+
+/// One day/meal slot. Tapping plans or edits it; long-pressing a planned
+/// meal picks it up, and dropping it on another slot copies it there (the
+/// original stays) — with "Desfazer" on the toast in case it replaced
+/// something.
+class _MealCell extends ConsumerWidget {
   const _MealCell({required this.day, required this.type, required this.meal, required this.today});
 
   final DateTime day;
@@ -176,68 +191,137 @@ class _MealCell extends StatelessWidget {
   final Meal? meal;
   final bool today;
 
+  bool _isSelf(_MealDrag d) => sameDay(d.day, day) && d.type == type;
+
+  Future<void> _copy(WidgetRef ref, _MealDrag d) async {
+    final notifier = ref.read(mealPlanProvider.notifier);
+    final previous = meal;
+    final copy = Meal(dish: d.meal.dish, place: d.meal.place, time: d.type == type ? d.meal.time : PtDates.minutes(type.defaultMinutes), note: d.meal.note);
+    try {
+      await notifier.put(day, type, copy);
+      KToast.show(
+        '${d.meal.dish} copiado para o ${_slotLabel(day, type)}',
+        actionLabel: 'Desfazer',
+        onAction: () => notifier.put(day, type, previous).catchError(KToast.error),
+      );
+    } catch (e) {
+      KToast.error(e);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final m = meal;
+    void open() => showMealModal(context, day: day, type: type);
+    return DragTarget<_MealDrag>(
+      onWillAcceptWithDetails: (details) => !_isSelf(details.data),
+      onAcceptWithDetails: (details) => _copy(ref, details.data),
+      builder: (context, candidates, _) {
+        final hovering = candidates.isNotEmpty;
+        final Widget cell = m == null
+            ? KPress(
+                onTap: open,
+                child: KDashedBox(
+                  color: hovering ? KColors.accent : KColors.dashed,
+                  width: hovering ? 3 : 2,
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        KIcon(hovering ? KIcons.check : KIcons.plus, size: 26, color: hovering ? KColors.accent : KColors.muted, stroke: 2.2),
+                        const SizedBox(width: 8),
+                        Text(
+                          hovering ? 'Copiar para aqui' : 'Planear',
+                          style: KText.s(21, weight: FontWeight.w600, color: hovering ? KColors.accent : KColors.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            : LayoutBuilder(
+                builder: (context, box) {
+                  final card = _MealCard(meal: m, today: today, highlight: hovering);
+                  return LongPressDraggable<_MealDrag>(
+                    data: _MealDrag(day, type, m),
+                    delay: const Duration(milliseconds: 400),
+                    feedback: SizedBox(
+                      width: box.maxWidth,
+                      height: box.maxHeight,
+                      child: Transform.scale(
+                        scale: 1.04,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(22),
+                            boxShadow: const [BoxShadow(color: Color(0x4017191C), blurRadius: 30, offset: Offset(0, 12))],
+                          ),
+                          child: _MealCard(meal: m, today: true, highlight: false),
+                        ),
+                      ),
+                    ),
+                    // Copy, not move: the original stays put, just dimmed
+                    // while its copy is being carried.
+                    childWhenDragging: Opacity(opacity: 0.45, child: card),
+                    child: KPress(onTap: open, child: card),
+                  );
+                },
+              );
+        return cell;
+      },
+    );
+  }
+}
+
+class _MealCard extends StatelessWidget {
+  const _MealCard({required this.meal, required this.today, required this.highlight});
+
+  final Meal meal;
+  final bool today;
+  final bool highlight;
+
   @override
   Widget build(BuildContext context) {
     final m = meal;
-    void open() => showMealModal(context, day: day, type: type);
-    if (m == null) {
-      return KPress(
-        onTap: open,
-        child: KDashedBox(
-          child: Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const KIcon(KIcons.plus, size: 26, color: KColors.muted, stroke: 2.2),
-                const SizedBox(width: 8),
-                Text(
-                  'Planear',
-                  style: KText.s(21, weight: FontWeight.w600, color: KColors.muted),
-                ),
-              ],
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: today ? Colors.white : KColors.sub,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: highlight ? KColors.accent : Colors.transparent, width: 3),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Flexible(
+            child: Text(
+              m.dish,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: KText.s(24, weight: FontWeight.w600, height: 1.25),
             ),
           ),
-        ),
-      );
-    }
-    return KPress(
-      onTap: open,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(color: today ? Colors.white : KColors.sub, borderRadius: BorderRadius.circular(22)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Flexible(
-              child: Text(
-                m.dish,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: KText.s(24, weight: FontWeight.w600, height: 1.25),
+          Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(color: _placeDot[m.place], shape: BoxShape.circle),
               ),
-            ),
-            Row(
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(color: _placeDot[m.place], shape: BoxShape.circle),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  m.time + (m.place != MealPlace.casa ? ' · ${m.place.label}' : ''),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: KText.s(18, color: KColors.muted),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    m.time + (m.place != MealPlace.casa ? ' · ${m.place.label}' : ''),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: KText.s(18, color: KColors.muted),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

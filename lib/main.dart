@@ -19,7 +19,7 @@ import 'src/theme/theme_mode_controller.dart';
 // Bump on every edit and check this against the console output on the Pi to
 // confirm a rebuild actually got redeployed, rather than the old bundle
 // still running.
-const _buildRevision = 13;
+const _buildRevision = 14;
 
 /// Parses `--key=value` (and bare `--flag`) launch arguments. Kept as a
 /// secondary source alongside environment variables (see below for why
