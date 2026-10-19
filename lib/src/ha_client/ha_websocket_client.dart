@@ -332,6 +332,46 @@ class HaWebSocketClient {
     await _sendCommand({'type': 'flutter_homeassistant/set_settings', 'key': key, 'value': value});
   }
 
+  /// Every item on one `todo.*` list (`todo/item/list`): each a map with
+  /// `uid`, `summary`, `status` (`needs_action`/`completed`) and, where the
+  /// integration supports it, `description`/`due`.
+  Future<List<Map<String, dynamic>>> getTodoItems(String entityId) async {
+    final result = await _sendCommand({'type': 'todo/item/list', 'entity_id': entityId});
+    final items = ((result['result'] as Map?)?['items'] as List?) ?? const [];
+    return items.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+  }
+
+  /// Creates one event on a writable calendar via `calendar/event/create` —
+  /// the websocket form rather than the `calendar.create_event` service,
+  /// because only this one accepts an `rrule` for repeating events.
+  /// [event] holds `summary`, `dtstart`, `dtend` and optionally
+  /// `description`/`location`/`rrule`.
+  Future<void> createCalendarEvent(String entityId, Map<String, dynamic> event) async {
+    await _sendCommand({'type': 'calendar/event/create', 'entity_id': entityId, 'event': event});
+  }
+
+  /// The Assist pipelines and which one is preferred — the kiosk's
+  /// assistant talks to that pipeline's conversation agent.
+  Future<Map<String, dynamic>> getAssistPipelines() async {
+    final result = await _sendCommand({'type': 'assist_pipeline/pipeline/list'});
+    return (result['result'] as Map?)?.cast<String, dynamic>() ?? const {};
+  }
+
+  /// Sends one typed request to an Assist conversation agent
+  /// (`conversation/process`) and returns its raw response — speech under
+  /// `response.speech.plain.speech`, affected entities under
+  /// `response.data.success`, plus the `conversation_id` to continue with.
+  Future<Map<String, dynamic>> conversationProcess({required String text, String? agentId, String? conversationId, String language = 'pt'}) async {
+    final result = await _sendCommand({
+      'type': 'conversation/process',
+      'text': text,
+      'language': language,
+      'agent_id': ?agentId,
+      'conversation_id': ?conversationId,
+    });
+    return (result['result'] as Map?)?.cast<String, dynamic>() ?? const {};
+  }
+
   /// Calls a Home Assistant service, e.g. domain `light`, service `turn_on`,
   /// target `{'entity_id': 'light.kitchen'}`.
   Future<void> callService(

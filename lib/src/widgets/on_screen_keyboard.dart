@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../theme/nocturne_theme.dart';
+import '../kiosk/theme/kiosk_icons.dart';
+import '../kiosk/theme/kiosk_tokens.dart';
 import 'on_screen_keyboard_controller.dart';
+
+/// Height of the keyboard panel in design pixels (the design's "Teclado"
+/// board: 96 px keys, a 68 px suggestion row, 600 px in all).
+const kKeyboardHeight = 600.0;
 
 /// Mounted once at the app root (see `app.dart`): shows the on-screen
 /// keyboard docked to the bottom of the screen whenever
@@ -15,8 +20,7 @@ import 'on_screen_keyboard_controller.dart';
 /// settings page) had no reason to shrink/scroll out of its way, and
 /// `TextField`'s own built-in "scroll the focused field above the keyboard"
 /// behavior — which keys off this exact value — never had anything to
-/// react to either. Feeding it this way means both behaviors come from
-/// Flutter's existing machinery instead of being reimplemented here.
+/// react to either.
 class OnScreenKeyboardHost extends StatefulWidget {
   const OnScreenKeyboardHost({super.key, required this.child});
 
@@ -26,288 +30,419 @@ class OnScreenKeyboardHost extends StatefulWidget {
   State<OnScreenKeyboardHost> createState() => _OnScreenKeyboardHostState();
 }
 
-class _OnScreenKeyboardHostState extends State<OnScreenKeyboardHost> {
-  final _keyboardKey = GlobalKey();
-  double _keyboardHeight = 0;
+class _OnScreenKeyboardHostState extends State<OnScreenKeyboardHost> with SingleTickerProviderStateMixin {
+  late final AnimationController _slide = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 340),
+    reverseDuration: const Duration(milliseconds: 220),
+  );
 
-  // The keyboard's row count never changes between its letter/symbol
-  // layouts (see `_letterRows`/`_symbolRows`, both exactly 4 rows), so one
-  // measurement per time it mounts is enough — no need to remeasure on
-  // every shift/symbols toggle or keystroke.
-  void _measureAfterFrame() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final box = _keyboardKey.currentContext?.findRenderObject() as RenderBox?;
-      final height = box?.size.height;
-      if (height != null && height != _keyboardHeight) setState(() => _keyboardHeight = height);
-    });
+  /// The field the panel is (or was, while sliding out) typing into — kept
+  /// past detach so the exit animation still has keys to draw.
+  TextEditingController? _shown;
+
+  @override
+  void initState() {
+    super.initState();
+    OnScreenKeyboardController.instance.active.addListener(_onActiveChanged);
+    _onActiveChanged();
+  }
+
+  @override
+  void dispose() {
+    OnScreenKeyboardController.instance.active.removeListener(_onActiveChanged);
+    _slide.dispose();
+    super.dispose();
+  }
+
+  void _onActiveChanged() {
+    final next = OnScreenKeyboardController.instance.active.value;
+    if (next != null) {
+      setState(() => _shown = next);
+      _slide.forward();
+    } else {
+      setState(() {});
+      _slide.reverse().whenComplete(() {
+        if (mounted && OnScreenKeyboardController.instance.active.value == null) setState(() => _shown = null);
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<TextEditingController?>(
-      valueListenable: OnScreenKeyboardController.instance.active,
-      builder: (context, controller, _) {
-        final showing = controller != null;
-        if (showing) _measureAfterFrame();
-
-        final mediaQuery = MediaQuery.of(context);
-        final reportedInset = showing ? _keyboardHeight : 0.0;
-
-        return Stack(
-          children: [
-            MediaQuery(
-              data: mediaQuery.copyWith(
-                viewInsets: mediaQuery.viewInsets.copyWith(
-                  bottom: reportedInset > mediaQuery.viewInsets.bottom ? reportedInset : mediaQuery.viewInsets.bottom,
-                ),
-              ),
-              child: widget.child,
+    final mediaQuery = MediaQuery.of(context);
+    final showing = OnScreenKeyboardController.instance.active.value != null;
+    final inset = showing ? kKeyboardHeight : 0.0;
+    return Stack(
+      children: [
+        MediaQuery(
+          data: mediaQuery.copyWith(
+            viewInsets: mediaQuery.viewInsets.copyWith(bottom: inset > mediaQuery.viewInsets.bottom ? inset : mediaQuery.viewInsets.bottom),
+          ),
+          child: widget.child,
+        ),
+        if (_shown != null)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SlideTransition(
+              position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(CurvedAnimation(parent: _slide, curve: kEase, reverseCurve: Curves.easeIn)),
+              child: KioskKeyboard(key: ValueKey(_shown), controller: _shown!),
             ),
-            if (showing)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: SafeArea(
-                  top: false,
-                  child: KeyedSubtree(
-                    key: _keyboardKey,
-                    child: _OnScreenKeyboard(key: ValueKey(controller), controller: controller),
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
+          ),
+      ],
     );
   }
 }
 
-class _OnScreenKeyboard extends StatefulWidget {
-  const _OnScreenKeyboard({super.key, required this.controller});
+enum _Layer { abc, sym }
+
+/// The keyboard panel itself — the design's "Teclado" component: a
+/// suggestion row with a "Fechar" key, a Portuguese QWERTY with ç, dead-key
+/// accents (´ ~ on letters, ^ ` on symbols) applied to the next letter, a
+/// three-state shift (off → once → caps lock) and an accent "done" key
+/// whose label/action the focused field chooses.
+class KioskKeyboard extends StatefulWidget {
+  const KioskKeyboard({super.key, required this.controller});
 
   final TextEditingController controller;
 
   @override
-  State<_OnScreenKeyboard> createState() => _OnScreenKeyboardState();
+  State<KioskKeyboard> createState() => _KioskKeyboardState();
 }
 
-enum _Layout { letters, symbols, accents }
+class _KioskKeyboardState extends State<KioskKeyboard> {
+  _Layer _layer = _Layer.abc;
 
-class _OnScreenKeyboardState extends State<_OnScreenKeyboard> {
-  bool _shift = false;
-  _Layout _layout = _Layout.letters;
+  /// 0 = off, 1 = next letter only, 2 = caps lock.
+  int _shift = 0;
+  String? _dead;
+
+  static const _accents = {
+    '´': {'a': 'á', 'e': 'é', 'i': 'í', 'o': 'ó', 'u': 'ú'},
+    '`': {'a': 'à', 'e': 'è', 'i': 'ì', 'o': 'ò', 'u': 'ù'},
+    '^': {'a': 'â', 'e': 'ê', 'i': 'î', 'o': 'ô', 'u': 'û'},
+    '~': {'a': 'ã', 'o': 'õ', 'n': 'ñ'},
+  };
+
+  KeyboardOptions get _options => OnScreenKeyboardController.instance.options;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onText);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onText);
+    super.dispose();
+  }
+
+  void _onText() {
+    if (mounted) setState(() {});
+  }
+
+  /// Auto-capitalise at the start of the field or a new sentence.
+  bool get _capNext {
+    if (!_options.capitalize || _layer != _Layer.abc) return false;
+    final text = widget.controller.text;
+    return text.isEmpty || RegExp(r'[.!?]\s$').hasMatch(text);
+  }
+
+  bool get _upper => _shift > 0 || (_shift == 0 && _capNext);
 
   void _insert(String text) {
     final value = widget.controller.value;
     var selection = value.selection;
-    if (!selection.isValid) {
-      selection = TextSelection.collapsed(offset: value.text.length);
+    if (!selection.isValid) selection = TextSelection.collapsed(offset: value.text.length);
+    final newText = value.text.replaceRange(selection.start, selection.end, text);
+    widget.controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: selection.start + text.length),
+    );
+  }
+
+  void _type(String ch) {
+    var out = ch;
+    if (_dead != null) out = _accents[_dead]![ch] ?? '$_dead$ch';
+    if (_upper) out = out.toUpperCase();
+    _insert(out);
+    setState(() {
+      _dead = null;
+      if (_shift == 1) _shift = 0;
+    });
+  }
+
+  void _deadKey(String accent) {
+    if (_dead == accent) {
+      _insert(accent);
+      setState(() => _dead = null);
+    } else {
+      setState(() => _dead = accent);
     }
-    final start = selection.start;
-    final end = selection.end;
-    final newText = value.text.replaceRange(start, end, text);
-    widget.controller.value = TextEditingValue(text: newText, selection: TextSelection.collapsed(offset: start + text.length));
-    if (_shift) setState(() => _shift = false);
-    // Accents is a one-shot layout, same idea as shift: a Portuguese word
-    // typically needs exactly one accented letter surrounded by plain ones
-    // ("não", "está"), so forcing an explicit trip back to "ABC" after
-    // every single accent would make ordinary typing tedious. Symbols
-    // stays sticky — numbers/punctuation are more often typed in a run.
-    if (_layout == _Layout.accents) setState(() => _layout = _Layout.letters);
+  }
+
+  void _space() {
+    _insert(_dead != null ? '$_dead ' : ' ');
+    setState(() => _dead = null);
   }
 
   void _backspace() {
     final value = widget.controller.value;
     var selection = value.selection;
-    if (!selection.isValid) {
-      selection = TextSelection.collapsed(offset: value.text.length);
-    }
+    if (!selection.isValid) selection = TextSelection.collapsed(offset: value.text.length);
     if (selection.start != selection.end) {
       _insert('');
       return;
     }
     final start = selection.start;
     if (start <= 0) return;
-    final newText = value.text.replaceRange(start - 1, start, '');
-    widget.controller.value = TextEditingValue(text: newText, selection: TextSelection.collapsed(offset: start - 1));
+    widget.controller.value = TextEditingValue(
+      text: value.text.replaceRange(start - 1, start, ''),
+      selection: TextSelection.collapsed(offset: start - 1),
+    );
   }
 
-  void _close() => OnScreenKeyboardController.instance.close();
+  void _done() {
+    final onDone = _options.onDone;
+    if (onDone != null) {
+      onDone();
+    } else {
+      OnScreenKeyboardController.instance.close();
+    }
+  }
+
+  void _suggest(String s) {
+    final onSuggest = _options.onSuggest;
+    if (onSuggest != null) {
+      onSuggest(s);
+    } else {
+      widget.controller.value = TextEditingValue(
+        text: s,
+        selection: TextSelection.collapsed(offset: s.length),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final suggestions = _options.suggestions?.call(widget.controller.text) ?? const <String>[];
     // TextFieldTapRegion marks this panel as part of the focused field's own
     // tap region even though it's mounted at the app root, entirely outside
     // that field's widget subtree — the same mechanism a real IME's
-    // predictive-text bar or a text-selection toolbar uses. Without it, a
-    // key tap here would register as "tapped outside the field" and blur it
-    // (dropping the keystroke) under the tap-outside-closes-keyboard
-    // behavior each field now uses (see entity_id_field.dart/
-    // keyboard_text_field.dart) — every *other* tap on the page still
-    // outside this region, so it still closes the keyboard as expected. An
-    // ExcludeFocus wrapper was tried first, but its includeSemantics:false
-    // broke pointer hit-testing under the semantics-routed input path
-    // Flutter web can switch to, for no benefit once TextFieldTapRegion was
-    // already handling the actual problem.
+    // predictive-text bar uses. Without it, a key tap here would register as
+    // "tapped outside the field" and blur it, dropping the keystroke.
     return TextFieldTapRegion(
       child: Container(
-        // Extra side/bottom margin (vs. just 8/12 originally) so the
-        // outermost keys sit well clear of the physical screen edges — this
-        // panel's touch digitizer is noticeably less reliable right at its
-        // borders. Top is left tight: it isn't near a physical edge, it just
-        // borders whatever's above the keyboard on screen.
-        padding: const EdgeInsets.fromLTRB(22, 12, 22, 26),
-        decoration: BoxDecoration(
-          color: NocturneColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(NocturneRadii.smallCard)),
-          boxShadow: [BoxShadow(color: Color(0x8C000000), blurRadius: 24, offset: Offset(0, -4))],
+        height: kKeyboardHeight,
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+        decoration: const BoxDecoration(
+          color: KColors.keyboardBg,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(36)),
+          boxShadow: [BoxShadow(color: Color(0x1F17191C), blurRadius: 30, offset: Offset(0, -10))],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: switch (_layout) {
-            _Layout.letters => _letterRows(),
-            _Layout.symbols => _symbolRows(),
-            _Layout.accents => _accentRows(),
-          },
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: SizedBox(
+                height: 68,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ClipRect(
+                        child: Row(
+                          children: [
+                            for (final s in suggestions.take(6)) ...[
+                              _Pressable(
+                                onTap: () => _suggest(s),
+                                child: Container(
+                                  height: 68,
+                                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(color: const Color(0x99FFFFFF), borderRadius: BorderRadius.circular(34)),
+                                  child: Text(s, maxLines: 1, style: KText.s(24, weight: FontWeight.w500)),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    _Pressable(
+                      onTap: () => OnScreenKeyboardController.instance.close(),
+                      child: Container(
+                        height: 68,
+                        padding: const EdgeInsets.fromLTRB(24, 0, 20, 0),
+                        decoration: BoxDecoration(color: KColors.keyboardFunc, borderRadius: BorderRadius.circular(34)),
+                        child: Row(
+                          children: [
+                            Text('Fechar', style: KText.s(22, weight: FontWeight.w600)),
+                            const SizedBox(width: 10),
+                            const KIcon(KIcons.keyboard, size: 30, stroke: 2),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ..._rows().expand((row) => [row, const SizedBox(height: 12)]).toList()..removeLast(),
+          ],
         ),
       ),
     );
   }
 
-  String _cased(String k) => _shift ? k.toUpperCase() : k;
-
-  /// The bottom row's non-space keys, split evenly on either side of
-  /// "espaço" so the space key actually sits at the row's centre — 2 keys
-  /// of equal flex on each side, never an odd count that can't balance.
-  Widget _bottomRow({required Widget left1, required Widget left2, required Widget right1, required Widget right2}) {
-    return _row([left1, left2, _labelKey('espaço', flex: 7, onTap: () => _insert(' ')), right1, right2]);
-  }
-
-  List<Widget> _letterRows() {
-    const row1 = ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'];
-    const row2 = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'];
-    const row3 = ['z', 'x', 'c', 'v', 'b', 'n', 'm'];
-
-    return [
-      _row([for (final k in row1) _charKey(_cased(k))]),
-      _row([const SizedBox(width: 26), ...[for (final k in row2) _charKey(_cased(k))], const SizedBox(width: 26)]),
-      _row([
-        // flex 3, up from 2 — shift used to be a visibly narrower target
-        // than backspace on the same row despite being tapped just as
-        // often (every capitalized name needs it); now the two match.
-        _specialKey(icon: Icons.arrow_upward, active: _shift, onTap: () => setState(() => _shift = !_shift), flex: 3),
-        ...[for (final k in row3) _charKey(_cased(k))],
-        _specialKey(icon: Icons.backspace_outlined, onTap: _backspace, flex: 3),
-      ]),
-      _bottomRow(
-        left1: _labelKey('123', flex: 2, onTap: () => setState(() => _layout = _Layout.symbols)),
-        left2: _labelKey('áã', flex: 2, onTap: () => setState(() => _layout = _Layout.accents)),
-        right1: _charKey('_'),
-        right2: _specialKey(icon: Icons.check, onTap: _close, flex: 2, accent: true),
-      ),
-    ];
-  }
-
-  List<Widget> _symbolRows() {
-    const row1 = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
-    const row2 = ['-', '_', '.', '/', ':', ';', '(', ')'];
-    const row3 = ['@', '#', '\$', '%', '&', '*', '='];
-
-    return [
-      _row([for (final k in row1) _charKey(k)]),
-      _row([for (final k in row2) _charKey(k)]),
-      _row([...[for (final k in row3) _charKey(k)], _specialKey(icon: Icons.backspace_outlined, onTap: _backspace, flex: 3)]),
-      _bottomRow(
-        left1: _labelKey('ABC', flex: 2, onTap: () => setState(() => _layout = _Layout.letters)),
-        left2: _charKey('.'),
-        right1: _charKey('_'),
-        right2: _specialKey(icon: Icons.check, onTap: _close, flex: 2, accent: true),
-      ),
-    ];
-  }
-
-  /// pt-PT's accented letters — the diacritics and cedilla that actually
-  /// show up in everyday Portuguese words/names ("não", "está", "Óscar",
-  /// "ação"), laid out in the same two-row-of-letters shape as
-  /// [_letterRows]' own q/a rows so the layout doesn't visually jump when
-  /// switching in. See [_insert] for why this layout is one-shot.
-  List<Widget> _accentRows() {
-    const row1 = ['á', 'à', 'â', 'ã', 'é', 'ê', 'í'];
-    const row2 = ['ó', 'ô', 'õ', 'ú', 'ç'];
-
-    return [
-      _row([for (final k in row1) _charKey(_cased(k))]),
-      _row([const SizedBox(width: 68), ...[for (final k in row2) _charKey(_cased(k))], const SizedBox(width: 68)]),
-      _row([
-        _specialKey(icon: Icons.arrow_upward, active: _shift, onTap: () => setState(() => _shift = !_shift), flex: 4),
-        _specialKey(icon: Icons.backspace_outlined, onTap: _backspace, flex: 4),
-      ]),
-      _bottomRow(
-        left1: _labelKey('ABC', flex: 2, onTap: () => setState(() => _layout = _Layout.letters)),
-        left2: _charKey('.'),
-        right1: _charKey('_'),
-        right2: _specialKey(icon: Icons.check, onTap: _close, flex: 2, accent: true),
-      ),
-    ];
-  }
-
-  Widget _row(List<Widget> keys) {
-    return Padding(padding: const EdgeInsets.symmetric(vertical: 5), child: Row(children: keys));
-  }
-
-  Widget _charKey(String char) {
-    return _KeyButton(flex: 3, onTap: () => _insert(char), child: Text(char, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500)));
-  }
-
-  Widget _labelKey(String label, {required int flex, required VoidCallback onTap}) {
-    return _KeyButton(
-      flex: flex,
-      onTap: onTap,
-      background: NocturneColors.neutral800,
-      child: Text(label, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500)),
+  List<Widget> _rows() {
+    Widget row(List<Widget> keys) => Row(
+      children: [
+        for (var i = 0; i < keys.length; i++) ...[if (i > 0) const SizedBox(width: 12), keys[i]],
+      ],
     );
+    final space = _key(label: 'espaço', flex: 5, size: 24, fg: KColors.muted, onTap: _space);
+    final done = _key(label: _options.doneLabel, flex: 2.2, size: 24, weight: FontWeight.w600, bg: KColors.accent, fg: Colors.white, onTap: _done);
+    final back = _key(icon: KIcons.backspace, flex: 1.5, bg: KColors.keyboardFunc, onTap: _backspace);
+    if (_layer == _Layer.abc) {
+      final shiftBg = _shift == 2 ? KColors.ink : (_upper ? Colors.white : KColors.keyboardFunc);
+      final shiftFg = _shift == 2 ? Colors.white : KColors.ink;
+      return [
+        row([for (final c in 'qwertyuiop'.split('')) _letter(c)]),
+        row([for (final c in 'asdfghjklç'.split('')) _letter(c)]),
+        row([
+          _key(icon: KIcons.shift, iconFilled: _upper, flex: 1.5, bg: shiftBg, fg: shiftFg, onTap: () => setState(() => _shift = (_shift + 1) % 3)),
+          for (final c in 'zxcvbnm'.split('')) _letter(c),
+          back,
+        ]),
+        row([
+          _key(
+            label: '123',
+            flex: 1.5,
+            size: 24,
+            weight: FontWeight.w600,
+            bg: KColors.keyboardFunc,
+            onTap: () => setState(() {
+              _layer = _Layer.sym;
+              _dead = null;
+            }),
+          ),
+          _dead2('´'),
+          _dead2('~'),
+          space,
+          _sym(','),
+          _sym('.'),
+          done,
+        ]),
+      ];
+    }
+    return [
+      row([for (final c in '1234567890'.split('')) _sym(c)]),
+      row([
+        for (final c in ['@', '€', '&', '(', ')', '-', '/', ':', ';', '"']) _sym(c),
+      ]),
+      row([
+        _dead2('^'),
+        _dead2('`'),
+        for (final c in ['!', '?', "'", '#', '%', '+', '=']) _sym(c),
+        back,
+      ]),
+      row([
+        _key(
+          label: 'ABC',
+          flex: 1.5,
+          size: 24,
+          weight: FontWeight.w600,
+          bg: KColors.keyboardFunc,
+          onTap: () => setState(() {
+            _layer = _Layer.abc;
+            _dead = null;
+          }),
+        ),
+        _dead2('´'),
+        _dead2('~'),
+        space,
+        _sym(','),
+        _sym('.'),
+        done,
+      ]),
+    ];
   }
 
-  Widget _specialKey({required IconData icon, required VoidCallback onTap, int flex = 3, bool active = false, bool accent = false}) {
-    return _KeyButton(
-      flex: flex,
-      onTap: onTap,
-      background: accent
-          ? NocturneColors.accent.withValues(alpha: 0.25)
-          : active
-          ? NocturneColors.accent.withValues(alpha: 0.18)
-          : NocturneColors.neutral800,
-      child: Icon(icon, size: 24, color: accent || active ? NocturneColors.accent : NocturneColors.text),
+  Widget _letter(String c) => _key(label: _upper ? c.toUpperCase() : c, onTap: () => _type(c));
+
+  Widget _sym(String c) => _key(label: c, onTap: () => _type(c));
+
+  Widget _dead2(String accent) {
+    final on = _dead == accent;
+    return _key(label: accent, bg: on ? KColors.accent : Colors.white, fg: on ? Colors.white : KColors.ink, onTap: () => _deadKey(accent));
+  }
+
+  Widget _key({
+    String? label,
+    String? icon,
+    bool iconFilled = false,
+    double flex = 1,
+    double size = 34,
+    FontWeight weight = FontWeight.w500,
+    Color bg = Colors.white,
+    Color fg = KColors.ink,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      flex: (flex * 10).round(),
+      child: _Pressable(
+        onTap: onTap,
+        child: Container(
+          height: 96,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: const [BoxShadow(color: Color(0x2417191C), offset: Offset(0, 2))],
+          ),
+          child: icon != null
+              ? KIcon(icon, size: 42, color: fg, stroke: 1.8, filled: iconFilled)
+              : Text(
+                  label!,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: KText.s(size, weight: weight, color: fg),
+                ),
+        ),
+      ),
     );
   }
 }
 
-class _KeyButton extends StatelessWidget {
-  const _KeyButton({required this.flex, required this.onTap, required this.child, this.background});
+/// Key press feedback: the design's `button:active { transform: scale(.96) }`.
+class _Pressable extends StatefulWidget {
+  const _Pressable({required this.onTap, required this.child});
 
-  final int flex;
   final VoidCallback onTap;
   final Widget child;
-  final Color? background;
+
+  @override
+  State<_Pressable> createState() => _PressableState();
+}
+
+class _PressableState extends State<_Pressable> {
+  bool _down = false;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      flex: flex,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: Material(
-          color: background ?? NocturneColors.neutral900,
-          borderRadius: BorderRadius.circular(NocturneRadii.chip),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(NocturneRadii.chip),
-            child: SizedBox(height: 64, child: Center(child: child)),
-          ),
-        ),
-      ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => setState(() => _down = true),
+      onTapUp: (_) => setState(() => _down = false),
+      onTapCancel: () => setState(() => _down = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(scale: _down ? 0.96 : 1, duration: const Duration(milliseconds: 120), child: widget.child),
     );
   }
 }

@@ -12,6 +12,8 @@ class EvCarConfig {
     this.rangeEntityId,
     this.chargingEntityId,
     this.plugConnectedEntityId,
+    this.chargeLimitEntityId,
+    this.chargePowerEntityId,
     this.monthEnergyEntityId,
     this.monthEnergyDeltaEntityId,
     this.monthCostEntityId,
@@ -38,6 +40,14 @@ class EvCarConfig {
   /// "is the cable plugged in" — distinct from actually charging, since a
   /// full battery stays plugged in without drawing current.
   final String? plugConnectedEntityId;
+
+  /// The charge limit the car stops at, 0-100 — the marker on the kiosk
+  /// card's battery bar.
+  final String? chargeLimitEntityId;
+
+  /// Charging power (W or kW, auto-detected like the energy card's own
+  /// sensors) — shown while the car charges.
+  final String? chargePowerEntityId;
 
   /// kWh charged this calendar month — a `utility_meter`-style sensor that
   /// resets monthly. Feeds both the EV sheet's "Energia" stat card and the
@@ -76,6 +86,8 @@ class EvCarConfig {
       rangeEntityId == null &&
       chargingEntityId == null &&
       plugConnectedEntityId == null &&
+      chargeLimitEntityId == null &&
+      chargePowerEntityId == null &&
       monthEnergyEntityId == null &&
       monthEnergyDeltaEntityId == null &&
       monthCostEntityId == null &&
@@ -88,6 +100,8 @@ class EvCarConfig {
     String? rangeEntityId,
     String? chargingEntityId,
     String? plugConnectedEntityId,
+    String? chargeLimitEntityId,
+    String? chargePowerEntityId,
     String? monthEnergyEntityId,
     String? monthEnergyDeltaEntityId,
     String? monthCostEntityId,
@@ -101,6 +115,8 @@ class EvCarConfig {
       chargingEntityId: chargingEntityId ?? this.chargingEntityId,
       plugConnectedEntityId:
           plugConnectedEntityId ?? this.plugConnectedEntityId,
+      chargeLimitEntityId: chargeLimitEntityId ?? this.chargeLimitEntityId,
+      chargePowerEntityId: chargePowerEntityId ?? this.chargePowerEntityId,
       monthEnergyEntityId: monthEnergyEntityId ?? this.monthEnergyEntityId,
       monthEnergyDeltaEntityId:
           monthEnergyDeltaEntityId ?? this.monthEnergyDeltaEntityId,
@@ -117,6 +133,8 @@ class EvCarConfig {
     'rangeEntityId': rangeEntityId,
     'chargingEntityId': chargingEntityId,
     'plugConnectedEntityId': plugConnectedEntityId,
+    'chargeLimitEntityId': chargeLimitEntityId,
+    'chargePowerEntityId': chargePowerEntityId,
     'monthEnergyEntityId': monthEnergyEntityId,
     'monthEnergyDeltaEntityId': monthEnergyDeltaEntityId,
     'monthCostEntityId': monthCostEntityId,
@@ -130,6 +148,8 @@ class EvCarConfig {
     rangeEntityId: json['rangeEntityId'] as String?,
     chargingEntityId: json['chargingEntityId'] as String?,
     plugConnectedEntityId: json['plugConnectedEntityId'] as String?,
+    chargeLimitEntityId: json['chargeLimitEntityId'] as String?,
+    chargePowerEntityId: json['chargePowerEntityId'] as String?,
     monthEnergyEntityId: json['monthEnergyEntityId'] as String?,
     monthEnergyDeltaEntityId: json['monthEnergyDeltaEntityId'] as String?,
     monthCostEntityId: json['monthCostEntityId'] as String?,

@@ -3,14 +3,15 @@ import 'package:flutter/widget_previews.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'dev/placeholder_entities.dart';
-import 'pages/main_shell.dart';
+import 'kiosk/kiosk_canvas.dart';
+import 'kiosk/kiosk_shell.dart';
 import 'providers/ha_providers.dart';
 import 'theme/nocturne_theme.dart';
 import 'theme/theme_mode_controller.dart';
 import 'widgets/on_screen_keyboard.dart';
 import 'widgets/screen_power_guard.dart';
 
-@Preview(name: 'Home Assistant App', size: Size(720, 1920))
+@Preview(name: 'Home Assistant App', size: Size(1440, 2560))
 Widget homeAssistantAppPreview() {
   return ProviderScope(overrides: placeholderOverrides, child: const HomeAssistantApp());
 }
@@ -55,7 +56,7 @@ class HomeAssistantApp extends StatelessWidget {
         // own doc comment about that same gap for `TextDecoration.none`).
         builder: (context, child) => DefaultTextStyle.merge(
           style: const TextStyle(fontFamily: 'Inter'),
-          child: ScreenPowerGuard(child: OnScreenKeyboardHost(child: child!)),
+          child: KioskCanvas(child: ScreenPowerGuard(child: OnScreenKeyboardHost(child: child!))),
         ),
         home: const RootScreen(),
       ),
@@ -107,9 +108,7 @@ class _RootScreenState extends ConsumerState<RootScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_bootstrapped) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    return const MainShell();
+    if (!_bootstrapped) return const SizedBox.shrink();
+    return const KioskShell();
   }
 }

@@ -91,6 +91,70 @@
         field("weatherStateEntityId", "entity", "Estado do tempo", { hint: "weather.estacao", desc: 'Estado do tempo em texto (ex.: "Chuva fraca").' }),
       ],
     },
+    // The kiosk's household: who tasks are for, and whose calendar a new
+    // event goes to (see family_data.dart). Empty falls back to HA's own
+    // person entities plus a shared "Família".
+    family_members: {
+      shape: "list",
+      sectionTitle: "Família",
+      requiredField: "name",
+      itemLabel: (item) => item.name || "(sem nome)",
+      fields: [
+        field("name", "text", "Nome", { hint: "João" }),
+        field("color", "color-select", "Cor"),
+        field("calendarEntityId", "entity", "Calendário (opcional)", {
+          hint: "calendar.joao",
+          domains: ["calendar"],
+          desc: "Os eventos deste calendário aparecem com o nome e a cor desta pessoa; os novos eventos \"para\" ela são criados aqui.",
+        }),
+      ],
+    },
+    // Casa screen (see house_config.dart). Lists left empty fall back to
+    // every scene.* / every lock.* plus garage/gate covers.
+    house_screen: {
+      shape: "singleton",
+      sectionTitle: "Ecrã Casa",
+      fields: [
+        field("alarmEntityId", "entity", "Alarme", { hint: "alarm_control_panel.casa", domains: ["alarm_control_panel"] }),
+        field("waterHeaterEntityId", "entity", "Água quente (termoacumulador)", {
+          hint: "climate.bomba_de_calor_aqs",
+          domains: ["climate", "water_heater"],
+          desc: "Dá a temperatura alvo e se está a aquecer.",
+        }),
+        field("waterHeaterTempEntityId", "entity", "Temperatura da água (opcional)", { hint: "sensor.aqs_temperatura", domains: ["sensor"] }),
+        field("waterHeaterPowerEntityId", "entity", "Potência do termoacumulador (opcional)", { hint: "sensor.aqs_potencia", domains: ["sensor"] }),
+      ],
+    },
+    house_scenes: {
+      shape: "list",
+      sectionTitle: "Cenários",
+      requiredField: "entityId",
+      itemLabel: (item) => item.name || item.entityId || "(sem cenário)",
+      fields: [
+        field("name", "text", "Nome", { hint: "Bom dia" }),
+        field("entityId", "entity", "Cena ou script", { hint: "scene.bom_dia", domains: ["scene", "script"] }),
+      ],
+    },
+    house_locks: {
+      shape: "list",
+      sectionTitle: "Fechaduras e portões",
+      requiredField: "entityId",
+      itemLabel: (item) => item.name || item.entityId || "(sem entidade)",
+      fields: [
+        field("name", "text", "Nome", { hint: "Porta da frente" }),
+        field("entityId", "entity", "Fechadura ou portão", { hint: "lock.porta_entrada", domains: ["lock", "cover"] }),
+      ],
+    },
+    house_cameras: {
+      shape: "list",
+      sectionTitle: "Câmaras",
+      requiredField: "entityId",
+      itemLabel: (item) => item.name || item.entityId || "(sem câmara)",
+      fields: [
+        field("name", "text", "Nome", { hint: "Garagem" }),
+        field("entityId", "entity", "Câmara", { hint: "camera.garagem", domains: ["camera"] }),
+      ],
+    },
     calendar_entities: {
       shape: "list",
       requiredField: "entityId",
@@ -139,6 +203,8 @@
         field("rangeEntityId", "entity", "Autonomia", { hint: "sensor.car_range", domains: ["sensor"], desc: "Autonomia restante, na unidade que o sensor reportar." }),
         field("chargingEntityId", "entity", "Estado de carregamento", { hint: "binary_sensor.car_charging", desc: 'Sensor cujo estado seja "on"/"charging" enquanto carrega.' }),
         field("plugConnectedEntityId", "entity", "Ficha ligada", { hint: "binary_sensor.car_plugged_in", desc: 'Sensor cujo estado seja "on"/"connected" quando a ficha está ligada, mesmo sem carregar.' }),
+        field("chargeLimitEntityId", "entity", "Limite de carga", { hint: "number.car_charge_limit", desc: "Percentagem a que o carro para de carregar (marca na barra da bateria)." }),
+        field("chargePowerEntityId", "entity", "Potência de carga", { hint: "sensor.car_charging_power", domains: ["sensor"], desc: "Potência enquanto carrega, em W ou kW." }),
         field("monthEnergyEntityId", "entity", "Energia do mês", { hint: "sensor.car_energy_this_month", domains: ["sensor"], desc: "Energia carregada este mês, em kWh." }),
         field("monthEnergyDeltaEntityId", "entity", "Variação da energia", { hint: "sensor.car_energy_delta_percent", domains: ["sensor"], desc: "Variação face ao mês anterior, em %." }),
         field("monthCostEntityId", "entity", "Custo do mês", { hint: "sensor.car_cost_this_month", domains: ["sensor"], desc: "Custo da carga este mês, em euros." }),
@@ -191,6 +257,8 @@
   };
 
   const MENU = [
+    { title: "Família", icon: "mdi:account-group", keys: ["family_members"] },
+    { title: "Ecrã Casa", icon: "mdi:home-automation", keys: ["house_screen", "house_scenes", "house_locks", "house_cameras"] },
     { title: "Modo da Casa", icon: "mdi:home-switch", keys: ["house_mode"] },
     { title: "Divisões", icon: "mdi:floor-plan", keys: ["rooms"] },
     { title: "Temperatura", icon: "mdi:thermometer", keys: ["temperature_entities"] },
