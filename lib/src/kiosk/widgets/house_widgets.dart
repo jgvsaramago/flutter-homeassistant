@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/ha_providers.dart';
+import '../../services/screen_power_controller.dart';
 import '../data/house_models.dart';
 import '../data/kiosk_entities.dart';
 import '../data/pt_dates.dart';
@@ -214,6 +215,11 @@ class GateCameraTile extends StatelessWidget {
 /// A Home Assistant camera as a still that refreshes every few seconds —
 /// HA's `camera_proxy` snapshot, authorised by the token HA puts in the
 /// entity's own `entity_picture`.
+///
+/// HA scales the snapshot down to the tile's width (`width=`) and it's
+/// decoded at that size, rather than fetching and decoding a full-res
+/// frame every 5 s for a 150 px tile; each superseded frame is evicted, or
+/// the image cache would keep every one of them (each has a new URL).
 class HaCameraTile extends ConsumerStatefulWidget {
   const HaCameraTile({super.key, required this.entityId, required this.label, required this.height});
 
@@ -228,19 +234,32 @@ class HaCameraTile extends ConsumerStatefulWidget {
 class _HaCameraTileState extends ConsumerState<HaCameraTile> {
   Timer? _timer;
   int _tick = 0;
+  ImageProvider? _shown;
 
   @override
   void initState() {
     super.initState();
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (mounted) setState(() => _tick++);
+      if (mounted && ScreenPowerController.instance.isOn.value) setState(() => _tick++);
     });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _shown?.evict();
     super.dispose();
+  }
+
+  ImageProvider _image(String url, int width) {
+    final next = ResizeImage(NetworkImage(url), width: width);
+    if (next != _shown) {
+      // The previous frame stays on screen until this one arrives
+      // (gaplessPlayback); dropping it from the cache doesn't affect that.
+      _shown?.evict();
+      _shown = next;
+    }
+    return next;
   }
 
   @override
@@ -248,7 +267,7 @@ class _HaCameraTileState extends ConsumerState<HaCameraTile> {
     final e = ref.watch(kioskEntitiesProvider.select((m) => m[widget.entityId]));
     final base = ref.watch(connectionConfigProvider)?.baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
     final picture = e?.attributes['entity_picture'] as String?;
-    final url = base == null || picture == null || e!.isUnavailable ? null : '$base$picture&_=$_tick';
+    final url = base == null || picture == null || e!.isUnavailable ? null : '$base$picture';
     return Container(
       height: widget.height,
       clipBehavior: Clip.antiAlias,
@@ -257,7 +276,17 @@ class _HaCameraTileState extends ConsumerState<HaCameraTile> {
         fit: StackFit.expand,
         children: [
           if (url != null)
-            Image.network(url, fit: BoxFit.cover, gaplessPlayback: true, errorBuilder: (_, _, _) => const SizedBox.shrink())
+            LayoutBuilder(
+              builder: (context, box) {
+                final w = (box.maxWidth * MediaQuery.devicePixelRatioOf(context)).ceil();
+                return Image(
+                  image: _image('$url&width=$w&_=$_tick', w),
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                );
+              },
+            )
           else
             Center(
               child: Text('Câmara indisponível', style: KText.s(16, color: KColors.cameraText)),

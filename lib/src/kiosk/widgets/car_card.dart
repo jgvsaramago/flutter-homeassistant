@@ -193,12 +193,10 @@ class _BatteryBarState extends State<_BatteryBar> with SingleTickerProviderState
               height: 18,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(color: widget.color, borderRadius: BorderRadius.circular(9)),
-              child: widget.striped
-                  ? AnimatedBuilder(
-                      animation: _c,
-                      builder: (_, _) => CustomPaint(painter: _StripePainter(_c.value)),
-                    )
-                  : null,
+              // Its own layer, repainted straight from the controller: the
+              // stripes move every frame, the rest of the page shouldn't
+              // have to be redrawn with them.
+              child: widget.striped ? RepaintBoundary(child: CustomPaint(painter: _StripePainter(_c))) : null,
             ),
             if (widget.limit != null)
               Positioned(
@@ -215,12 +213,13 @@ class _BatteryBarState extends State<_BatteryBar> with SingleTickerProviderState
 }
 
 class _StripePainter extends CustomPainter {
-  _StripePainter(this.t);
+  _StripePainter(this.clock) : super(repaint: clock);
 
-  final double t;
+  final Animation<double> clock;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final t = clock.value;
     final paint = Paint()..color = const Color(0x47FFFFFF);
     for (double x = -28 + t * 28; x < size.width + 28; x += 14 * 2) {
       final path = Path()
@@ -234,5 +233,5 @@ class _StripePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_StripePainter old) => old.t != t;
+  bool shouldRepaint(_StripePainter old) => old.clock != clock;
 }
