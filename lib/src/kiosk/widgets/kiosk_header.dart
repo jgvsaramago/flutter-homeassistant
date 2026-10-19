@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
@@ -55,6 +56,14 @@ class KioskHeader extends ConsumerWidget {
       curve: kEase,
       builder: (context, t, _) {
         double l(double full, double small) => lerpDouble(full, small, t)!;
+        // Compact layout, as in the design: the date sits 65 px after the
+        // clock (Outfit's digits are proportional, so the clock's width —
+        // and the design's fixed 280 px — only line up at 08:42), and the
+        // temperature sits 20 px before the condition/min-max text.
+        final clockW = _textWidth(PtDates.hm(now), KText.d(88, spacing: -3));
+        final weatherW = math.max(_textWidth(weatherLabel(weather.condition), KText.s(20, weight: FontWeight.w500)), _textWidth(range, KText.s(20)));
+        final compactTextLeft = clockW + 65;
+        final compactWeatherRight = weatherW + 20;
         return SizedBox(
           width: 1328,
           height: l(252, 100),
@@ -67,17 +76,17 @@ class KioskHeader extends ConsumerWidget {
                 child: Text(PtDates.hm(now), style: KText.d(l(168, 88), spacing: l(-6, -3), height: 0.9)),
               ),
               Positioned(
-                left: l(0, 280),
+                left: l(0, compactTextLeft),
                 top: l(166, 12),
                 child: Text(PtDates.long(now), style: KText.s(l(36, 30), weight: FontWeight.w600)),
               ),
               Positioned(
-                left: l(0, 280),
+                left: l(0, compactTextLeft),
                 top: l(216, 58),
                 child: Text(t < 0.5 ? sub : week, style: KText.s(l(24, 22), color: KColors.muted)),
               ),
               Positioned(
-                right: l(376, 290),
+                right: l(376, compactWeatherRight),
                 top: l(30, 18),
                 child: Row(
                   children: [
@@ -164,4 +173,12 @@ class _ForecastTile extends StatelessWidget {
       ),
     );
   }
+}
+
+double _textWidth(String text, TextStyle style) {
+  if (text.isEmpty) return 0;
+  final painter = TextPainter(text: TextSpan(text: text, style: style), textDirection: TextDirection.ltr, maxLines: 1)..layout();
+  final w = painter.width;
+  painter.dispose();
+  return w;
 }
