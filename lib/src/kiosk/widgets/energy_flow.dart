@@ -193,7 +193,7 @@ class _KEnergyFlowState extends State<KEnergyFlow> with SingleTickerProviderStat
             value: _kw(i.batteryKw),
             valueColor: const Color(0xFF12663E),
           ),
-          if (b != 0) Positioned(top: -2, right: -2, child: _badge(const Color(0xFF2F9E68), b > 0 ? KIcons.arrowDown : KIcons.arrowUp)),
+          if (b != 0) Positioned(top: -2, right: -2, child: _badge(const Color(0xFF2F9E68), b > 0 ? KIcons.arrowUp : KIcons.arrowDown)),
           if (i.soc != null)
             Positioned(
               bottom: -8,
