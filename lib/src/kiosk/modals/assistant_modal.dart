@@ -1,18 +1,15 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/ha_entity.dart';
-import '../../providers/ha_providers.dart';
 import '../../services/voice_satellite.dart';
-import '../../widgets/on_screen_keyboard_controller.dart';
-import '../data/kiosk_entities.dart';
-import '../data/pt_dates.dart';
 import '../theme/kiosk_icons.dart';
 import '../theme/kiosk_tokens.dart';
 import '../widgets/kiosk_widgets.dart';
 
+/// Opens the Assistente. From the nav bar ([byVoice] false) it starts
+/// listening straight away, as if the wake word had been said.
 Future<void> showAssistant(BuildContext context, {bool byVoice = false}) async {
   if (AssistantModal.isOpen) return;
   AssistantModal.isOpen = true;
@@ -23,54 +20,34 @@ Future<void> showAssistant(BuildContext context, {bool byVoice = false}) async {
   }
 }
 
-/// The conversation agent of HA's preferred Assist pipeline — the same one
-/// a voice satellite in the house would talk to.
-final _assistAgentProvider = FutureProvider<String?>((ref) async {
-  await ref.watch(entitiesProvider.future);
-  try {
-    final p = await ref.read(haWebSocketClientProvider).getAssistPipelines();
-    final preferred = p['preferred_pipeline'];
-    for (final pipe in (p['pipelines'] as List? ?? const []).whereType<Map>()) {
-      if (pipe['id'] == preferred) return pipe['conversation_engine'] as String?;
-    }
-  } catch (_) {}
-  return null;
-});
-
 class _Msg {
-  const _Msg.user(this.text) : user = true, entityIds = const [];
-  const _Msg.bot(this.text, this.entityIds) : user = false;
+  const _Msg.user(this.text) : user = true;
+  const _Msg.bot(this.text) : user = false;
 
   final bool user;
   final String text;
-  final List<String> entityIds;
 }
 
-/// The design's "Assistente": a conversation with Home Assistant's Assist.
-/// Spoken requests go through Linux Voice Assistant on this Pi
-/// ([VoiceSatellite]) — the modal shows what it heard and answered, and its
-/// mic button starts/stops a pipeline. Requests can always be typed on the
-/// on-screen keyboard too (the only way while LVA isn't running); replies
-/// come back as text plus a card for each entity the assistant changed.
-class AssistantModal extends ConsumerStatefulWidget {
+/// The design's "Assistente": a spoken conversation with Home Assistant's
+/// Assist, voice only. The mic, wake word, speech-to-text and speaker all
+/// belong to Linux Voice Assistant on this Pi ([VoiceSatellite]); this shows
+/// what it heard and answered, follows its listening/thinking/speaking
+/// state, and its mic button starts/stops a pipeline.
+class AssistantModal extends StatefulWidget {
   const AssistantModal({super.key, this.byVoice = false});
 
-  /// Opened by the wake word: don't pop the keyboard up over it.
+  /// Opened by the wake word — LVA is already listening.
   final bool byVoice;
 
   static bool isOpen = false;
 
   @override
-  ConsumerState<AssistantModal> createState() => _AssistantModalState();
+  State<AssistantModal> createState() => _AssistantModalState();
 }
 
-class _AssistantModalState extends ConsumerState<AssistantModal> {
-  final _input = TextEditingController();
-  final _focus = FocusNode();
+class _AssistantModalState extends State<AssistantModal> {
   final _scroll = ScrollController();
   final _messages = <_Msg>[];
-  bool _thinking = false;
-  String? _conversationId;
   StreamSubscription<SatelliteEvent>? _voice;
 
   static final _satellite = VoiceSatellite.instance;
@@ -78,28 +55,35 @@ class _AssistantModalState extends ConsumerState<AssistantModal> {
   @override
   void initState() {
     super.initState();
-    _focus.addListener(() {
-      if (mounted) setState(() {});
-    });
     _voice = _satellite.events.listen(_onVoice);
+    if (!widget.byVoice && _satellite.available.value && _satellite.phase.value == SatellitePhase.idle) {
+      _satellite.startListening();
+    }
+  }
+
+  @override
+  void dispose() {
+    _voice?.cancel();
+    _scroll.dispose();
+    super.dispose();
   }
 
   void _onVoice(SatelliteEvent e) {
     final msg = switch (e) {
       SatelliteHeard(:final text) => _Msg.user(text),
-      SatelliteReply(:final text) => _Msg.bot(text, const []),
-      SatelliteError() => const _Msg.bot('Não percebi. Tente de novo.', []),
+      SatelliteReply(:final text) => _Msg.bot(text),
+      SatelliteError() => const _Msg.bot('Desculpe, não percebi. Pode repetir?'),
       SatelliteWake() => null,
     };
     if (msg == null) return;
     setState(() => _messages.add(msg));
-    _scrollDown();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) _scroll.animateTo(_scroll.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: kEase);
+    });
   }
 
   void _toggleMic() {
     if (_satellite.phase.value == SatellitePhase.idle) {
-      OnScreenKeyboardController.instance.close();
-      _focus.unfocus();
       _satellite.startListening();
     } else {
       _satellite.stop();
@@ -107,69 +91,28 @@ class _AssistantModalState extends ConsumerState<AssistantModal> {
   }
 
   @override
-  void dispose() {
-    _voice?.cancel();
-    _input.dispose();
-    _focus.dispose();
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  Future<void> _send() async {
-    final text = _input.text.trim();
-    if (text.isEmpty || _thinking) return;
-    _input.clear();
-    setState(() {
-      _messages.add(_Msg.user(text));
-      _thinking = true;
-    });
-    _scrollDown();
-    try {
-      final agent = await ref.read(_assistAgentProvider.future);
-      final r = await ref.read(haWebSocketClientProvider).conversationProcess(text: text, agentId: agent, conversationId: _conversationId);
-      _conversationId = r['conversation_id'] as String? ?? _conversationId;
-      final response = (r['response'] as Map?)?.cast<String, dynamic>() ?? const {};
-      final speech = (((response['speech'] as Map?)?['plain'] as Map?)?['speech'] as String?)?.trim();
-      final success = ((response['data'] as Map?)?['success'] as List?) ?? const [];
-      final ids = [
-        for (final t in success.whereType<Map>())
-          if (t['type'] == 'entity' && t['id'] is String) t['id'] as String,
-      ];
-      if (mounted) setState(() => _messages.add(_Msg.bot(speech == null || speech.isEmpty ? 'Feito.' : speech, ids)));
-    } catch (e) {
-      if (mounted) setState(() => _messages.add(const _Msg.bot('Não consegui falar com o assistente. Tente de novo.', [])));
-    } finally {
-      if (mounted) setState(() => _thinking = false);
-      _scrollDown();
-    }
-  }
-
-  void _scrollDown() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scroll.hasClients) _scroll.animateTo(_scroll.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: kEase);
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final entities = ref.watch(kioskEntitiesProvider);
-    final allEntities = ref.watch(entitiesProvider).valueOrNull ?? const <String, HaEntity>{};
     return ListenableBuilder(
       listenable: Listenable.merge([_satellite.available, _satellite.phase]),
-      builder: (context, _) => _build(context, entities, allEntities),
+      builder: (context, _) => _build(context),
     );
   }
 
-  Widget _build(BuildContext context, Map<String, HaEntity> entities, Map<String, HaEntity> allEntities) {
+  Widget _build(BuildContext context) {
     final voice = _satellite.available.value;
     final phase = _satellite.phase.value;
-    final busy = _thinking || phase != SatellitePhase.idle;
-    final (status, statusBg, statusFg) = switch (phase) {
-      SatellitePhase.listening => ('A ouvir…', KColors.accentSoft, KColors.accent),
-      SatellitePhase.thinking => ('A pensar…', KColors.amberTint, KColors.amberInk),
-      SatellitePhase.speaking => ('A responder…', KColors.greenTint, KColors.greenInk),
-      SatellitePhase.idle when _thinking => ('A pensar…', KColors.amberTint, KColors.amberInk),
-      SatellitePhase.idle => ('Pronto', KColors.chip, KColors.ink2),
+    final listening = phase == SatellitePhase.listening;
+    final (status, statusBg, statusFg, blink) = switch (phase) {
+      SatellitePhase.listening => ('A ouvir…', KColors.accentSoft, KColors.accent, const Duration(milliseconds: 1200)),
+      SatellitePhase.thinking => ('A pensar…', KColors.amberTint, KColors.amberInk, const Duration(milliseconds: 800)),
+      SatellitePhase.speaking => ('A responder…', KColors.greenTint, KColors.greenInk, const Duration(milliseconds: 1200)),
+      SatellitePhase.idle => ('Pronto', KColors.chip, KColors.ink2, null),
+    };
+    final liveText = switch (phase) {
+      _ when !voice => 'O assistente de voz não está disponível de momento',
+      SatellitePhase.listening => 'A ouvir…',
+      SatellitePhase.thinking || SatellitePhase.speaking => '',
+      SatellitePhase.idle => 'Toque no microfone para continuar a conversa',
     };
     return KModal(
       padding: const EdgeInsets.fromLTRB(36, 32, 36, 36),
@@ -182,7 +125,7 @@ class _AssistantModalState extends ConsumerState<AssistantModal> {
                 width: 64,
                 height: 64,
                 decoration: BoxDecoration(color: KColors.accentSoft, borderRadius: BorderRadius.circular(20)),
-                child: const Center(child: KIcon(KIcons.wave, size: 34, color: KColors.accent, stroke: 2)),
+                child: const Center(child: KIcon(KIcons.wave, size: 32, color: KColors.accent, stroke: 2)),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -201,8 +144,8 @@ class _AssistantModalState extends ConsumerState<AssistantModal> {
                 child: Row(
                   children: [
                     KBlink(
-                      enabled: busy,
-                      period: const Duration(milliseconds: 800),
+                      enabled: blink != null,
+                      period: blink ?? const Duration(milliseconds: 1200),
                       child: Container(
                         width: 10,
                         height: 10,
@@ -221,31 +164,33 @@ class _AssistantModalState extends ConsumerState<AssistantModal> {
               KCircleButton(
                 icon: KIcons.close,
                 size: 64,
-                iconSize: 30,
+                iconSize: 26,
                 stroke: 2.2,
                 bg: KColors.chip,
                 border: null,
-                onTap: () {
-                  OnScreenKeyboardController.instance.close();
-                  Navigator.of(context).maybePop();
-                },
+                onTap: () => Navigator.of(context).maybePop(),
               ),
             ],
           ),
           const SizedBox(height: 28),
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 1000),
-            child: _messages.isEmpty && !_thinking
-                ? Text(
-                    '${voice ? 'Fale ou escreva' : 'Escreva'}, por exemplo, “Acende as luzes da cozinha” ou “Qual é a temperatura da água?”',
-                    style: KText.s(20, color: KColors.muted, height: 1.4),
-                  )
+            child: _messages.isEmpty && phase != SatellitePhase.thinking
+                ? (listening
+                      ? const SizedBox.shrink()
+                      : Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
+                            'Diga, por exemplo, “Acende as luzes da cozinha” ou “Qual é a temperatura da água?”',
+                            style: KText.s(20, color: KColors.muted, height: 1.4),
+                          ),
+                        ))
                 : ListView(
                     controller: _scroll,
                     shrinkWrap: true,
                     children: [
-                      for (final m in _messages) Padding(padding: const EdgeInsets.only(bottom: 18), child: _bubble(m, {...allEntities, ...entities})),
-                      if (_thinking || phase == SatellitePhase.thinking) const Align(alignment: Alignment.centerLeft, child: _Typing()),
+                      for (final m in _messages) Padding(padding: const EdgeInsets.only(bottom: 18), child: _bubble(m)),
+                      if (phase == SatellitePhase.thinking) const Align(alignment: Alignment.centerLeft, child: _Typing()),
                     ],
                   ),
           ),
@@ -257,53 +202,26 @@ class _AssistantModalState extends ConsumerState<AssistantModal> {
             ),
             child: Row(
               children: [
-                if (voice) ...[
-                  KBlink(
-                    enabled: phase == SatellitePhase.listening,
-                    period: const Duration(milliseconds: 1200),
-                    child: KCircleButton(
-                      icon: KIcons.mic,
-                      size: 96,
-                      iconSize: 40,
-                      stroke: 2,
-                      bg: phase == SatellitePhase.idle ? KColors.chip : KColors.accent,
-                      fg: phase == SatellitePhase.idle ? KColors.ink : Colors.white,
-                      border: null,
-                      onTap: _toggleMic,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                ],
-                KCircleButton(
-                  icon: KIcons.keyboard,
-                  size: 96,
-                  iconSize: 40,
-                  stroke: 2,
-                  bg: _focus.hasFocus ? KColors.accent : KColors.chip,
-                  fg: _focus.hasFocus ? Colors.white : KColors.ink,
-                  border: null,
-                  onTap: () => _focus.hasFocus ? OnScreenKeyboardController.instance.close() : _focus.requestFocus(),
+                _MicButton(
+                  listening: listening,
+                  enabled: voice,
+                  onTap: voice ? _toggleMic : null,
                 ),
                 const SizedBox(width: 28),
                 Expanded(
-                  child: KTextField(
-                    controller: _input,
-                    focusNode: _focus,
-                    hint: 'Escreva um pedido…',
-                    height: 84,
-                    fontSize: 24,
-                    autofocus: !widget.byVoice,
-                    options: KeyboardOptions(doneLabel: 'Enviar', onDone: _send),
-                    trailing: KCircleButton(
-                      icon: KIcons.send,
-                      size: 60,
-                      iconSize: 28,
-                      stroke: 2.2,
-                      bg: KColors.accent,
-                      fg: Colors.white,
-                      border: null,
-                      onTap: _send,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (listening) ...[const _VoiceWave(), const SizedBox(height: 10)],
+                      if (liveText.isNotEmpty)
+                        Text(
+                          liveText,
+                          style: KText.s(22, color: listening ? KColors.ink : KColors.muted, height: 1.3).copyWith(
+                            fontStyle: listening ? FontStyle.italic : FontStyle.normal,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ],
@@ -314,7 +232,7 @@ class _AssistantModalState extends ConsumerState<AssistantModal> {
     );
   }
 
-  Widget _bubble(_Msg m, Map<String, HaEntity> entities) {
+  Widget _bubble(_Msg m) {
     if (m.user) {
       return Align(
         alignment: Alignment.centerRight,
@@ -340,80 +258,145 @@ class _AssistantModalState extends ConsumerState<AssistantModal> {
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 660),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-              decoration: const BoxDecoration(
-                color: KColors.chip,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(28),
-                  topRight: Radius.circular(28),
-                  bottomLeft: Radius.circular(8),
-                  bottomRight: Radius.circular(28),
-                ),
-              ),
-              child: Text(m.text, style: KText.s(22, height: 1.35)),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+          decoration: const BoxDecoration(
+            color: KColors.chip,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(28),
+              topRight: Radius.circular(28),
+              bottomLeft: Radius.circular(8),
+              bottomRight: Radius.circular(28),
             ),
-            for (final id in m.entityIds.take(4))
-              if (entities[id] case final e?) Padding(padding: const EdgeInsets.only(top: 12), child: _resultCard(e)),
-          ],
+          ),
+          child: Text(m.text, style: KText.s(22, height: 1.35)),
         ),
       ),
     );
   }
+}
 
-  Widget _resultCard(HaEntity e) {
-    final (icon, bg, fg) = switch (e.domain) {
-      'light' || 'switch' => (KIcons.bulb, KColors.amberTint, KColors.amberInk),
-      'climate' => (KIcons.flame, KColors.orangeTint, KColors.orange),
-      'water_heater' => (KIcons.boiler, KColors.orangeTint, KColors.orangeInk),
-      'cover' => (KIcons.house, KColors.blueTint, KColors.blue),
-      'lock' => (KIcons.lock, KColors.greenTint, KColors.greenInk),
-      _ => (KIcons.check, KColors.chip, KColors.ink2),
-    };
-    final state = switch (e.domain) {
-      'light' || 'switch' => e.isOn ? 'Ligada${numAttr(e, 'brightness') == null ? '' : ' a ${(numAttr(e, 'brightness')! / 255 * 100).round()}%'}' : 'Desligada',
-      'climate' => e.state == 'off' ? 'Desligado' : 'Ligado · ${ptDeg(numAttr(e, 'current_temperature'))} → ${ptDeg(numAttr(e, 'temperature'))}',
-      'lock' => e.state == 'locked' ? 'Trancada' : 'Destrancada',
-      'cover' => e.state == 'closed' ? 'Fechado' : 'Aberto',
-      _ => e.displayState,
-    };
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 14, 20, 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: KColors.border, width: 1.5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
-            child: Center(child: KIcon(icon, size: 26, color: fg)),
+/// 96 px mic; while listening it's filled with the accent and a ring
+/// pulses out of it (the design's `dcMic`: 34 px, 1.6 s, ease-out, done
+/// by 75%).
+class _MicButton extends StatefulWidget {
+  const _MicButton({required this.listening, required this.enabled, this.onTap});
+
+  final bool listening;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  @override
+  State<_MicButton> createState() => _MicButtonState();
+}
+
+class _MicButtonState extends State<_MicButton> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600));
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.listening) _c.repeat();
+  }
+
+  @override
+  void didUpdateWidget(_MicButton old) {
+    super.didUpdateWidget(old);
+    if (widget.listening == old.listening) return;
+    if (widget.listening) {
+      _c.repeat();
+    } else {
+      _c
+        ..stop()
+        ..value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final on = widget.listening;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final v = _c.value;
+        final k = Curves.easeOut.transform((v / 0.75).clamp(0.0, 1.0));
+        return Opacity(
+          opacity: widget.enabled ? 1 : 0.45,
+          child: KCircleButton(
+            icon: KIcons.mic,
+            size: 96,
+            iconSize: 40,
+            stroke: 2,
+            bg: on ? KColors.accent : KColors.chip,
+            fg: on ? Colors.white : KColors.ink,
+            border: null,
+            shadow: on && v < 0.75 ? [BoxShadow(color: KColors.accent.withValues(alpha: 0.45 * (1 - k)), spreadRadius: 34 * k)] : null,
+            onTap: widget.onTap,
           ),
-          const SizedBox(width: 14),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  e.friendlyName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: KText.s(20, weight: FontWeight.w600),
+        );
+      },
+    );
+  }
+}
+
+/// Nine 8×56 bars bouncing between 25% and full height at staggered
+/// speeds — the design's `dcWave`.
+class _VoiceWave extends StatefulWidget {
+  const _VoiceWave();
+
+  @override
+  State<_VoiceWave> createState() => _VoiceWaveState();
+}
+
+class _VoiceWaveState extends State<_VoiceWave> with SingleTickerProviderStateMixin {
+  static const _periods = [0.70, 0.83, 0.96, 1.09];
+  static const _loop = 60.0;
+  late final _c = AnimationController(vsync: this, duration: const Duration(seconds: 60))..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 56,
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (context, _) {
+          final t = _c.value * _loop;
+          return Row(
+            children: [
+              for (var i = 0; i < 9; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                Transform.scale(
+                  scaleX: 1,
+                  scaleY: _scale(t, i),
+                  child: Container(
+                    width: 8,
+                    height: 56,
+                    decoration: BoxDecoration(color: KColors.accent, borderRadius: BorderRadius.circular(4)),
+                  ),
                 ),
-                Text(state, style: KText.s(17, color: KColors.muted)),
               ],
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
+  }
+
+  static double _scale(double t, int i) {
+    final p = ((t - i * 0.09) / _periods[i % 4]) % 1;
+    return 0.25 + 0.75 * (1 - math.cos(2 * math.pi * p)) / 2;
   }
 }
 

@@ -350,28 +350,6 @@ class HaWebSocketClient {
     await _sendCommand({'type': 'calendar/event/create', 'entity_id': entityId, 'event': event});
   }
 
-  /// The Assist pipelines and which one is preferred — the kiosk's
-  /// assistant talks to that pipeline's conversation agent.
-  Future<Map<String, dynamic>> getAssistPipelines() async {
-    final result = await _sendCommand({'type': 'assist_pipeline/pipeline/list'});
-    return (result['result'] as Map?)?.cast<String, dynamic>() ?? const {};
-  }
-
-  /// Sends one typed request to an Assist conversation agent
-  /// (`conversation/process`) and returns its raw response — speech under
-  /// `response.speech.plain.speech`, affected entities under
-  /// `response.data.success`, plus the `conversation_id` to continue with.
-  Future<Map<String, dynamic>> conversationProcess({required String text, String? agentId, String? conversationId, String language = 'pt'}) async {
-    final result = await _sendCommand({
-      'type': 'conversation/process',
-      'text': text,
-      'language': language,
-      'agent_id': ?agentId,
-      'conversation_id': ?conversationId,
-    });
-    return (result['result'] as Map?)?.cast<String, dynamic>() ?? const {};
-  }
-
   /// Calls a Home Assistant service, e.g. domain `light`, service `turn_on`,
   /// target `{'entity_id': 'light.kitchen'}`.
   Future<void> callService(
