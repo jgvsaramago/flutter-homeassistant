@@ -396,7 +396,7 @@ class _KioskKeyboardState extends State<KioskKeyboard> {
   }) {
     return Expanded(
       flex: (flex * 10).round(),
-      child: _Pressable(
+      child: _KeyPress(
         onTap: onTap,
         child: Container(
           height: 96,
@@ -443,6 +443,62 @@ class _PressableState extends State<_Pressable> {
       onTapCancel: () => setState(() => _down = false),
       onTap: widget.onTap,
       child: AnimatedScale(scale: _down ? 0.96 : 1, duration: const Duration(milliseconds: 120), child: widget.child),
+    );
+  }
+}
+
+/// Key press feedback from the design's keyboard: a key darkens the moment
+/// it's touched (`filter: brightness(.78)`, no shrink) and fades back over
+/// 200 ms once released, like a phone keyboard. Taps shorter than a frame
+/// or two still show a visible flash.
+class _KeyPress extends StatefulWidget {
+  const _KeyPress({required this.onTap, required this.child});
+
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  State<_KeyPress> createState() => _KeyPressState();
+}
+
+class _KeyPressState extends State<_KeyPress> {
+  static const _minFlash = Duration(milliseconds: 70);
+
+  bool _down = false;
+  DateTime _downAt = DateTime(0);
+
+  void _press() {
+    _downAt = DateTime.now();
+    setState(() => _down = true);
+  }
+
+  void _release() {
+    final held = DateTime.now().difference(_downAt);
+    if (held >= _minFlash) {
+      if (mounted) setState(() => _down = false);
+    } else {
+      Future<void>.delayed(_minFlash - held, () {
+        if (mounted) setState(() => _down = false);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => _press(),
+      onTapUp: (_) => _release(),
+      onTapCancel: _release,
+      onTap: widget.onTap,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(end: _down ? 0.78 : 1.0),
+        duration: _down ? Duration.zero : const Duration(milliseconds: 200),
+        curve: Curves.ease,
+        builder: (context, f, child) =>
+            ColorFiltered(colorFilter: ColorFilter.matrix([f, 0, 0, 0, 0, 0, f, 0, 0, 0, 0, 0, f, 0, 0, 0, 0, 0, 1, 0]), child: child),
+        child: widget.child,
+      ),
     );
   }
 }
