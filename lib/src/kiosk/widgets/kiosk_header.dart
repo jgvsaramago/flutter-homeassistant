@@ -48,8 +48,6 @@ class KioskHeader extends ConsumerWidget {
     }
     final today = forecast.isNotEmpty ? forecast.first : null;
     final range = [if (today?.high != null) 'Máx ${today!.high}°', if (today?.low != null) 'Mín ${today!.low}°'].join(' · ');
-    // The compact row has no room for the place name beside the temperature.
-    final minMax = [if (range.isNotEmpty) range, if (weather.place != null) weather.place!].join(' · ');
 
     return TweenAnimationBuilder<double>(
       tween: Tween(end: compact ? 1 : 0),
@@ -100,7 +98,7 @@ class KioskHeader extends ConsumerWidget {
               Positioned(
                 right: l(376, 0),
                 top: l(190, 50),
-                child: Text(t < 0.5 ? minMax : range, style: KText.s(l(22, 20), color: KColors.muted)),
+                child: Text(range, style: KText.s(l(22, 20), color: KColors.muted)),
               ),
               if (t < 1)
                 Positioned(
