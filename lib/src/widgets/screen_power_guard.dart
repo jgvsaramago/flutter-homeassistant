@@ -138,7 +138,12 @@ class _ScreenPowerGuardState extends State<ScreenPowerGuard> {
           onPointerDown: _onActivity,
           onPointerMove: _onActivity,
           onPointerSignal: _onActivity,
-          child: widget.child,
+          // The panel's standby doesn't stop HDMI scan-out, so any looping
+          // animation (energy flow, charging stripes, blinking dots) would
+          // keep the raster thread drawing 60 frames a second at a black
+          // screen. Pausing every ticker while it's off lets the app go
+          // fully idle.
+          child: TickerMode(enabled: !_screenOff, child: widget.child),
         ),
         if (_screenOff)
           Positioned.fill(
