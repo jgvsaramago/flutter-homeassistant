@@ -262,10 +262,14 @@ class _Placed {
   final int z;
 }
 
-/// The design's overlap rule: the shorter event sits on top of the longer
-/// one, indented so the one underneath still shows.
+/// Overlapping events stack in start order: the one that starts later sits
+/// on top, indented, so every event's top edge — its time and title — stays
+/// visible. (The design stacked the shorter one on top, which hides the
+/// title of a longer event that starts during it.) Events starting together
+/// put the longer one underneath.
 List<_Placed> _place(List<KEvent> events, DateTime day, int h0, {double indent = 10}) {
-  final spans = [for (final e in events) (e: e, a: e.startHourOn(day), b: e.endHourOn(day))]..sort((x, y) => (y.b - y.a).compareTo(x.b - x.a));
+  final spans = [for (final e in events) (e: e, a: e.startHourOn(day), b: e.endHourOn(day))]
+    ..sort((x, y) => x.a != y.a ? x.a.compareTo(y.a) : (y.b - y.a).compareTo(x.b - x.a));
   return [
     for (final (i, s) in spans.indexed)
       _Placed(
@@ -376,7 +380,10 @@ class _TimedBlock extends StatelessWidget {
       decoration: BoxDecoration(
         color: c.tint,
         borderRadius: BorderRadius.circular(large ? 16 : 14),
-        border: Border.all(color: Colors.white, width: 1),
+        // Stacked on another event: a heavier white edge and a soft shadow,
+        // so two events of the same colour still read as two.
+        border: Border.all(color: Colors.white, width: p.left > 4 ? 2 : 1),
+        boxShadow: p.left > 4 ? const [BoxShadow(color: Color(0x2617191C), blurRadius: 8, offset: Offset(0, 2))] : null,
       ),
       clipBehavior: Clip.antiAlias,
       child: large
