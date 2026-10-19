@@ -1,5 +1,11 @@
 import 'dart:io';
 
+import 'ddc_ci.dart';
+
+/// On an external monitor that speaks DDC/CI (the kiosk's HDMI panel), this
+/// is simply the monitor's own power mode (VCP 0xD6) — see [DdcCi]. The rest
+/// of this applies to the original DSI panel, kept as the fallback.
+///
 /// Blanks/wakes the actual panel — not just backlight brightness — without
 /// touching DRM mode-setting at all. `vcgencmd display_power` (the obvious
 /// first choice) is a dead end on a Pi 5 running Bookworm's KMS/Wayland
@@ -98,6 +104,18 @@ class ScreenPowerService {
   /// a static overlay.
   Future<bool> setPowered(bool on, {void Function()? onMidTransition}) async {
     if (!Platform.isLinux) return false;
+    if (await DdcCi.instance.isAvailable) {
+      // No fade: each DDC write takes ~50–100 ms on the I²C bus, too slow
+      // for a smooth ramp. Flip the UI state while the panel is dark —
+      // after switching off, before switching on.
+      if (on) {
+        final ok = await DdcCi.instance.setPower(true);
+        onMidTransition?.call();
+        return ok;
+      }
+      onMidTransition?.call();
+      return DdcCi.instance.setPower(false);
+    }
     final dir = _backlightDir();
 
     if (!on) {

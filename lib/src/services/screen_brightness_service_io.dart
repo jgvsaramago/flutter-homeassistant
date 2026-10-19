@@ -1,6 +1,10 @@
 import 'dart:io';
 
-/// Linux backlight control via `/sys/class/backlight/<device>/brightness`.
+import 'ddc_ci.dart';
+
+/// Screen brightness: over DDC/CI when the screen is an external monitor
+/// that speaks it (the kiosk's HDMI panel — see [DdcCi]), otherwise Linux
+/// backlight control via `/sys/class/backlight/<device>/brightness`.
 /// The device directory name varies by panel/kernel (the official 7" touch
 /// display shows up as `rpi_backlight` on most images, `10-0045` on older
 /// ones), so rather than hardcoding one, this picks whichever single
@@ -24,9 +28,12 @@ class ScreenBrightnessService {
     return devices.isEmpty ? null : devices.first;
   }
 
-  bool get isSupported => _backlightDir() != null;
+  /// True on any Linux device: DDC/CI availability is only known after an
+  /// async probe, and a failed probe falls back to the backlight anyway.
+  bool get isSupported => Platform.isLinux;
 
   Future<int?> readPercent() async {
+    if (await DdcCi.instance.isAvailable) return DdcCi.instance.readBrightness();
     final dir = _backlightDir();
     if (dir == null) return null;
     try {
@@ -40,6 +47,7 @@ class ScreenBrightnessService {
   }
 
   Future<bool> setPercent(int percent) async {
+    if (await DdcCi.instance.isAvailable) return DdcCi.instance.setBrightness(percent);
     final dir = _backlightDir();
     if (dir == null) return false;
     try {
