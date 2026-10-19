@@ -240,7 +240,7 @@ LockInfo _lock(HaEntity e, String name) {
 }
 
 /// The locks and gates the Casa screen shows — only the ones chosen in the
-/// HA sidebar panel (Flutter Dashboard › Ecrã Casa › Fechaduras e portões).
+/// HA sidebar panel (Flutter Dashboard › Casa › Fechaduras e portões).
 /// Deliberately no auto-detection: HA's `lock.*` entities include things
 /// like a car's door and charge-cable locks, which don't belong here.
 final locksProvider = Provider<List<LockInfo>>((ref) {
@@ -253,7 +253,7 @@ final locksProvider = Provider<List<LockInfo>>((ref) {
 });
 
 /// Where to pick them, shown while none are configured.
-const locksSetupHint = 'Escolha as fechaduras no Home Assistant: Flutter Dashboard › Ecrã Casa';
+const locksSetupHint = 'Escolha as fechaduras no Home Assistant: Flutter Dashboard › Casa';
 
 class LockActions {
   LockActions(this._ref);

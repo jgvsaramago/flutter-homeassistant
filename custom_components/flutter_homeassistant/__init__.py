@@ -1,9 +1,11 @@
 """Flutter Home Assistant App integration.
 
-Centralizes the app's dashboard settings (rooms, entity mappings, EV cars,
-energy page config, ...) in Home Assistant's own storage, so every device
-running the app reads and writes the same settings instead of each keeping
-its own local copy.
+Centralizes the kiosk app's settings in Home Assistant's own storage, so
+every screen running the app reads and writes the same ones instead of each
+keeping its own local copy. Two kinds live here: the entity mappings edited
+in the "Flutter Dashboard" sidebar panel (family, calendars, weather, rooms,
+the Casa page, energy, EV cars), and the household data the screens edit
+themselves (`meal_plan`, `chores`, `todo_list_icons`).
 
 Settings are stored as opaque JSON keyed by a domain-chosen string (e.g.
 "rooms"). This integration doesn't know or care about the shape of any
@@ -29,7 +31,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, EVENT_SETTINGS_UPDATED, STORAGE_KEY, STORAGE_VERSION
+from .const import DOMAIN, EVENT_SETTINGS_UPDATED, OBSOLETE_KEYS, STORAGE_KEY, STORAGE_VERSION
 from .panel import async_register_panel, async_remove_panel
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
@@ -52,7 +54,12 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     store = Store(hass, STORAGE_VERSION, STORAGE_KEY)
     hass.data[DOMAIN]["store"] = store
-    hass.data[DOMAIN]["data"] = await store.async_load() or {}
+    data = await store.async_load() or {}
+    if any(key in data for key in OBSOLETE_KEYS):
+        for key in OBSOLETE_KEYS:
+            data.pop(key, None)
+        await store.async_save(data)
+    hass.data[DOMAIN]["data"] = data
 
     await async_register_panel(hass)
 

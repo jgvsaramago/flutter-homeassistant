@@ -16,7 +16,7 @@ class NamedEntity {
 }
 
 /// What the Casa screen and the Início "Casa" section show, as mapped in
-/// the HA sidebar panel ("Ecrã Casa"). Everything is optional: an unset
+/// the HA sidebar panel ("Casa"). Everything is optional: an unset
 /// alarm hides the alarm controls, unset lists fall back to what HA itself
 /// has (every `scene.*`, every `lock.*` plus garage/gate covers).
 class HouseConfig {

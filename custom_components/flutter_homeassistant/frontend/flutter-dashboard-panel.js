@@ -6,21 +6,27 @@
 // external dependencies — reuses Home Assistant's own already-loaded
 // custom elements (ha-card, ha-entity-picker, ha-icon, ha-button), which are
 // globally registered by HA's frontend before any panel loads. Plain text/
-// number/password/date fields use native <input> instead of ha-textfield -
-// deliberately, so they can never silently fail to render (see the note on
+// number fields use native <input> instead of ha-textfield - deliberately,
+// so they can never silently fail to render (see the note on
 // nativeInputField below).
+//
+// Only what maps the kiosk onto this house's entities lives here; the
+// screen's own settings (brightness, restart) are on the screen itself, and
+// meals, tasks and list icons are edited from the screen.
 
 (() => {
   "use strict";
 
   const DOMAIN = "flutter_homeassistant";
 
-  const CALENDAR_COLORS = [
-    { value: "accent", label: "Roxo", swatch: "#a78bfa" },
-    { value: "blue", label: "Azul", swatch: "#60a5fa" },
-    { value: "green", label: "Verde", swatch: "#4ade80" },
-    { value: "amber", label: "Âmbar", swatch: "#fbbf24" },
-    { value: "red", label: "Vermelho", swatch: "#f87171" },
+  // The kiosk's person/calendar palette (KPersonColor). The stored keys
+  // predate it — "accent" is purple and "amber" is orange there.
+  const PERSON_COLORS = [
+    { value: "blue", label: "Azul", swatch: "#1864AB" },
+    { value: "amber", label: "Laranja", swatch: "#C2410C" },
+    { value: "green", label: "Verde", swatch: "#2B8A3E" },
+    { value: "accent", label: "Roxo", swatch: "#5F3DC4" },
+    { value: "red", label: "Vermelho", swatch: "#B42318" },
   ];
 
   const SENSOR_ICONS = [
@@ -37,27 +43,31 @@
   }
 
   const DOMAINS = {
-    // Area-backed (see renderAreaListDomain): one row per HA area, not a
-    // user-created list. Name, floor, and temperature/humidity all come
-    // straight from the area itself (HA's own Areas & Zones settings) —
-    // only these fields are this app's own mapping, mirroring
-    // RoomConfig in lib/src/providers/rooms_store.dart.
-    rooms: {
-      shape: "area-list",
+    // The kiosk's household: who tasks are for, and whose calendar a new
+    // event goes to (see family_data.dart). Empty falls back to HA's own
+    // person entities plus a shared "Família".
+    family_members: {
+      shape: "list",
+      requiredField: "name",
+      itemLabel: (item) => item.name || "(sem nome)",
       fields: [
-        field("secondaryEntityId", "entity", "Sensor secundário (opcional)", { hint: "sensor.quarto_co2 ou lock.quarto" }),
-        field("lightEntityId", "entity", "Luz", { hint: "light.quarto ou switch.quarto" }),
-        field("windowEntityId", "entity", "Janela", { hint: "binary_sensor.quarto_window", domains: ["binary_sensor"] }),
-        field("climateEntityId", "entity", "Ar condicionado", {
-          hint: "climate.quarto",
-          domains: ["climate"],
-          desc: "O ar condicionado desta divisão nos controlos de Clima (Início, Casa e janela do ar condicionado).",
+        field("name", "text", "Nome", { hint: "João" }),
+        field("color", "color-select", "Cor", { desc: "A cor desta pessoa nas tarefas e nos eventos do calendário." }),
+        field("calendarEntityId", "entity", "Calendário (opcional)", {
+          hint: "calendar.joao",
+          domains: ["calendar"],
+          desc: "Os eventos deste calendário aparecem com o nome e a cor desta pessoa; os novos eventos \"para\" ela são criados aqui.",
         }),
-        field("coverEntityId", "entity", "Estores", {
-          hint: "cover.quarto_estores",
-          domains: ["cover"],
-          desc: "A posição dos estores no cartão da divisão na página Casa.",
-        }),
+      ],
+    },
+    // Calendars that aren't anyone's: holidays, a shared house calendar…
+    calendar_entities: {
+      shape: "list",
+      requiredField: "entityId",
+      itemLabel: (item) => item.entityId || "(sem calendário)",
+      fields: [
+        field("entityId", "entity", "Calendário", { hint: "calendar.feriados", domains: ["calendar"] }),
+        field("color", "color-select", "Cor", { desc: "Um calendário de feriados é reconhecido pelo nome e fica sempre a vermelho." }),
       ],
     },
     temperature_entities: {
@@ -67,29 +77,34 @@
         field("weatherStateEntityId", "entity", "Meteorologia", { hint: "weather.casa", domains: ["weather"], desc: "Estado do tempo, máximas/mínimas e a previsão dos próximos dias no cabeçalho." }),
       ],
     },
-    // The kiosk's household: who tasks are for, and whose calendar a new
-    // event goes to (see family_data.dart). Empty falls back to HA's own
-    // person entities plus a shared "Família".
-    family_members: {
-      shape: "list",
-      sectionTitle: "Família",
-      requiredField: "name",
-      itemLabel: (item) => item.name || "(sem nome)",
+    // Area-backed (see renderAreaListDomain): one row per HA area, not a
+    // user-created list. Name, floor, and temperature/humidity all come
+    // straight from the area itself (HA's own Areas & Zones settings) —
+    // only these fields are this app's own mapping, mirroring
+    // RoomConfig in lib/src/providers/rooms_store.dart.
+    rooms: {
+      shape: "area-list",
       fields: [
-        field("name", "text", "Nome", { hint: "João" }),
-        field("color", "color-select", "Cor"),
-        field("calendarEntityId", "entity", "Calendário (opcional)", {
-          hint: "calendar.joao",
-          domains: ["calendar"],
-          desc: "Os eventos deste calendário aparecem com o nome e a cor desta pessoa; os novos eventos \"para\" ela são criados aqui.",
+        field("lightEntityId", "entity", "Luz", { hint: "light.quarto ou switch.quarto", desc: "O botão de luz no cartão da divisão; conta para \"Apagar todas as luzes\"." }),
+        field("climateEntityId", "entity", "Ar condicionado", {
+          hint: "climate.quarto",
+          domains: ["climate"],
+          desc: "O ar condicionado desta divisão nos controlos de Clima (Início, Casa e janela do ar condicionado).",
         }),
+        field("windowEntityId", "entity", "Janela", { hint: "binary_sensor.quarto_janela", domains: ["binary_sensor"], desc: "\"Janela aberta\" no cartão da divisão." }),
+        field("coverEntityId", "entity", "Estores", {
+          hint: "cover.quarto_estores",
+          domains: ["cover"],
+          desc: "A posição dos estores no cartão da divisão.",
+        }),
+        field("secondaryEntityId", "entity", "Linha extra (opcional)", { hint: "sensor.quarto_co2 ou lock.quarto", desc: "Mais uma linha de estado no cartão; uma fechadura aparece como trancada/aberta." }),
       ],
     },
-    // Casa screen (see house_config.dart). Lists left empty fall back to
+    // Casa page (see house_config.dart). Lists left empty fall back to
     // every scene.* / every lock.* plus garage/gate covers.
     house_screen: {
       shape: "singleton",
-      sectionTitle: "Ecrã Casa",
+      sectionTitle: "Alarme e água quente",
       fields: [
         field("alarmEntityId", "entity", "Alarme", { hint: "alarm_control_panel.casa", domains: ["alarm_control_panel"] }),
         field("waterHeaterEntityId", "entity", "Água quente (bomba de calor)", {
@@ -104,6 +119,7 @@
     house_scenes: {
       shape: "list",
       sectionTitle: "Cenários",
+      intro: "Vazio mostra todas as cenas do Home Assistant.",
       requiredField: "entityId",
       itemLabel: (item) => item.name || item.entityId || "(sem cenário)",
       fields: [
@@ -114,6 +130,7 @@
     house_locks: {
       shape: "list",
       sectionTitle: "Fechaduras e portões",
+      intro: "A secção Segurança. Vazio mostra todas as fechaduras e os portões/garagens.",
       requiredField: "entityId",
       itemLabel: (item) => item.name || item.entityId || "(sem entidade)",
       fields: [
@@ -131,77 +148,60 @@
         field("entityId", "entity", "Câmara", { hint: "camera.garagem", domains: ["camera"] }),
       ],
     },
-    calendar_entities: {
-      shape: "list",
-      requiredField: "entityId",
-      itemLabel: (item) => item.entityId || "(sem entidade)",
-      fields: [
-        field("entityId", "entity", "Calendário", { hint: "calendar.pessoal", domains: ["calendar"] }),
-        field("color", "color-select", "Cor"),
-      ],
-    },
     energy_entities: {
       shape: "singleton",
-      sectionTitle: "Entidades de energia",
+      sectionTitle: "Fluxo de energia",
       fields: [
-        field("gridPowerEntityId", "entity", "Potência da rede", { hint: "sensor.grid_power", domains: ["sensor"], desc: "Sinal positivo = a importar da rede; negativo = a exportar." }),
         field("solarPowerEntityId", "entity", "Potência solar", { hint: "sensor.solar_power", domains: ["sensor"], desc: "Produção solar instantânea (sempre ≥ 0)." }),
-        field("batteryPowerEntityId", "entity", "Potência da bateria", { hint: "sensor.battery_power", domains: ["sensor"], desc: "Sinal positivo = a descarregar; negativo = a carregar." }),
-        field("batterySocEntityId", "entity", "Carga da bateria (SOC)", { hint: "sensor.battery_soc", domains: ["sensor"], desc: "Percentagem de carga da bateria, 0-100%." }),
-        field("homePowerEntityId", "entity", "Potência da casa", { hint: "sensor.home_power", domains: ["sensor"], desc: "Consumo total da casa (sempre ≥ 0)." }),
-        field("gridZeroThresholdW", "number", "Limiar de zero — Rede (W)"),
-        field("solarZeroThresholdW", "number", "Limiar de zero — Solar (W)"),
-        field("batteryZeroThresholdW", "number", "Limiar de zero — Bateria (W)"),
-        field("homeZeroThresholdW", "number", "Limiar de zero — Casa (W)"),
+        field("gridPowerEntityId", "entity", "Potência da rede", { hint: "sensor.grid_power", domains: ["sensor"], desc: "Positivo = a importar da rede; negativo = a exportar." }),
+        field("batteryPowerEntityId", "entity", "Potência da bateria", { hint: "sensor.battery_power", domains: ["sensor"], desc: "Positivo = a descarregar; negativo = a carregar." }),
+        field("batterySocEntityId", "entity", "Carga da bateria", { hint: "sensor.battery_soc", domains: ["sensor"], desc: "Percentagem, 0-100%." }),
+        field("homePowerEntityId", "entity", "Consumo da casa", { hint: "sensor.home_power", domains: ["sensor"], desc: "Consumo total da casa (sempre ≥ 0)." }),
+        field("solarZeroThresholdW", "number", "Ignorar solar abaixo de (W)", { hint: "10" }),
+        field("gridZeroThresholdW", "number", "Ignorar rede abaixo de (W)", { hint: "10" }),
+        field("batteryZeroThresholdW", "number", "Ignorar bateria abaixo de (W)", { hint: "10" }),
+        field("homeZeroThresholdW", "number", "Ignorar casa abaixo de (W)", { hint: "10", desc: "Valores mais pequenos do que estes contam como zero, para o fluxo não piscar com ruído dos sensores." }),
       ],
     },
     individual_sensors: {
       shape: "list",
-      sectionTitle: "Sensores individuais",
+      sectionTitle: "Consumos",
+      intro: "Até 4 aparelhos na coluna de consumos do cartão Energia (página Casa). Um com o ícone de bomba de calor também alimenta o cartão Água quente se este não tiver entidades próprias.",
       requiredField: "name",
       maxItems: 4,
       itemLabel: (item) => item.name || "(sem nome)",
       fields: [
         field("name", "text", "Nome", { hint: "Máquina de lavar" }),
         field("icon", "icon-select", "Ícone"),
-        field("powerEntityId", "entity", "Potência", { hint: "sensor.washing_machine_power", domains: ["sensor"] }),
-        field("temperatureEntityId", "entity", "Temperatura (opcional)", { hint: "sensor.water_heater_temperature", domains: ["sensor"] }),
+        field("powerEntityId", "entity", "Potência", { hint: "sensor.maquina_lavar_potencia", domains: ["sensor"] }),
+        field("temperatureEntityId", "entity", "Temperatura (opcional)", { hint: "sensor.aqs_temperatura", domains: ["sensor"] }),
       ],
     },
     ev_cars: {
       shape: "singleton",
       fixedSlots: ["left", "right"],
-      slotLabels: { left: "Carro esquerdo", right: "Carro direito" },
+      slotLabels: { left: "Primeiro carro", right: "Segundo carro" },
       fields: [
-        field("name", "text", "Nome"),
-        field("batterySocEntityId", "entity", "Bateria", { hint: "sensor.car_battery", domains: ["sensor"], desc: "Carga da bateria, 0-100%." }),
-        field("rangeEntityId", "entity", "Autonomia", { hint: "sensor.car_range", domains: ["sensor"], desc: "Autonomia restante, na unidade que o sensor reportar." }),
-        field("chargingEntityId", "entity", "Estado de carregamento", { hint: "binary_sensor.car_charging", desc: 'Sensor cujo estado seja "on"/"charging" enquanto carrega.' }),
-        field("plugConnectedEntityId", "entity", "Ficha ligada", { hint: "binary_sensor.car_plugged_in", desc: 'Sensor cujo estado seja "on"/"connected" quando a ficha está ligada, mesmo sem carregar.' }),
-        field("chargeLimitEntityId", "entity", "Limite de carga", { hint: "number.car_charge_limit", desc: "Percentagem a que o carro para de carregar (marca na barra da bateria)." }),
-        field("chargePowerEntityId", "entity", "Potência de carga", { hint: "sensor.car_charging_power", domains: ["sensor"], desc: "Potência enquanto carrega, em W ou kW." }),
-      ],
-    },
-    mqtt: {
-      shape: "singleton",
-      fields: [
-        field("host", "text", "Anfitrião (host)", { hint: "192.168.1.10" }),
-        field("port", "number", "Porta", { hint: "1883" }),
-        field("username", "text", "Utilizador (opcional)"),
-        field("password", "password", "Palavra-passe (opcional)"),
+        field("name", "text", "Nome", { hint: "Renault 5" }),
+        field("batterySocEntityId", "entity", "Bateria", { hint: "sensor.carro_bateria", domains: ["sensor"], desc: "Carga da bateria, 0-100%." }),
+        field("rangeEntityId", "entity", "Autonomia", { hint: "sensor.carro_autonomia", domains: ["sensor"], desc: "Autonomia restante, em km." }),
+        field("chargingEntityId", "entity", "A carregar", { hint: "binary_sensor.carro_a_carregar", desc: 'Estado "on"/"charging" enquanto carrega.' }),
+        field("plugConnectedEntityId", "entity", "Ficha ligada", { hint: "binary_sensor.carro_ficha", desc: 'Estado "on"/"connected" com a ficha ligada, mesmo sem carregar ("à espera de carga").' }),
+        field("chargeLimitEntityId", "entity", "Limite de carga", { hint: "number.carro_limite_carga", desc: "A marca na barra da bateria." }),
+        field("chargePowerEntityId", "entity", "Potência de carga", { hint: "sensor.carro_potencia_carga", domains: ["sensor"], desc: "Em W ou kW." }),
       ],
     },
   };
 
+  // Ordered as the screen's pages are.
   const MENU = [
-    { title: "Família", icon: "mdi:account-group", keys: ["family_members"] },
-    { title: "Ecrã Casa", icon: "mdi:home-automation", keys: ["house_screen", "house_scenes", "house_locks", "house_cameras"] },
-    { title: "Divisões", icon: "mdi:floor-plan", keys: ["rooms"] },
-    { title: "Meteorologia", icon: "mdi:weather-partly-cloudy", keys: ["temperature_entities"] },
-    { title: "Calendário", icon: "mdi:calendar", keys: ["calendar_entities"] },
-    { title: "Energia", icon: "mdi:lightning-bolt", keys: ["energy_entities", "individual_sensors"] },
-    { title: "Carros elétricos", icon: "mdi:car-electric", keys: ["ev_cars"] },
-    { title: "MQTT", icon: "mdi:swap-horizontal", keys: ["mqtt"] },
+    { title: "Família", icon: "mdi:account-group", desc: "Pessoas, cores e calendários pessoais", keys: ["family_members"] },
+    { title: "Outros calendários", icon: "mdi:calendar", desc: "Feriados e calendários partilhados", keys: ["calendar_entities"] },
+    { title: "Meteorologia", icon: "mdi:weather-partly-cloudy", desc: "Temperatura e previsão no cabeçalho", keys: ["temperature_entities"] },
+    { title: "Divisões", icon: "mdi:floor-plan", desc: "Luz, clima, janela e estores de cada área", keys: ["rooms"] },
+    { title: "Casa", icon: "mdi:home-automation", desc: "Alarme, água quente, cenários, fechaduras e câmaras", keys: ["house_screen", "house_scenes", "house_locks", "house_cameras"] },
+    { title: "Energia", icon: "mdi:lightning-bolt", desc: "Solar, rede, bateria e consumos", keys: ["energy_entities", "individual_sensors"] },
+    { title: "Carros elétricos", icon: "mdi:car-electric", desc: "Bateria, autonomia e carregamento", keys: ["ev_cars"] },
   ];
 
   async function wsGet(hass, key) {
@@ -233,10 +233,6 @@
   function normalizeItem(item, fields) {
     const out = {};
     fields.forEach((f) => {
-      if (f.type === "entity-array") {
-        out[f.key] = (item[f.key] || []).map((v) => normalizeValue("entity", v));
-        return;
-      }
       out[f.key] = normalizeValue(f.type, item[f.key]);
     });
     return out;
@@ -278,8 +274,6 @@
         return nativeInputField(fieldDef, value, onChange, "text");
       case "number":
         return nativeInputField(fieldDef, value, onChange, "number");
-      case "password":
-        return nativeInputField(fieldDef, value, onChange, "password");
       case "entity": {
         const el = document.createElement("ha-entity-picker");
         el.hass = hass;
@@ -294,22 +288,9 @@
         });
         return el;
       }
-      case "date": {
-        const wrap = document.createElement("div");
-        wrap.className = "date-field";
-        const label = document.createElement("div");
-        label.className = "date-label";
-        label.textContent = fieldDef.label;
-        const input = document.createElement("input");
-        input.type = "date";
-        input.value = value ? String(value).slice(0, 10) : "";
-        input.addEventListener("input", () => onChange(input.value || null));
-        wrap.append(label, input);
-        return wrap;
-      }
       case "icon-select":
       case "color-select": {
-        const opts = fieldDef.type === "icon-select" ? SENSOR_ICONS : CALENDAR_COLORS;
+        const opts = fieldDef.type === "icon-select" ? SENSOR_ICONS : PERSON_COLORS;
         const wrap = document.createElement("div");
         wrap.className = "swatch-row";
         let current = value;
@@ -360,10 +341,6 @@
   async function renderListDomain(root, hass, key, domainDef) {
     const loaded = (await wsGet(hass, key)) || [];
     let items = deepClone(loaded);
-    // Newly loaded (already-configured) rooms start collapsed so a long
-    // list doesn't open as a wall of fields; a freshly added one starts
-    // expanded since the user is about to fill it in.
-    if (domainDef.collapsible) items.forEach((it) => (it._expanded = false));
 
     const wrap = document.createElement("div");
     wrap.className = "domain-section";
@@ -384,14 +361,6 @@
 
         const controls = document.createElement("div");
         controls.className = "item-controls";
-        if (domainDef.collapsible) {
-          controls.appendChild(
-            mkIconButton(item._expanded ? "mdi:chevron-up" : "mdi:chevron-down", item._expanded ? "Colapsar" : "Expandir", () => {
-              item._expanded = !item._expanded;
-              paintCards();
-            })
-          );
-        }
         if (index > 0) {
           controls.appendChild(
             mkIconButton("mdi:arrow-up", "Mover para cima", () => {
@@ -418,24 +387,15 @@
         header.appendChild(controls);
         card.appendChild(header);
 
-        if (domainDef.collapsible && !item._expanded) {
-          const filledCount = domainDef.fields.filter((f) => f.key !== domainDef.requiredField && item[f.key]).length;
-          const total = domainDef.fields.length - 1;
-          const summary = document.createElement("div");
-          summary.className = "item-summary";
-          summary.textContent = filledCount === 0 ? "Nenhum campo configurado" : `${filledCount} de ${total} campos configurados`;
-          card.appendChild(summary);
-        } else {
-          const body = document.createElement("div");
-          body.className = "item-body";
-          domainDef.fields.forEach((f) => {
-            renderFieldRow(body, hass, f, item[f.key], (v) => {
-              item[f.key] = v;
-              if (f.key === domainDef.requiredField) title.textContent = domainDef.itemLabel(item);
-            });
+        const body = document.createElement("div");
+        body.className = "item-body";
+        domainDef.fields.forEach((f) => {
+          renderFieldRow(body, hass, f, item[f.key], (v) => {
+            item[f.key] = v;
+            if (f.key === domainDef.requiredField) title.textContent = domainDef.itemLabel(item);
           });
-          card.appendChild(body);
-        }
+        });
+        card.appendChild(body);
         cardsWrap.appendChild(card);
       });
     }
@@ -447,7 +407,7 @@
       addBtn.textContent = atMax ? `Máximo de ${domainDef.maxItems} atingido` : "Adicionar";
     }
     addBtn.addEventListener("click", () => {
-      items.push(domainDef.collapsible ? { _expanded: true } : {});
+      items.push({});
       paintCards();
       updateAddState();
     });
@@ -655,22 +615,6 @@
 
     function renderFields(container, target) {
       domainDef.fields.forEach((f) => {
-        if (f.type === "entity-array") {
-          if (!Array.isArray(target[f.key])) target[f.key] = new Array(f.count).fill(null);
-          const arr = target[f.key];
-          f.dayLabels.forEach((label, i) => {
-            renderFieldRow(
-              container,
-              hass,
-              { type: "entity", label: `${label} (kWh previstos)`, hint: f.hint, domains: f.domains },
-              arr[i],
-              (v) => {
-                arr[i] = v;
-              }
-            );
-          });
-          return;
-        }
         renderFieldRow(container, hass, f, target[f.key], (v) => {
           target[f.key] = v;
         });
@@ -741,6 +685,8 @@
     .menu-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; }
     .menu-tile { padding:24px 12px; display:flex; flex-direction:column; align-items:center; gap:10px; cursor:pointer; text-align:center; }
     .menu-tile ha-icon { --mdc-icon-size:32px; color: var(--primary-color); }
+    .menu-desc, .section-intro { font-size:12px; color: var(--secondary-text-color); }
+    .section-intro { margin:0 0 12px; }
     .item-card { margin-bottom:12px; padding:12px 16px; display:block; }
     .item-header { display:flex; align-items:center; justify-content:space-between; font-weight:500; margin-bottom:8px; }
     .item-controls { display:flex; gap:4px; }
@@ -750,9 +696,9 @@
     .item-summary { font-size:12px; color: var(--secondary-text-color); }
     .field-row ha-entity-picker { width:100%; }
     .field-desc { font-size:12px; color: var(--secondary-text-color); margin-top:2px; }
-    .date-field, .text-field { display:flex; flex-direction:column; gap:4px; }
-    .date-label, .text-field-label { font-size:12px; color: var(--secondary-text-color); }
-    .date-field input, .text-field input { padding:8px; border-radius:4px; border:1px solid var(--divider-color); background: var(--card-background-color); color: var(--primary-text-color); font-size:15px; width:100%; box-sizing:border-box; }
+    .text-field { display:flex; flex-direction:column; gap:4px; }
+    .text-field-label { font-size:12px; color: var(--secondary-text-color); }
+    .text-field input { padding:8px; border-radius:4px; border:1px solid var(--divider-color); background: var(--card-background-color); color: var(--primary-text-color); font-size:15px; width:100%; box-sizing:border-box; }
     .swatch-row { display:flex; gap:8px; flex-wrap:wrap; }
     .swatch-btn, .color-btn { width:36px; height:36px; border-radius:50%; border:2px solid transparent; cursor:pointer; display:flex; align-items:center; justify-content:center; background: var(--card-background-color); }
     .swatch-btn.selected, .color-btn.selected { border-color: var(--primary-color); }
@@ -815,7 +761,7 @@
         titleBar.appendChild(back);
       }
       const h1 = document.createElement("h1");
-      h1.textContent = this._activeIndex === null ? "Definições da app" : MENU[this._activeIndex].title;
+      h1.textContent = this._activeIndex === null ? "Flutter Dashboard" : MENU[this._activeIndex].title;
       titleBar.appendChild(h1);
       container.appendChild(titleBar);
 
@@ -829,7 +775,10 @@
           ic.icon = entry.icon;
           const label = document.createElement("div");
           label.textContent = entry.title;
-          tile.append(ic, label);
+          const desc = document.createElement("div");
+          desc.className = "menu-desc";
+          desc.textContent = entry.desc;
+          tile.append(ic, label, desc);
           tile.addEventListener("click", () => {
             this._activeIndex = i;
             this._paint();
@@ -855,6 +804,12 @@
           const heading = document.createElement("h3");
           heading.textContent = domainDef.sectionTitle || key;
           body.appendChild(heading);
+        }
+        if (domainDef.intro) {
+          const intro = document.createElement("p");
+          intro.className = "section-intro";
+          intro.textContent = domainDef.intro;
+          body.appendChild(intro);
         }
         try {
           if (domainDef.shape === "list") {
