@@ -52,9 +52,6 @@ dependencies:
   # local browser preview) and Linux.
   shared_preferences: ^2.3.3
 
-  # Line chart for the temperature history modal
-  fl_chart: ^1.2.0
-  animations: ^3.0.0
   mqtt_client: ^10.11.11
   typed_data: ^1.4.0
   flutter_svg: ^2.3.0
@@ -90,20 +87,7 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # Inter — the Nocturne design system's typeface (see README.md/
-  # styles-reference.css). Three static weights, matching every weight the
-  # app's own type scale actually uses (400/500 body & labels, 500/600
-  # headings/numerals — never bolder than 600).
   fonts:
-    - family: Inter
-      fonts:
-        - asset: assets/fonts/Inter-Regular.ttf
-          weight: 400
-        - asset: assets/fonts/Inter-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/Inter-SemiBold.ttf
-          weight: 600
-
     # The kiosk redesign's two typefaces (Google Fonts, OFL — licences
     # alongside). Both ship upstream only as variable fonts; these are
     # static instances cut with fontTools' varLib.instancer (DM Sans at

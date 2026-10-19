@@ -14,7 +14,7 @@ final savedEnergyEntityConfigProvider = FutureProvider<EnergyEntityConfig>((ref)
   return ref.watch(energyEntitiesStoreProvider).read();
 });
 
-/// The config currently in use — set from [savedEnergyEntityConfigProvider]
-/// at startup (see `RootScreen`), then updated directly whenever Settings
-/// saves a change, so the energy card picks it up live without a restart.
+/// The config currently in use — set from [savedEnergyEntityConfigProvider] at startup (see
+/// `settingsHydrationProvider`). It's edited in the HA sidebar panel
+/// (Flutter Dashboard), not in the app.
 final energyEntityConfigProvider = StateProvider<EnergyEntityConfig>((ref) => const EnergyEntityConfig());

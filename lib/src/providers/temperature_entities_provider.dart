@@ -14,8 +14,7 @@ final savedTemperatureEntityConfigProvider = FutureProvider<TemperatureEntityCon
   return ref.watch(temperatureEntitiesStoreProvider).read();
 });
 
-/// The config currently in use — set from [savedTemperatureEntityConfigProvider]
-/// at startup (see `RootScreen`), then updated directly whenever Settings
-/// saves a change, so the Temperatures sheet picks it up live without a
-/// restart.
+/// The config currently in use — set from [savedTemperatureEntityConfigProvider] at startup (see
+/// `settingsHydrationProvider`). It's edited in the HA sidebar panel
+/// (Flutter Dashboard), not in the app.
 final temperatureEntityConfigProvider = StateProvider<TemperatureEntityConfig>((ref) => const TemperatureEntityConfig());

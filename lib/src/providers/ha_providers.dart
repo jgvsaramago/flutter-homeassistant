@@ -12,29 +12,12 @@ import '../models/ha_floor.dart';
 import '../services/screen_power_controller.dart';
 import 'calendar_entities_provider.dart';
 import 'energy_entities_provider.dart';
-import 'energy_page_settings_provider.dart';
 import 'ev_cars_provider.dart';
-import 'house_mode_provider.dart';
 import 'individual_sensors_provider.dart';
-import 'mass_providers.dart';
 import 'rooms_provider.dart';
 import 'temperature_entities_provider.dart';
 
 final haCredentialsStoreProvider = Provider<HaCredentialsStore>((ref) => HaCredentialsStore());
-
-/// Authorization header for an `Image.network` request to [url], if it
-/// points at the configured HA instance's own REST API (e.g.
-/// `/api/image/serve/...`, used by the EV cards' photo field) — such
-/// endpoints require the long-lived access token as a Bearer header, unlike
-/// `/local/...` static files or `entity_picture`-style URLs that HA itself
-/// signs with a token in the query string. Returns null for any other host,
-/// so the token is never sent to a third-party server.
-Map<String, String>? haImageAuthHeaders(HaConnectionConfig? config, String url) {
-  if (config == null) return null;
-  final base = config.baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
-  if (!url.startsWith(base)) return null;
-  return {'Authorization': 'Bearer ${config.accessToken}'};
-}
 
 /// Single long-lived websocket client shared by the whole app.
 final haWebSocketClientProvider = Provider<HaWebSocketClient>((ref) {
@@ -280,7 +263,7 @@ final savedFloorsProvider = FutureProvider<List<HaFloor>>((ref) async {
 
 final floorsProvider = StateProvider<List<HaFloor>>((ref) => const []);
 
-/// Loads all 8 dashboard-config settings from HA once the connection is up,
+/// Loads the dashboard-config settings from HA once the connection is up,
 /// hydrating each domain's "live" `StateProvider` — the one-time job
 /// `RootScreen._bootstrap` used to do directly against `SharedPreferences`
 /// before settings moved behind the HA connection. Watched by `MainShell`
@@ -307,14 +290,6 @@ final settingsHydrationProvider = FutureProvider<void>((ref) async {
     // Proceed with the energy card's own "--" fallback for every field.
   }
   try {
-    final savedEnergyPageConfig = await ref.read(savedEnergyPageConfigProvider.future);
-    if (!savedEnergyPageConfig.isEmpty) {
-      ref.read(energyPageConfigProvider.notifier).state = savedEnergyPageConfig;
-    }
-  } catch (_) {
-    // Proceed with the Energia page's own "--" fallback for every field.
-  }
-  try {
     final savedTemperatureEntities = await ref.read(savedTemperatureEntityConfigProvider.future);
     ref.read(temperatureEntityConfigProvider.notifier).state = savedTemperatureEntities;
   } catch (_) {
@@ -327,14 +302,6 @@ final settingsHydrationProvider = FutureProvider<void>((ref) async {
     }
   } catch (_) {
     // Proceed with no calendars configured — the card/sheet show an empty state.
-  }
-  try {
-    final savedMass = await ref.read(savedMassConnectionConfigProvider.future);
-    if (savedMass != null) {
-      ref.read(massConnectionConfigProvider.notifier).state = savedMass;
-    }
-  } catch (_) {
-    // Proceed with no Music Assistant server configured — the Music sheet shows an empty state.
   }
   try {
     final savedEvCars = await ref.read(savedEvCarsConfigProvider.future);
@@ -381,14 +348,6 @@ final settingsHydrationProvider = FutureProvider<void>((ref) async {
     }
   } catch (_) {
     // Proceed with the Divisões page's own empty state.
-  }
-  try {
-    final savedHouseMode = await ref.read(savedHouseModeConfigProvider.future);
-    if (!savedHouseMode.isEmpty) {
-      ref.read(houseModeConfigProvider.notifier).state = savedHouseMode;
-    }
-  } catch (_) {
-    // Proceed with no house-mode entity configured — the Homepage chip hides itself.
   }
 });
 

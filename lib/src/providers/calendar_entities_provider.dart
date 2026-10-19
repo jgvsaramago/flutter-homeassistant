@@ -15,8 +15,7 @@ final savedCalendarEntriesProvider = FutureProvider<List<CalendarEntryConfig>>((
   return ref.watch(calendarEntitiesStoreProvider).read();
 });
 
-/// The calendar list currently in use — set from [savedCalendarEntriesProvider]
-/// at startup (see `RootScreen`), then updated directly whenever Settings
-/// saves a change, so the calendar card/sheet pick it up live without a
-/// restart.
+/// The config currently in use — set from [savedCalendarEntriesProvider] at startup (see
+/// `settingsHydrationProvider`). It's edited in the HA sidebar panel
+/// (Flutter Dashboard), not in the app.
 final calendarEntriesProvider = StateProvider<List<CalendarEntryConfig>>((ref) => const []);

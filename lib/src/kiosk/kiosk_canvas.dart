@@ -53,34 +53,3 @@ class KioskCanvas extends StatelessWidget {
     );
   }
 }
-
-/// Renders [child] — UI built for a narrower logical width (the original
-/// 720-wide dashboard's settings screens) — at [logicalWidth] and scales it
-/// up to fill the space it's given, converting keyboard insets to match.
-class LegacyScale extends StatelessWidget {
-  const LegacyScale({super.key, required this.child, this.logicalWidth = 720});
-
-  final Widget child;
-  final double logicalWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, c) {
-        final scale = c.maxWidth / logicalWidth;
-        final mq = MediaQuery.of(context);
-        final size = Size(logicalWidth, c.maxHeight / scale);
-        return FittedBox(
-          alignment: Alignment.topLeft,
-          child: SizedBox.fromSize(
-            size: size,
-            child: MediaQuery(
-              data: mq.copyWith(size: size, viewInsets: mq.viewInsets / scale, devicePixelRatio: mq.devicePixelRatio * scale),
-              child: child,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}

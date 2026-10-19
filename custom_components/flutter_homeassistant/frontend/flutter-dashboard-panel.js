@@ -32,8 +32,6 @@
     { value: "boiler", label: "Termoacumulador (AQS)", icon: "mdi:water-boiler" },
   ];
 
-  const FORECAST_DAY_LABELS = ["Hoje", "Amanhã", "D+3", "D+4", "D+5", "D+6", "D+7"];
-
   function field(key, type, label, opts = {}) {
     return { key, type, label, ...opts };
   }
@@ -42,7 +40,7 @@
     // Area-backed (see renderAreaListDomain): one row per HA area, not a
     // user-created list. Name, floor, and temperature/humidity all come
     // straight from the area itself (HA's own Areas & Zones settings) —
-    // only these 6 fields are this app's own mapping, mirroring
+    // only these fields are this app's own mapping, mirroring
     // RoomConfig in lib/src/providers/rooms_store.dart.
     rooms: {
       shape: "area-list",
@@ -51,44 +49,22 @@
         field("lightEntityId", "entity", "Luz", { hint: "light.quarto ou switch.quarto" }),
         field("windowEntityId", "entity", "Janela", { hint: "binary_sensor.quarto_window", domains: ["binary_sensor"] }),
         field("climateEntityId", "entity", "Ar condicionado", {
-          hint: "climate.quarto ou switch.quarto_ac",
-          desc: "Uma entidade climate.* aqui também gera o cartão de AC desta divisão na página Climatização.",
+          hint: "climate.quarto",
+          domains: ["climate"],
+          desc: "O ar condicionado desta divisão nos controlos de Clima (Início, Casa e janela do ar condicionado).",
         }),
-        field("speakerEntityId", "entity", "Altifalante", { hint: "media_player.quarto", domains: ["media_player"] }),
         field("coverEntityId", "entity", "Estores", {
           hint: "cover.quarto_estores",
           domains: ["cover"],
-          desc: "Também gera o cartão de estores desta divisão na página Climatização.",
-        }),
-      ],
-    },
-    house_mode: {
-      shape: "singleton",
-      fields: [
-        field("entityId", "entity", "Modo da casa", {
-          hint: "input_select.modo_da_casa",
-          domains: ["input_select", "select"],
-          desc: "Entidade mostrada como seletor de modo na Homepage da app (ex.: Casa, Fora, Férias, Noite). Cria-a em Definições → Ajudantes → Adicionar ajudante → Lista suspensa.",
+          desc: "A posição dos estores no cartão da divisão na página Casa.",
         }),
       ],
     },
     temperature_entities: {
       shape: "singleton",
       fields: [
-        field("interiorTempEntityId", "entity", "Temperatura interior", { hint: "sensor.temperatura_interior", desc: "Leitura principal mostrada no cartão e no topo da folha." }),
-        field("interiorHumidityEntityId", "entity", "Humidade interior", { hint: "sensor.humidade_interior", desc: "Percentagem de humidade relativa." }),
-        field("co2EntityId", "entity", "CO₂", { hint: "sensor.co2", desc: "Dióxido de carbono, em ppm." }),
-        field("pm25EntityId", "entity", "PM2.5", { hint: "sensor.pm25", desc: "Partículas finas, em µg/m³." }),
-        field("vocEntityId", "entity", "VOC", { hint: "sensor.voc", desc: "Compostos orgânicos voláteis, em mg/m³." }),
-        field("radonEntityId", "entity", "Radão", { hint: "sensor.radao", desc: "Concentração de radão, em Bq/m³." }),
-        field("exteriorTempEntityId", "entity", "Temperatura exterior", { hint: "sensor.temperatura_exterior", desc: "Leitura principal mostrada no cartão e na folha." }),
-        field("exteriorHumidityEntityId", "entity", "Humidade exterior", { hint: "sensor.humidade_exterior", desc: "Percentagem de humidade relativa exterior." }),
-        field("rainEntityId", "entity", "Chuva hoje", { hint: "sensor.chuva_hoje", desc: "Precipitação acumulada hoje, em mm." }),
-        field("windEntityId", "entity", "Vento", { hint: "sensor.vento", desc: "Velocidade do vento, em km/h." }),
-        field("gustEntityId", "entity", "Rajada máxima", { hint: "sensor.rajada_maxima", desc: "Rajada máxima, em km/h." }),
-        field("pressureEntityId", "entity", "Pressão", { hint: "sensor.pressao", desc: "Pressão atmosférica, em hPa." }),
-        field("uvEntityId", "entity", "Índice UV", { hint: "sensor.indice_uv", desc: "Índice de radiação ultravioleta." }),
-        field("weatherStateEntityId", "entity", "Estado do tempo", { hint: "weather.estacao", desc: 'Estado do tempo em texto (ex.: "Chuva fraca").' }),
+        field("exteriorTempEntityId", "entity", "Temperatura exterior", { hint: "sensor.temperatura_exterior", desc: "O número grande da temperatura no cabeçalho." }),
+        field("weatherStateEntityId", "entity", "Meteorologia", { hint: "weather.casa", domains: ["weather"], desc: "Estado do tempo, máximas/mínimas e a previsão dos próximos dias no cabeçalho." }),
       ],
     },
     // The kiosk's household: who tasks are for, and whose calendar a new
@@ -198,39 +174,12 @@
       slotLabels: { left: "Carro esquerdo", right: "Carro direito" },
       fields: [
         field("name", "text", "Nome"),
-        field("photoUrl", "text", "Foto (URL)", { desc: 'URL de uma foto do carro (ex.: um ficheiro em /config/www/ do Home Assistant, servido como http://<ha>/local/..., ou o "entity_picture" de uma entidade camera/image/person).' }),
         field("batterySocEntityId", "entity", "Bateria", { hint: "sensor.car_battery", domains: ["sensor"], desc: "Carga da bateria, 0-100%." }),
         field("rangeEntityId", "entity", "Autonomia", { hint: "sensor.car_range", domains: ["sensor"], desc: "Autonomia restante, na unidade que o sensor reportar." }),
         field("chargingEntityId", "entity", "Estado de carregamento", { hint: "binary_sensor.car_charging", desc: 'Sensor cujo estado seja "on"/"charging" enquanto carrega.' }),
         field("plugConnectedEntityId", "entity", "Ficha ligada", { hint: "binary_sensor.car_plugged_in", desc: 'Sensor cujo estado seja "on"/"connected" quando a ficha está ligada, mesmo sem carregar.' }),
         field("chargeLimitEntityId", "entity", "Limite de carga", { hint: "number.car_charge_limit", desc: "Percentagem a que o carro para de carregar (marca na barra da bateria)." }),
         field("chargePowerEntityId", "entity", "Potência de carga", { hint: "sensor.car_charging_power", domains: ["sensor"], desc: "Potência enquanto carrega, em W ou kW." }),
-        field("monthEnergyEntityId", "entity", "Energia do mês", { hint: "sensor.car_energy_this_month", domains: ["sensor"], desc: "Energia carregada este mês, em kWh." }),
-        field("monthEnergyDeltaEntityId", "entity", "Variação da energia", { hint: "sensor.car_energy_delta_percent", domains: ["sensor"], desc: "Variação face ao mês anterior, em %." }),
-        field("monthCostEntityId", "entity", "Custo do mês", { hint: "sensor.car_cost_this_month", domains: ["sensor"], desc: "Custo da carga este mês, em euros." }),
-        field("monthCostDeltaEntityId", "entity", "Variação do custo", { hint: "sensor.car_cost_delta_eur", domains: ["sensor"], desc: "Variação face ao mês anterior, em euros." }),
-      ],
-    },
-    energy_page_settings: {
-      shape: "singleton",
-      fields: [
-        field("installedKwp", "number", "Potência instalada (kWp)"),
-        field("panelCount", "number", "Número de painéis"),
-        field("panelOrientation", "text", "Orientação", { hint: "sul 30°" }),
-        field("importPricePerKwh", "number", "Preço da eletricidade importada (€/kWh)"),
-        field("exportPricePerKwh", "number", "Preço da eletricidade injetada (€/kWh)"),
-        field("inverterStatusEntityId", "entity", "Estado do inversor", { hint: "sensor.inverter_status" }),
-        field("inverterTemperatureEntityId", "entity", "Temperatura do inversor", { hint: "sensor.inverter_temperature", domains: ["sensor"] }),
-        field("inverterEfficiencyEntityId", "entity", "Eficiência do inversor", { hint: "sensor.inverter_efficiency", domains: ["sensor"] }),
-        field("forecastDayEntityIds", "entity-array", "Previsão solar", {
-          count: 7,
-          dayLabels: FORECAST_DAY_LABELS,
-          domains: ["sensor"],
-          hint: "sensor.solcast_pv_forecast_forecast_today",
-        }),
-        field("weatherEntityId", "entity", "Entidade de meteorologia", { hint: "weather.casa", domains: ["weather"], desc: 'Opcional — só usado se a entidade expuser o atributo "forecast".' }),
-        field("lastCleaningDate", "date", "Última limpeza"),
-        field("nextCleaningDate", "date", "Próxima limpeza"),
       ],
     },
     mqtt: {
@@ -242,32 +191,17 @@
         field("password", "password", "Palavra-passe (opcional)"),
       ],
     },
-    music_assistant: {
-      shape: "singleton",
-      fields: [
-        field("baseUrl", "text", "URL do servidor", {
-          hint: "http://192.168.1.130:8095",
-          desc: "Endereço do add-on/servidor Music Assistant na rede local.",
-        }),
-        field("accessToken", "password", "Token de acesso", {
-          desc: "Token de longa duração, criado em Definições → Perfil no Music Assistant — não é a mesma credencial do Home Assistant.",
-        }),
-      ],
-    },
   };
 
   const MENU = [
     { title: "Família", icon: "mdi:account-group", keys: ["family_members"] },
     { title: "Ecrã Casa", icon: "mdi:home-automation", keys: ["house_screen", "house_scenes", "house_locks", "house_cameras"] },
-    { title: "Modo da Casa", icon: "mdi:home-switch", keys: ["house_mode"] },
     { title: "Divisões", icon: "mdi:floor-plan", keys: ["rooms"] },
-    { title: "Temperatura", icon: "mdi:thermometer", keys: ["temperature_entities"] },
+    { title: "Meteorologia", icon: "mdi:weather-partly-cloudy", keys: ["temperature_entities"] },
     { title: "Calendário", icon: "mdi:calendar", keys: ["calendar_entities"] },
     { title: "Energia", icon: "mdi:lightning-bolt", keys: ["energy_entities", "individual_sensors"] },
     { title: "Carros elétricos", icon: "mdi:car-electric", keys: ["ev_cars"] },
-    { title: "Página de Energia", icon: "mdi:solar-power", keys: ["energy_page_settings"] },
     { title: "MQTT", icon: "mdi:swap-horizontal", keys: ["mqtt"] },
-    { title: "Music Assistant", icon: "mdi:speaker-wireless", keys: ["music_assistant"] },
   ];
 
   async function wsGet(hass, key) {

@@ -43,12 +43,12 @@ final _configuredIds = Provider<Set<String>>((ref) {
     ids.addAll([c.batterySocEntityId, c.rangeEntityId, c.chargingEntityId, c.plugConnectedEntityId, c.chargeLimitEntityId, c.chargePowerEntityId]);
   }
   final t = ref.watch(temperatureEntityConfigProvider);
-  ids.addAll([t.exteriorTempEntityId, t.interiorTempEntityId, t.weatherStateEntityId]);
+  ids.addAll([t.exteriorTempEntityId, t.weatherStateEntityId]);
   for (final a in ref.watch(areasProvider)) {
     ids.addAll([a.temperatureEntityId, a.humidityEntityId]);
   }
   for (final r in ref.watch(roomsProvider)) {
-    ids.addAll([r.secondaryEntityId, r.lightEntityId, r.windowEntityId, r.climateEntityId, r.coverEntityId, r.speakerEntityId]);
+    ids.addAll([r.secondaryEntityId, r.lightEntityId, r.windowEntityId, r.climateEntityId, r.coverEntityId]);
   }
   final house = ref.watch(houseConfigProvider);
   ids.addAll([house.alarmEntityId, house.waterHeaterEntityId, house.waterHeaterPowerEntityId, house.waterHeaterTempEntityId]);

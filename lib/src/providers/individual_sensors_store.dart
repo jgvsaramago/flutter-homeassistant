@@ -1,5 +1,4 @@
 import '../ha_client/ha_websocket_client.dart';
-import 'settings_json_utils.dart';
 
 /// Which built-in glyph an individual-sensor node draws — a closed set
 /// matching the energy-flow card's own icon inventory (see
@@ -86,12 +85,5 @@ class IndividualSensorsStore {
     final raw = await _client.getSettings(_key);
     if (raw is! List) return const [];
     return raw.cast<Map<String, dynamic>>().map(IndividualSensorConfig.fromJson).toList();
-  }
-
-  /// Capped at 4 — the energy-flow card has exactly 4 device node slots, so
-  /// anything beyond that could never be shown.
-  Future<void> save(List<IndividualSensorConfig> sensors) async {
-    final valid = sensors.where((s) => s.name.trim().isNotEmpty).take(4).toList();
-    await _client.setSettings(_key, blankStringsToNull(valid.map((s) => s.toJson()).toList()));
   }
 }

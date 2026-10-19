@@ -6,8 +6,7 @@ import 'dev/placeholder_entities.dart';
 import 'kiosk/kiosk_canvas.dart';
 import 'kiosk/kiosk_shell.dart';
 import 'providers/ha_providers.dart';
-import 'theme/nocturne_theme.dart';
-import 'theme/theme_mode_controller.dart';
+import 'kiosk/theme/kiosk_tokens.dart';
 import 'widgets/on_screen_keyboard.dart';
 import 'widgets/screen_power_guard.dart';
 
@@ -21,45 +20,21 @@ class HomeAssistantApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // `NocturneColors`/`NocturneText`/`NocturneElevation` are plain
-    // `static Color get`s reading `ThemeModeController.instance.mode` at
-    // call time — they aren't `Listenable` themselves, so nothing rebuilds
-    // just because that value changed. Rebuilding `MaterialApp` under a
-    // `ValueKey` on the mode forces Flutter to tear down and remount the
-    // *entire* subtree on a theme switch, which is what actually makes
-    // every widget re-read those getters with the new mode — the
-    // alternative (wiring every single one of this app's ~500 token call
-    // sites to its own listener) isn't remotely worth it for something a
-    // person changes a few times a year, not per frame.
-    return ValueListenableBuilder<Brightness>(
-      valueListenable: ThemeModeController.instance.mode,
-      builder: (context, mode, _) => MaterialApp(
-        key: ValueKey(mode),
-        title: 'Home Assistant',
-        debugShowCheckedModeBanner: false,
-        theme: buildNocturneTheme(),
-        darkTheme: buildNocturneTheme(),
-        themeMode: mode == Brightness.light ? ThemeMode.light : ThemeMode.dark,
-        // Wraps the Navigator (dialogs included) so the auto-off overlay and
-        // the on-screen keyboard both sit above literally everything the app
-        // can show. Keyboard nested inside the power guard so tapping it
-        // still counts as activity for the auto-off idle timer.
-        //
-        // The `DefaultTextStyle.merge` here is belt-and-suspenders on top of
-        // `ThemeData.fontFamily` below: every `Text` with a custom
-        // `TextStyle` already inherits an unset `fontFamily` from the
-        // nearest `DefaultTextStyle` (which itself is normally seeded from
-        // `Theme.of(context).textTheme`) — but forcing it explicitly here,
-        // above the whole subtree, means Inter applies regardless of
-        // whatever ends up between here and any given `Text` (a `Sheet`
-        // pushed via a bare `PageRouteBuilder`, e.g. — see `NocturneText`'s
-        // own doc comment about that same gap for `TextDecoration.none`).
-        builder: (context, child) => DefaultTextStyle.merge(
-          style: const TextStyle(fontFamily: 'Inter'),
-          child: KioskCanvas(child: ScreenPowerGuard(child: OnScreenKeyboardHost(child: child!))),
-        ),
-        home: const RootScreen(),
+    return MaterialApp(
+      title: 'Home Assistant',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        fontFamily: KText.sans,
+        scaffoldBackgroundColor: KColors.page,
+        colorScheme: ColorScheme.fromSeed(seedColor: KColors.accent, surface: KColors.page),
+        textSelectionTheme: const TextSelectionThemeData(cursorColor: KColors.accent, selectionColor: Color(0x401F4D45), selectionHandleColor: KColors.accent),
       ),
+      // Wraps the Navigator (modals included) so the auto-off overlay and the
+      // on-screen keyboard sit above everything the app can show, all on the
+      // fixed design canvas. Keyboard nested inside the power guard so
+      // tapping it still counts as activity for the auto-off idle timer.
+      builder: (context, child) => KioskCanvas(child: ScreenPowerGuard(child: OnScreenKeyboardHost(child: child!))),
+      home: const RootScreen(),
     );
   }
 }
@@ -69,8 +44,7 @@ class HomeAssistantApp extends StatelessWidget {
 /// the launch command, see `main.dart`), then shows the dashboard. Missing
 /// config isn't treated as an error here: `entitiesProvider` just resolves
 /// to an empty entity set, which the dashboard already renders sensibly
-/// (badges at zero, readings as "--"), and Settings' "Instance"/"Status"
-/// rows make a misconfigured launch command visible without blocking on it.
+/// (readings as "--"), and Definições' connection rows make a misconfigured launch command visible without blocking on it.
 class RootScreen extends ConsumerStatefulWidget {
   const RootScreen({super.key});
 

@@ -18,11 +18,9 @@ final savedRoomsProvider = FutureProvider<List<RoomConfig>>((ref) async {
   return ref.watch(roomsStoreProvider).read(areas);
 });
 
-/// The room list currently in use — set from [savedRoomsProvider] at
-/// startup (see `RootScreen`), then updated directly whenever Settings
-/// saves a change, so the Divisões page picks it up live without a
-/// restart. Starts empty, same as `calendarEntriesProvider`/
-/// `individualSensorsProvider` — this app has no rooms baked in.
+/// The config currently in use — set from [savedRoomsProvider] at startup (see
+/// `settingsHydrationProvider`). It's edited in the HA sidebar panel
+/// (Flutter Dashboard), not in the app.
 final roomsProvider = StateProvider<List<RoomConfig>>((ref) => const []);
 
 /// One configured room, fully resolved against live HA data: the area it

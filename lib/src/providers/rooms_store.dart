@@ -1,21 +1,13 @@
 import '../ha_client/ha_websocket_client.dart';
 import '../models/ha_area.dart';
-import 'settings_json_utils.dart';
 
-/// One room's entity mapping on the Divisões page — the room itself is a
+/// One room's entity mapping for the Casa page's room grid — the room is a
 /// real HA area (see [areaId]/`HaArea`), not something typed into this app;
-/// this only stores which of the area's devices power each icon/control.
-/// All optional — an unset field just means that room shows no reading/icon
-/// for it, same convention as every other entity config in this app.
+/// this only stores which of the area's devices it shows. All optional.
 ///
-/// [climateEntityId] and [coverEntityId] double as the Climatização page's
-/// own dynamic entity list: an AC unit card is rendered for every area with
-/// a [climateEntityId], a shutter card for every area with a
-/// [coverEntityId] — so adding/removing either on that page is just editing
-/// this mapping. Temperature/humidity are *not* stored here at all: they
-/// come straight from the area's own sensors (`HaArea.temperatureEntityId`/
-/// `humidityEntityId`, set in HA's own Areas & Zones settings), which also
-/// feed the Climatização page's per-floor stat tiles.
+/// [climateEntityId] also makes the room an AC unit in the Clima controls
+/// (Início's summary, the Casa page, the AC modal). Temperature/humidity
+/// aren't stored here: they come from the area's own sensors in HA.
 class RoomConfig {
   const RoomConfig({
     required this.areaId,
@@ -23,7 +15,6 @@ class RoomConfig {
     this.lightEntityId,
     this.windowEntityId,
     this.climateEntityId,
-    this.speakerEntityId,
     this.coverEntityId,
   });
 
@@ -32,31 +23,21 @@ class RoomConfig {
   /// matching `HaArea`, never stored here.
   final String areaId;
 
-  /// Drives the card's status line — any entity. Interpreted by domain/
-  /// device class: humidity/CO₂ sensors get a friendly reading, `lock.*`
-  /// gets a locked/unlocked phrase, anything else falls back to its raw
-  /// display state. Unset falls back to the cover's own position (if
-  /// [coverEntityId] is set), else the line is omitted.
+  /// An extra status line on the room's tile — any entity; `lock.*` reads
+  /// as locked/open, anything else as its name and state.
   final String? secondaryEntityId;
 
-  /// `light.*` or `switch.*` — on/off drives the light icon and the
-  /// "Luzes" counter/bulk action.
+  /// `light.*` (often a group) or `switch.*` — the tile's light toggle,
+  /// and part of "Apagar todas as luzes".
   final String? lightEntityId;
 
-  /// `binary_sensor.*` (door/window) — open/closed drives the window icon
-  /// and the "Janelas" counter.
+  /// `binary_sensor.*` (door/window) — "Janela aberta/fechadas".
   final String? windowEntityId;
 
-  /// `climate.*` or `switch.*` — on/active drives the A/C icon and the
-  /// "AC" counter.
+  /// `climate.*` — the room's AC unit.
   final String? climateEntityId;
 
-  /// `media_player.*` — playing vs merely on/idle drives the speaker icon's
-  /// two lit shades.
-  final String? speakerEntityId;
-
-  /// `cover.*` — drives the blinds icon and the "Fechar/Abrir estores" bulk
-  /// action, and doubles as one shutter card on the Climatização page.
+  /// `cover.*` — the blinds' position line on the tile.
   final String? coverEntityId;
 
   RoomConfig copyWith({
@@ -65,7 +46,6 @@ class RoomConfig {
     String? lightEntityId,
     String? windowEntityId,
     String? climateEntityId,
-    String? speakerEntityId,
     String? coverEntityId,
   }) {
     return RoomConfig(
@@ -74,20 +54,9 @@ class RoomConfig {
       lightEntityId: lightEntityId ?? this.lightEntityId,
       windowEntityId: windowEntityId ?? this.windowEntityId,
       climateEntityId: climateEntityId ?? this.climateEntityId,
-      speakerEntityId: speakerEntityId ?? this.speakerEntityId,
       coverEntityId: coverEntityId ?? this.coverEntityId,
     );
   }
-
-  Map<String, dynamic> toJson() => {
-    'areaId': areaId,
-    'secondaryEntityId': secondaryEntityId,
-    'lightEntityId': lightEntityId,
-    'windowEntityId': windowEntityId,
-    'climateEntityId': climateEntityId,
-    'speakerEntityId': speakerEntityId,
-    'coverEntityId': coverEntityId,
-  };
 
   factory RoomConfig.fromJson(Map<String, dynamic> json) => RoomConfig(
     areaId: json['areaId'] as String? ?? '',
@@ -95,13 +64,11 @@ class RoomConfig {
     lightEntityId: json['lightEntityId'] as String?,
     windowEntityId: json['windowEntityId'] as String?,
     climateEntityId: json['climateEntityId'] as String?,
-    speakerEntityId: json['speakerEntityId'] as String?,
     coverEntityId: json['coverEntityId'] as String?,
   );
 }
 
-/// Persists the Divisões entity mappings via the `flutter_homeassistant` HA
-/// integration, so any device running this app shares the same mapping.
+/// Reads the room mappings saved by the HA sidebar panel.
 class RoomsStore {
   RoomsStore(this._client);
 
@@ -137,9 +104,5 @@ class RoomsStore {
       result.add(config);
     }
     return result;
-  }
-
-  Future<void> save(List<RoomConfig> rooms) async {
-    await _client.setSettings(_key, blankStringsToNull(rooms.map((r) => r.toJson()).toList()));
   }
 }

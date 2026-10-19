@@ -6,13 +6,9 @@ import '../models/ha_area.dart';
 import '../models/ha_entity.dart';
 import '../models/ha_floor.dart';
 import '../providers/energy_entities_provider.dart';
-import '../providers/energy_page_settings_provider.dart';
-import '../providers/energy_page_settings_store.dart';
 import '../providers/ev_cars_provider.dart';
 import '../providers/ev_cars_store.dart';
 import '../providers/ha_providers.dart';
-import '../providers/house_mode_provider.dart';
-import '../providers/house_mode_store.dart';
 import '../providers/individual_sensors_provider.dart';
 import '../providers/individual_sensors_store.dart';
 import '../providers/rooms_provider.dart';
@@ -208,22 +204,6 @@ final placeholderOverrides = [
       homePowerEntityId: 'sensor.demo_home_power',
     ),
   ),
-  energyPageConfigProvider.overrideWith(
-    (ref) => EnergyPageConfig(
-      installedKwp: 4.8,
-      panelCount: 12,
-      panelOrientation: 'sul 30°',
-      importPriceEntityId: 'sensor.demo_import_price',
-      exportPriceEntityId: 'sensor.demo_export_price',
-      inverterStatusEntityId: 'sensor.demo_inverter_status',
-      inverterTemperatureEntityId: 'sensor.demo_inverter_temperature',
-      inverterEfficiencyEntityId: 'sensor.demo_inverter_efficiency',
-      weatherEntityId: 'weather.demo_casa',
-      lastCleaningDate: DateTime.now().subtract(const Duration(days: 78)),
-      nextCleaningDate: DateTime.now().add(const Duration(days: 14)),
-      forecastDayEntityIds: [for (var i = 0; i < 7; i++) 'sensor.demo_solcast_day$i'],
-    ),
-  ),
   evCarsConfigProvider.overrideWith(
     (ref) => const EvCarsConfig(
       left: EvCarConfig(
@@ -231,13 +211,6 @@ final placeholderOverrides = [
         batterySocEntityId: 'sensor.demo_car_left_battery',
         rangeEntityId: 'sensor.demo_car_left_range',
         chargingEntityId: 'binary_sensor.demo_car_left_charging',
-        // A public placeholder image, just to exercise the photoUrl ->
-        // Image.network path in the browser preview — never reachable from
-        // the real kiosk, since demo mode only ever runs there. `.png` is
-        // required: placehold.co defaults to SVG, which Image.network can't
-        // decode (no flutter_svg in this app).
-        photoUrl:
-            'https://placehold.co/300x170/1a1b1f/8a8c93.png?text=M%C3%A9gane',
       ),
       right: EvCarConfig(
         name: 'Tesla Model Y',
@@ -245,11 +218,9 @@ final placeholderOverrides = [
         rangeEntityId: 'sensor.demo_car_right_range',
         chargingEntityId: 'binary_sensor.demo_car_right_charging',
         plugConnectedEntityId: 'binary_sensor.demo_car_right_plug',
-        photoUrl: 'https://placehold.co/300x170/1a1b1f/8a8c93.png?text=Model+Y',
       ),
     ),
   ),
-  houseModeConfigProvider.overrideWith((ref) => const HouseModeConfig(entityId: 'select.demo_house_mode')),
   individualSensorsProvider.overrideWith(
     (ref) => const [
       IndividualSensorConfig(name: 'AQS', powerEntityId: 'sensor.demo_aqs_power', temperatureEntityId: 'sensor.demo_aqs_temperature', icon: IndividualSensorIconKey.boiler),
@@ -285,19 +256,16 @@ final placeholderOverrides = [
         lightEntityId: 'light.demo_room_sala',
         climateEntityId: 'climate.demo_room_sala',
         coverEntityId: 'cover.demo_room_sala',
-        speakerEntityId: 'media_player.demo_room_sala',
       ),
       RoomConfig(
         areaId: 'quarto',
         windowEntityId: 'binary_sensor.demo_room_quarto_window',
         coverEntityId: 'cover.demo_room_quarto',
-        speakerEntityId: 'media_player.demo_room_quarto',
       ),
       RoomConfig(
         areaId: 'escritorio',
         secondaryEntityId: 'sensor.demo_room_escritorio_co2',
         climateEntityId: 'climate.demo_room_escritorio',
-        speakerEntityId: 'media_player.demo_room_escritorio',
       ),
       RoomConfig(areaId: 'cozinha', secondaryEntityId: 'sensor.demo_room_cozinha_humidity', lightEntityId: 'light.demo_room_cozinha', coverEntityId: 'cover.demo_room_cozinha'),
       RoomConfig(areaId: 'entrada', secondaryEntityId: 'lock.demo_room_entrada'),

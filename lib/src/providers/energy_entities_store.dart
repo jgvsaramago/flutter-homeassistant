@@ -1,5 +1,4 @@
 import '../ha_client/ha_websocket_client.dart';
-import 'settings_json_utils.dart';
 
 /// Which HA entities feed the Homepage's energy-flow card. All optional —
 /// an unset field just makes that node show "--" until configured.
@@ -114,9 +113,5 @@ class EnergyEntitiesStore {
     final raw = await _client.getSettings(_key);
     if (raw is! Map) return const EnergyEntityConfig();
     return EnergyEntityConfig.fromJson(raw.cast<String, dynamic>());
-  }
-
-  Future<void> save(EnergyEntityConfig config) async {
-    await _client.setSettings(_key, blankStringsToNull(config.toJson()));
   }
 }
