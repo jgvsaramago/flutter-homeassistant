@@ -29,7 +29,7 @@
     { value: "fridge", label: "Frigorífico", icon: "mdi:fridge" },
     { value: "tv", label: "TV", icon: "mdi:television" },
     { value: "ac", label: "Ar condicionado", icon: "mdi:air-conditioner" },
-    { value: "boiler", label: "Termoacumulador (AQS)", icon: "mdi:water-boiler" },
+    { value: "boiler", label: "Bomba de calor (AQS)", icon: "mdi:water-boiler" },
   ];
 
   function field(key, type, label, opts = {}) {
@@ -92,13 +92,13 @@
       sectionTitle: "Ecrã Casa",
       fields: [
         field("alarmEntityId", "entity", "Alarme", { hint: "alarm_control_panel.casa", domains: ["alarm_control_panel"] }),
-        field("waterHeaterEntityId", "entity", "Água quente (termoacumulador)", {
+        field("waterHeaterEntityId", "entity", "Água quente (bomba de calor)", {
           hint: "climate.bomba_de_calor_aqs",
           domains: ["climate", "water_heater"],
           desc: "Dá a temperatura alvo e se está a aquecer.",
         }),
         field("waterHeaterTempEntityId", "entity", "Temperatura da água (opcional)", { hint: "sensor.aqs_temperatura", domains: ["sensor"] }),
-        field("waterHeaterPowerEntityId", "entity", "Potência do termoacumulador (opcional)", { hint: "sensor.aqs_potencia", domains: ["sensor"] }),
+        field("waterHeaterPowerEntityId", "entity", "Potência da bomba de calor (opcional)", { hint: "sensor.aqs_potencia", domains: ["sensor"] }),
       ],
     },
     house_scenes: {

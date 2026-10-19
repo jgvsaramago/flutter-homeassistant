@@ -13,7 +13,7 @@ extension IndividualSensorIconKeyLabel on IndividualSensorIconKey {
     IndividualSensorIconKey.fridge => 'Frigorífico',
     IndividualSensorIconKey.tv => 'TV',
     IndividualSensorIconKey.ac => 'Ar condicionado',
-    IndividualSensorIconKey.boiler => 'Termoacumulador (AQS)',
+    IndividualSensorIconKey.boiler => 'Bomba de calor (AQS)',
   };
 }
 

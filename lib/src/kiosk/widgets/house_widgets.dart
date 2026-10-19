@@ -154,7 +154,7 @@ class WaterHeaterCard extends StatelessWidget {
               ),
             ],
           ),
-          Text(['Termoacumulador', if (info.powerKw != null) '${ptDec(info.powerKw!)} kW'].join(' · '), style: KText.s(15, color: KColors.muted)),
+          Text(['Bomba de calor', if (info.powerKw != null) '${ptDec(info.powerKw!)} kW'].join(' · '), style: KText.s(15, color: KColors.muted)),
         ],
       ),
     );

@@ -38,7 +38,7 @@ class HouseConfig {
   final String? waterHeaterEntityId;
 
   /// Optional overrides for the tank's temperature and power readings —
-  /// otherwise taken from the energy card's "Termoacumulador (AQS)"
+  /// otherwise taken from the energy card's "Bomba de calor (AQS)"
   /// individual sensor, then from [waterHeaterEntityId] itself.
   final String? waterHeaterTempEntityId;
   final String? waterHeaterPowerEntityId;
