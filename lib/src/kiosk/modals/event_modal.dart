@@ -37,22 +37,66 @@ class _EventModalState extends ConsumerState<EventModal> {
   final _notesFocus = FocusNode();
   String? _source;
   late DateTime _date = dateOnly(widget.day);
-  int _page = 0;
+  late DateTime _endDay = _date;
+
+  /// Which of INÍCIO/FIM the month grid edits.
+  bool _editingEnd = false;
+
+  /// Month shown, as months from the current one (0 … [_maxMonths]).
+  int _monthOff = 0;
+  int _navDir = 0;
+  int _navTick = 0;
   bool _allDay = false;
   int _start = 9 * 60, _end = 10 * 60;
   EventRepeat _repeat = EventRepeat.none;
   bool _busy = false;
 
   static const _max = 23 * 60 + 45;
+  static const _maxMonths = 12;
 
   @override
   void initState() {
     super.initState();
     _title.addListener(() => setState(() {}));
-    final today = dateOnly(DateTime.now());
-    final offset = daysBetween(today, _date);
-    if (offset >= 0) _page = (offset ~/ 14).clamp(0, 3);
+    _monthOff = _offOf(_date).clamp(0, _maxMonths);
   }
+
+  DateTime get _today => dateOnly(DateTime.now());
+
+  int _offOf(DateTime d) => (d.year - _today.year) * 12 + d.month - _today.month;
+
+  bool get _multi => _endDay.isAfter(_date);
+
+  /// Sets the date of whichever end is being edited. Moving the start keeps
+  /// the event's length in days; an end before the start becomes the new
+  /// (single) day.
+  void _pick(DateTime day) {
+    final k = dateOnly(day);
+    if (_editingEnd) {
+      if (k.isBefore(_date)) {
+        _date = k;
+        _endDay = k;
+      } else {
+        _endDay = k;
+      }
+      if (!_multi && _end <= _start) _end = (_start + 60).clamp(0, _max);
+    } else {
+      final span = daysBetween(_date, _endDay);
+      _date = k;
+      _endDay = addDays(k, span);
+    }
+  }
+
+  void _showMonthOf(DateTime d) {
+    final off = _offOf(d).clamp(0, _maxMonths);
+    if (off == _monthOff) return;
+    _navDir = off > _monthOff ? 1 : -1;
+    _navTick++;
+    _monthOff = off;
+  }
+
+  /// "Sábado, 17 out"
+  static String _short(DateTime d) => '${PtDates.cap(PtDates.weekdays[d.weekday - 1].split('-').first)}, ${PtDates.short(d)}';
 
   @override
   void dispose() {
@@ -73,6 +117,7 @@ class _EventModalState extends ConsumerState<EventModal> {
         source: source,
         title: _title.text.trim(),
         day: _date,
+        endDay: _endDay,
         allDay: _allDay,
         startMinutes: _start,
         endMinutes: _end,
@@ -99,10 +144,15 @@ class _EventModalState extends ConsumerState<EventModal> {
         sources.where((s) => s.entityId == _source).firstOrNull ??
         sources.where((s) => s.name.toLowerCase().contains('fam')).firstOrNull ??
         sources.firstOrNull;
-    final today = dateOnly(DateTime.now());
     final hasTitle = _title.text.trim().isNotEmpty;
-    final dur = _end - _start;
-    final durLabel = [if (dur ~/ 60 > 0) '${dur ~/ 60} h', if (dur % 60 > 0) '${dur % 60} min'].join(' ');
+    final spanDays = daysBetween(_date, _endDay);
+    // In a multi-day event the end time is on the last day.
+    final dur = spanDays * 1440 + _end - _start;
+    final durLabel = [
+      if (dur ~/ 1440 > 0) '${dur ~/ 1440} ${dur ~/ 1440 == 1 ? 'dia' : 'dias'}',
+      if (dur % 1440 ~/ 60 > 0) '${dur % 1440 ~/ 60} h',
+      if (dur % 60 > 0) '${dur % 60} min',
+    ].join(' ');
 
     Widget timeBox(String label, int value, VoidCallback dec, VoidCallback inc) => Expanded(
       child: Container(
@@ -170,59 +220,84 @@ class _EventModalState extends ConsumerState<EventModal> {
           const SizedBox(height: 28),
           Row(
             children: [
-              const KFieldLabel('DATA'),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(PtDates.long(_date), style: KText.s(24, weight: FontWeight.w600)),
-              ),
-              KCircleButton(
-                icon: KIcons.chevronLeft,
-                size: 60,
-                fg: _page > 0 ? KColors.ink : KColors.disabledFg,
-                onTap: _page > 0 ? () => setState(() => _page--) : null,
-              ),
-              const SizedBox(width: 10),
-              KCircleButton(icon: KIcons.chevronRight, size: 60, onTap: _page < 3 ? () => setState(() => _page++) : null),
+              const Expanded(child: KFieldLabel('DATA')),
+              for (final (label, day) in [('Hoje', _today), ('Amanhã', addDays(_today, 1))]) ...[
+                const SizedBox(width: 10),
+                KChip(
+                  label: label,
+                  on: sameDay(_editingEnd ? _endDay : _date, day),
+                  height: 52,
+                  fontSize: 20,
+                  padX: 22,
+                  onTap: () => setState(() {
+                    _pick(day);
+                    _showMonthOf(day);
+                  }),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 7,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 98 / 96,
+          Row(
             children: [
-              for (var i = 0; i < 14; i++)
-                () {
-                  final d = addDays(today, _page * 14 + i);
-                  final on = sameDay(d, _date);
-                  final rel = _page * 14 + i;
-                  final sub = on ? Colors.white : KColors.muted;
-                  return KPress(
-                    onTap: () => setState(() => _date = d),
+              for (final end in [false, true]) ...[
+                if (end) const SizedBox(width: 14),
+                Expanded(
+                  child: KPress(
+                    onTap: () => setState(() {
+                      _editingEnd = end;
+                      _showMonthOf(end ? _endDay : _date);
+                    }),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      decoration: BoxDecoration(color: on ? KColors.accent : KColors.sub, borderRadius: BorderRadius.circular(22)),
+                      height: 80,
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      decoration: BoxDecoration(
+                        color: _editingEnd == end ? Colors.white : KColors.sub,
+                        borderRadius: BorderRadius.circular(26),
+                        border: Border.all(color: _editingEnd == end ? KColors.accent : Colors.transparent, width: 3),
+                      ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            PtDates.abbr[d.weekday - 1],
-                            style: KText.s(16, weight: FontWeight.w700, color: sub, spacing: 1),
+                            end ? (_multi ? 'FIM · ${spanDays + 1} DIAS' : 'FIM') : 'INÍCIO',
+                            style: KText.s(15, weight: FontWeight.w700, spacing: 1, color: _editingEnd == end ? KColors.accent : KColors.muted),
                           ),
-                          Text('${d.day}', style: KText.d(30, color: on ? Colors.white : KColors.ink, height: 1.15)),
-                          Text(
-                            rel == 0 ? 'Hoje' : (rel == 1 ? 'Amanhã' : PtDates.months[d.month - 1].substring(0, 3)),
-                            style: KText.s(15, weight: FontWeight.w600, color: sub),
-                          ),
+                          const SizedBox(height: 2),
+                          Text(end && !_multi ? 'Mesmo dia' : _short(end ? _endDay : _date), style: KText.s(22, weight: FontWeight.w600)),
                         ],
                       ),
                     ),
-                  );
-                }(),
+                  ),
+                ),
+              ],
             ],
+          ),
+          const SizedBox(height: 12),
+          _MonthPicker(
+            month: DateTime(_today.year, _today.month + _monthOff),
+            start: _date,
+            end: _endDay,
+            today: _today,
+            navDir: _navDir,
+            navTick: _navTick,
+            canPrev: _monthOff > 0,
+            canNext: _monthOff < _maxMonths,
+            onMonth: (delta) => setState(() {
+              _navDir = delta;
+              _navTick++;
+              _monthOff = (_monthOff + delta).clamp(0, _maxMonths);
+            }),
+            onPick: (d) {
+              final off = _offOf(d);
+              if (off < 0 || off > _maxMonths) return;
+              setState(() {
+                _pick(d);
+                _showMonthOf(d);
+              });
+            },
           ),
           const SizedBox(height: 28),
           Row(
@@ -249,13 +324,13 @@ class _EventModalState extends ConsumerState<EventModal> {
             const SizedBox(height: 16),
             Row(
               children: [
-                timeBox('Início', _start, () => _moveStart(-15), () => _moveStart(15)),
+                timeBox(_multi ? 'Início · ${_short(_date)}' : 'Início', _start, () => _moveStart(-15), () => _moveStart(15)),
                 const SizedBox(width: 16),
                 timeBox(
-                  'Fim',
+                  _multi ? 'Fim · ${_short(_endDay)}' : 'Fim',
                   _end,
-                  () => setState(() => _end = (_end - 15).clamp(_start + 15, _max)),
-                  () => setState(() => _end = (_end + 15).clamp(_start + 15, _max)),
+                  () => setState(() => _end = (_end - 15).clamp(_multi ? 0 : _start + 15, _max)),
+                  () => setState(() => _end = (_end + 15).clamp(_multi ? 0 : _start + 15, _max)),
                 ),
               ],
             ),
@@ -309,8 +384,170 @@ class _EventModalState extends ConsumerState<EventModal> {
   }
 
   void _moveStart(int delta) => setState(() {
+    // Across several days the end time is on another day: start moves alone.
+    if (_multi) {
+      _start = (_start + delta).clamp(0, _max);
+      return;
+    }
     final dur = _end - _start;
     _start = (_start + delta).clamp(0, _max - 15);
     _end = (_start + dur).clamp(_start + 15, _max);
   });
+}
+
+/// The month grid of "Novo evento": six weeks, Monday first; today ringed,
+/// past days dimmed, holidays red with a dot, the event's days filled.
+class _MonthPicker extends ConsumerWidget {
+  const _MonthPicker({
+    required this.month,
+    required this.start,
+    required this.end,
+    required this.today,
+    required this.navDir,
+    required this.navTick,
+    required this.canPrev,
+    required this.canNext,
+    required this.onMonth,
+    required this.onPick,
+  });
+
+  final DateTime month;
+  final DateTime start;
+  final DateTime end;
+  final DateTime today;
+  final int navDir;
+  final int navTick;
+  final bool canPrev;
+  final bool canNext;
+  final ValueChanged<int> onMonth;
+  final ValueChanged<DateTime> onPick;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final gridStart = addDays(month, -(month.weekday - 1));
+    final events = ref.watch(calendarRangeProvider((start: gridStart, end: addDays(gridStart, 42)))).valueOrNull ?? const <KEvent>[];
+    final holidays = events.where((e) => e.source.holiday && e.allDay).toList();
+    final rangeBg = Color.lerp(Colors.white, KColors.accent, 0.16)!;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(color: KColors.sub, borderRadius: BorderRadius.circular(28)),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              KCircleButton(
+                icon: KIcons.chevronLeft,
+                size: 52,
+                border: null,
+                fg: canPrev ? KColors.ink : KColors.ring,
+                onTap: canPrev ? () => onMonth(-1) : null,
+              ),
+              Expanded(
+                child: Text(PtDates.monthYear(month), textAlign: TextAlign.center, style: KText.d(26)),
+              ),
+              KCircleButton(
+                icon: KIcons.chevronRight,
+                size: 52,
+                border: null,
+                fg: canNext ? KColors.ink : KColors.ring,
+                onTap: canNext ? () => onMonth(1) : null,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              for (var i = 0; i < 7; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    PtDates.letters[i],
+                    textAlign: TextAlign.center,
+                    style: KText.s(15, weight: FontWeight.w700, spacing: 1, color: i > 4 ? KColors.ink : KColors.muted),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          TweenAnimationBuilder<double>(
+            key: ValueKey(navTick),
+            tween: Tween(begin: navDir == 0 ? 1 : 0, end: 1),
+            duration: const Duration(milliseconds: 320),
+            curve: kEase,
+            builder: (context, t, child) => Opacity(
+              opacity: t,
+              child: Transform.translate(offset: Offset(48 * navDir * (1 - t), 0), child: child),
+            ),
+            child: Column(
+              children: [
+                for (var row = 0; row < 6; row++) ...[
+                  if (row > 0) const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      for (var col = 0; col < 7; col++) ...[
+                        if (col > 0) const SizedBox(width: 8),
+                        Expanded(child: _dayCell(addDays(gridStart, row * 7 + col), holidays, rangeBg)),
+                      ],
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dayCell(DateTime d, List<KEvent> holidays, Color rangeBg) {
+    final inMonth = d.month == month.month;
+    final on = sameDay(d, start) || sameDay(d, end);
+    final inRange = d.isAfter(start) && d.isBefore(end);
+    final isToday = sameDay(d, today);
+    final past = d.isBefore(today);
+    final holiday = holidays.any((h) => h.coversDay(d));
+    final weekend = d.weekday >= 6;
+    final fg = on
+        ? Colors.white
+        : !inMonth
+        ? KColors.ring
+        : holiday
+        ? KColors.red
+        : past
+        ? const Color(0xFFA39E94)
+        : KColors.ink;
+    return KPress(
+      onTap: () => onPick(d),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: 60,
+        decoration: BoxDecoration(
+          color: on ? KColors.accent : (inRange ? rangeBg : (inMonth && !past ? Colors.white : Colors.transparent)),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isToday && !on ? KColors.accent : Colors.transparent, width: 2.5),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(
+              '${d.day}',
+              style: KText.d(24, color: fg, weight: on || isToday ? FontWeight.w600 : (weekend && inMonth ? FontWeight.w500 : FontWeight.w400)),
+            ),
+            if (holiday && inMonth)
+              Positioned(
+                bottom: 5,
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(color: on ? Colors.white : KColors.red, shape: BoxShape.circle),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }

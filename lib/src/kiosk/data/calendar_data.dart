@@ -138,13 +138,15 @@ String _offset(DateTime d) {
 
 String _isoLocal(DateTime d) => '${PtDates.key(d)}T${PtDates.two(d.hour)}:${PtDates.two(d.minute)}:00${_offset(d)}';
 
-/// Creates an event on [source]'s calendar. Times are minutes from
-/// midnight on [day]; all-day events span just that day.
+/// Creates an event on [source]'s calendar, from [day] to [endDay] (the
+/// same day when null). Times are minutes from midnight on their own day;
+/// an all-day event covers every day from [day] to [endDay] inclusive.
 Future<void> createKioskEvent(
   WidgetRef ref, {
   required CalendarSource source,
   required String title,
   required DateTime day,
+  DateTime? endDay,
   required bool allDay,
   required int startMinutes,
   required int endMinutes,
@@ -153,10 +155,11 @@ Future<void> createKioskEvent(
   String notes = '',
 }) async {
   final d = dateOnly(day);
+  final e = dateOnly(endDay ?? day);
   final event = <String, dynamic>{
     'summary': title,
     'dtstart': allDay ? PtDates.key(d) : _isoLocal(d.add(Duration(minutes: startMinutes))),
-    'dtend': allDay ? PtDates.key(addDays(d, 1)) : _isoLocal(d.add(Duration(minutes: endMinutes))),
+    'dtend': allDay ? PtDates.key(addDays(e, 1)) : _isoLocal(e.add(Duration(minutes: endMinutes))),
     if (location.isNotEmpty) 'location': location,
     if (notes.isNotEmpty) 'description': notes,
     if (repeat != EventRepeat.none)
