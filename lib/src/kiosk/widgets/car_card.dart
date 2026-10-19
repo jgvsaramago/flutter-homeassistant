@@ -186,7 +186,11 @@ class _BatteryBarState extends State<_BatteryBar> with SingleTickerProviderState
             AnimatedContainer(
               duration: const Duration(milliseconds: 600),
               curve: kEase,
+              // Explicit height: while charging the only child is the stripe
+              // painter, which has no size of its own and would collapse
+              // the fill to 0 px.
               width: box.maxWidth * widget.value.clamp(0.0, 1.0),
+              height: 18,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(color: widget.color, borderRadius: BorderRadius.circular(9)),
               child: widget.striped

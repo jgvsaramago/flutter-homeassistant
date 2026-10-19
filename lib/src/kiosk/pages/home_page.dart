@@ -436,10 +436,10 @@ class _EventCard extends StatelessWidget {
 // ─── Bottom row ────────────────────────────────────────────────────────
 
 class _CardHeader extends StatelessWidget {
-  const _CardHeader({required this.title, required this.sub, this.onTitle, this.onAdd});
+  const _CardHeader({required this.title, this.sub, this.onTitle, this.onAdd});
 
   final String title;
-  final String sub;
+  final String? sub;
   final VoidCallback? onTitle;
   final VoidCallback? onAdd;
 
@@ -454,12 +454,14 @@ class _CardHeader extends StatelessWidget {
         ),
         const SizedBox(width: 14),
         Expanded(
-          child: Text(
-            sub,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: KText.s(20, weight: FontWeight.w500, color: KColors.muted),
-          ),
+          child: sub == null
+              ? const SizedBox.shrink()
+              : Text(
+                  sub!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: KText.s(20, weight: FontWeight.w500, color: KColors.muted),
+                ),
         ),
         if (onAdd != null)
           KCircleButton(icon: KIcons.plus, size: 56, iconSize: 28, stroke: 2.2, bg: KColors.accent, fg: Colors.white, border: null, onTap: onAdd),
@@ -578,6 +580,9 @@ class _MealsCard extends ConsumerWidget {
     final now = watchNow(ref);
     final plan = ref.watch(mealPlanProvider);
     final tomorrow = plan[mealKey(addDays(now, 1), MealType.jantar)];
+    // A note adds a line the 440 px card has no room for; the design's
+    // card clips it away, so the "Amanhã" line goes rather than show cut.
+    final hasNote = MealType.values.any((t) => plan[mealKey(now, t)]?.note.isNotEmpty ?? false);
     return KSection(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -634,22 +639,46 @@ class _MealsCard extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                           style: KText.s(main ? 26 : 23, weight: main ? FontWeight.w600 : FontWeight.w500, color: m == null ? KColors.muted : KColors.ink),
                         ),
+                        if (m != null && m.note.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 2),
+                                  child: KIcon(KIcons.note, size: 16, color: KColors.amberInk, stroke: 2),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    m.note,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: KText.s(16, color: KColors.amberInk),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                       ],
                     ),
                   ),
                 ),
               );
             }(),
-          const SizedBox(height: 14),
-          KPress(
-            onTap: () => _goTo(ref, KioskPage.meals),
-            child: Text(
-              tomorrow == null ? 'Amanhã: por planear' : 'Amanhã: ${tomorrow.dish}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: KText.s(20, color: KColors.muted),
+          if (!hasNote) ...[
+            const SizedBox(height: 14),
+            KPress(
+              onTap: () => _goTo(ref, KioskPage.meals),
+              child: Text(
+                tomorrow == null ? 'Amanhã: por planear' : 'Amanhã: ${tomorrow.dish}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: KText.s(20, color: KColors.muted),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -678,7 +707,7 @@ class _ShoppingCard extends ConsumerWidget {
         children: [
           _CardHeader(
             title: list?.name ?? 'Compras',
-            sub: list == null ? 'Sem lista' : (pending.isEmpty ? 'Tudo comprado' : '${pending.length} por comprar'),
+            sub: list == null ? 'Sem lista' : null,
             onTitle: openLists,
             onAdd: list == null ? null : () => showItemModal(context, list: list, existing: items),
           ),
