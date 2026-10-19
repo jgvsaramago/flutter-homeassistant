@@ -293,7 +293,6 @@ class _MealCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Flexible(
             child: Text(
@@ -303,6 +302,7 @@ class _MealCard extends StatelessWidget {
               style: KText.s(24, weight: FontWeight.w600, height: 1.25),
             ),
           ),
+          const SizedBox(height: 8),
           Row(
             children: [
               Container(
@@ -321,6 +321,31 @@ class _MealCard extends StatelessWidget {
               ),
             ],
           ),
+          if (m.note.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            // The note, so "descongelar de manhã" is seen without opening
+            // the meal (design update).
+            Flexible(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: KIcon(KIcons.note, size: 16, color: KColors.amberInk, stroke: 2),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      m.note,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: KText.s(16, color: KColors.amberInk, height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

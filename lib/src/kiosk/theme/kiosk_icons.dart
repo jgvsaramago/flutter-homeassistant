@@ -64,6 +64,7 @@ abstract final class KIcons {
   static const pill = '<rect x="2.5" y="8.5" width="19" height="7" rx="3.5" transform="rotate(-45 12 12)"/><path d="M9.5 9.5l5 5"/>';
   static const gift =
       '<rect x="3" y="9" width="18" height="12" rx="2"/><path d="M3 13h18M12 9v12M12 9c-2-4-6-4-6-1.5S9 9 12 9zM12 9c2-4 6-4 6-1.5S15 9 12 9z"/>';
+  static const note = '<path d="M4 4h16v12l-4 4H4z"/><path d="M16 20v-4h4M8 9h8M8 13h5"/>';
   static const send = '<path d="M5 12h13M13 6l6 6-6 6"/>';
   static const refresh = '<path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/>';
 

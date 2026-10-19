@@ -13,13 +13,14 @@ import 'src/ha_client/ha_credentials_store.dart';
 import 'src/mqtt/mqtt_config.dart';
 import 'src/mqtt/mqtt_credentials_store.dart';
 import 'src/mqtt/pi_telemetry_publisher.dart';
+import 'src/services/frame_stats_logger.dart';
 import 'src/services/launch_config.dart';
 import 'src/theme/theme_mode_controller.dart';
 
 // Bump on every edit and check this against the console output on the Pi to
 // confirm a rebuild actually got redeployed, rather than the old bundle
 // still running.
-const _buildRevision = 14;
+const _buildRevision = 16;
 
 /// Parses `--key=value` (and bare `--flag`) launch arguments. Kept as a
 /// secondary source alongside environment variables (see below for why
@@ -141,6 +142,8 @@ void main(List<String> args) async {
   try {
     await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
   } catch (_) {}
+  final fpsLog = config('FPS_LOG', 'fps-log');
+  if (fpsLog == '1' || fpsLog == 'true') startFrameStatsLogger();
   runApp(
     ProviderScope(
       overrides: demoMode ? placeholderOverrides : const [],
