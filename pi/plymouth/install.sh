@@ -17,11 +17,14 @@ grep -q '^disable_splash=1' /boot/firmware/config.txt || echo 'disable_splash=1'
 # Note: no DSI overlay may stay enabled in config.txt — Plymouth draws on
 # the first DRM device only, and a DSI one would win over HDMI.
 
-# Keep the last splash frame until the app draws over it, and no login
-# prompt on tty1 in between.
+# Hand the display from the splash straight to the app. Plymouth quitting
+# drops its framebuffer (black screen), so plymouth-quit does nothing and
+# the kiosk service only deactivates Plymouth (it lets go of the display,
+# splash still showing) before flutter-pi starts, quitting it 10 s later.
 mkdir -p /etc/systemd/system/plymouth-quit.service.d /etc/systemd/system/flutter-homeassistant.service.d
-printf '[Service]\nExecStart=\nExecStart=-/usr/bin/plymouth quit --retain-splash\n' > /etc/systemd/system/plymouth-quit.service.d/retain-splash.conf
-printf '[Unit]\nAfter=plymouth-start.service\n\n[Service]\nExecStartPre=+-/usr/bin/plymouth quit --retain-splash\n' > /etc/systemd/system/flutter-homeassistant.service.d/plymouth.conf
+printf '[Service]\nExecStart=\nExecStart=/bin/true\n' > /etc/systemd/system/plymouth-quit.service.d/retain-splash.conf
+printf '[Unit]\nAfter=plymouth-start.service\n\n[Service]\nExecStartPre=+-/usr/bin/plymouth deactivate\nExecStartPost=+-/bin/sh -c "sleep 10; /usr/bin/plymouth quit --retain-splash"\n' > /etc/systemd/system/flutter-homeassistant.service.d/plymouth.conf
+# No login prompt on tty1.
 systemctl disable getty@tty1.service
 systemctl daemon-reload
 
