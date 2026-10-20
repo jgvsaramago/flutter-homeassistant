@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Casa
+Description=Ecrã de arranque do ecrã da casa (design "Arranque")
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/casa
+ScriptFile=/usr/share/plymouth/themes/casa/casa.script

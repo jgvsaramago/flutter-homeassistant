@@ -1,0 +1,114 @@
+# Boot splash for the kiosk (design: "Arranque"). The panel is mounted in
+# portrait but scans out landscape, with the portrait top on the left edge
+# of the HDMI picture, so everything is drawn rotated 90° counter-clockwise:
+# a portrait design y becomes a screen X, and portrait x becomes H - Y.
+# The images in this folder are already rotated.
+
+Window.SetBackgroundTopColor(0.953, 0.945, 0.925);    # #F3F1EC
+Window.SetBackgroundBottomColor(0.953, 0.945, 0.925);
+
+W = Window.GetWidth();
+H = Window.GetHeight();
+s = H / 1440;                                          # design px -> screen px
+if (s <= 0) s = 1;
+cx = Window.GetX() + W / 2;
+cy = Window.GetY() + H / 2;
+
+# Portrait design y (0..2560) -> screen X.
+fun px(design_y) { return cx + (design_y - 1280) * s; }
+
+fun load(name) {
+  i = Image(name);
+  if (s != 1) i = i.Scale(i.GetWidth() * s, i.GetHeight() * s);
+  return i;
+}
+
+logo = Sprite(load("logo.png"));
+logo.SetX(px(1018));
+logo.SetY(cy - logo.GetImage().GetHeight() / 2);
+logo.SetZ(10);
+
+mode = Plymouth.GetMode();
+booting = !(mode == "shutdown" || mode == "reboot");
+
+# Progress bar: 360 x 8 under the logo, filling left to right in portrait,
+# i.e. bottom to top on the screen.
+track_img = load("track.png");
+fill_src = Image("fill.png");
+bar_len = 360 * s;
+bar_w = 8 * s;
+if (booting) {
+  track = Sprite(track_img);
+  track.SetX(px(1458));
+  track.SetY(cy - bar_len / 2);
+  track.SetZ(10);
+  fill = Sprite();
+  fill.SetX(px(1458));
+  fill.SetZ(11);
+}
+target = 0;
+shown = 0;
+
+fun set_fill(p) {
+  h = Math.Int(bar_len * p);
+  if (h < bar_w) h = bar_w;
+  fill.SetImage(fill_src.Scale(bar_w, h));
+  fill.SetY(cy + bar_len / 2 - h);
+}
+
+fun refresh() {
+  if (booting && shown < target) {
+    shown = shown + (target - shown) * 0.12 + 0.001;
+    if (shown > target) shown = target;
+    set_fill(shown);
+  }
+}
+Plymouth.SetRefreshFunction(refresh);
+
+fun progress(duration, p) {
+  if (p > target) target = p;
+}
+Plymouth.SetBootProgressFunction(progress);
+
+# Status line: shutdown / reboot, or a message from the system (disk check…).
+status = Sprite();
+status.SetZ(10);
+fun show_status(img, design_top) {
+  status.SetImage(img);
+  status.SetX(px(design_top));
+  status.SetY(cy - img.GetHeight() / 2);
+  status.SetOpacity(1);
+}
+
+if (mode == "shutdown") show_status(load("desligar.png"), 1434);
+if (mode == "reboot") show_status(load("reiniciar.png"), 1434);
+if (mode == "updates" || mode == "system-upgrade" || mode == "firmware-upgrade") show_status(load("atualizar.png"), 1506);
+
+# Free text has to be rotated here. Image.Rotate keeps the image's own
+# size (a long line would be clipped to its middle), so stretch it to a
+# square first, rotate that, then squash it back the other way round.
+fun rotated_text(text) {
+  t = Image.Text(text, 0.373, 0.392, 0.420, 1, "Sans 18");
+  w = t.GetWidth();
+  h = t.GetHeight();
+  sq = t.Scale(w, w).Rotate(-3.14159265 / 2);
+  return sq.Scale(h, w);
+}
+
+fun message(text) {
+  if (booting) show_status(rotated_text(text), 1506);
+}
+Plymouth.SetMessageFunction(message);
+Plymouth.SetDisplayMessageFunction(message);
+
+fun hide_message(text) {
+  status.SetOpacity(0);
+}
+Plymouth.SetHideMessageFunction(hide_message);
+
+# The splash is kept on screen until the app draws its first frame
+# (plymouth quit --retain-splash), so leave it on a full bar.
+fun quit() {
+  if (booting) set_fill(1);
+}
+Plymouth.SetQuitFunction(quit);
