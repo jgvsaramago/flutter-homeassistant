@@ -72,6 +72,11 @@ const _reconnectBackoff = [
 /// mid-session (an HA restart, a network blip) — without this, a dropped
 /// websocket left the whole dashboard frozen on its last snapshot forever,
 /// since nothing was ever watching for the disconnect and retrying.
+///
+/// And it keeps trying for as long as it takes, including when HA isn't
+/// there at all when the app starts (after a power cut the Pi boots well
+/// before the HA VM does): a failed first connect retries itself on the
+/// same backoff instead of waiting for someone to tap "Tentar de novo".
 class EntitiesNotifier extends AsyncNotifier<Map<String, HaEntity>> {
   Timer? _flushTimer;
   final Map<String, HaEntity> _pendingUpdates = {};
@@ -80,13 +85,30 @@ class EntitiesNotifier extends AsyncNotifier<Map<String, HaEntity>> {
   int _reconnectAttempt = 0;
   bool _disposed = false;
 
+  /// One attempt at a time: the connection-state listener and a failing
+  /// attempt's own retry both ask for reconnects, and two overlapping
+  /// connects on the one client once left it wedged for good.
+  bool _reconnecting = false;
+
   @override
   Future<Map<String, HaEntity>> build() async {
     final config = ref.watch(connectionConfigProvider);
     if (config == null) return const {};
+    _disposed = false;
 
     final client = ref.read(haWebSocketClientProvider);
-    final initial = await _connectAndFetch(client, config);
+    final Map<String, HaEntity> initial;
+    try {
+      initial = await _connectAndFetch(client, config);
+    } catch (e) {
+      final delay = _reconnectBackoff[_reconnectAttempt.clamp(0, _reconnectBackoff.length - 1)];
+      _reconnectAttempt++;
+      debugPrint('[ha websocket] initial connect failed ($e); retrying in ${delay.inSeconds}s...');
+      final retry = Timer(delay, ref.invalidateSelf);
+      ref.onDispose(retry.cancel);
+      rethrow;
+    }
+    _reconnectAttempt = 0;
 
     final entityUpdatesSub = client.entityUpdates.listen(_bufferUpdate);
     _connectionSubscription = client.connectionState.listen((s) => _onConnectionStateChanged(s, client, config));
@@ -110,6 +132,12 @@ class EntitiesNotifier extends AsyncNotifier<Map<String, HaEntity>> {
   /// state changes missed while disconnected are exactly why this re-fetches
   /// everything rather than trying to resume from where it left off.
   Future<Map<String, HaEntity>> _connectAndFetch(HaWebSocketClient client, HaConnectionConfig config) async {
+    // Each step has its own timeout in the client; this bounds the whole
+    // sequence too, so a retry is always coming.
+    return _connectAndFetchUnbounded(client, config).timeout(const Duration(seconds: 120));
+  }
+
+  Future<Map<String, HaEntity>> _connectAndFetchUnbounded(HaWebSocketClient client, HaConnectionConfig config) async {
     await client.connect(config);
     await client.subscribeToStateChanges();
     // Both need the flutter_homeassistant integration to be recent enough;
@@ -133,9 +161,10 @@ class EntitiesNotifier extends AsyncNotifier<Map<String, HaEntity>> {
   }
 
   void _scheduleReconnect(HaWebSocketClient client, HaConnectionConfig config) {
-    // Already have one pending — a disconnect and a follow-up error for the
-    // same drop can both reach here; only the first should schedule.
-    if (_disposed || _reconnectTimer != null) return;
+    // Already have one pending or running — a disconnect and a follow-up
+    // error for the same drop can both reach here, and an attempt in
+    // progress reports its own failure; only one chain may exist.
+    if (_disposed || _reconnectTimer != null || _reconnecting) return;
     final delay = _reconnectBackoff[_reconnectAttempt.clamp(0, _reconnectBackoff.length - 1)];
     _reconnectAttempt++;
     debugPrint('[ha websocket] reconnecting in ${delay.inSeconds}s...');
@@ -144,16 +173,24 @@ class EntitiesNotifier extends AsyncNotifier<Map<String, HaEntity>> {
 
   Future<void> _reconnect(HaWebSocketClient client, HaConnectionConfig config) async {
     _reconnectTimer = null;
-    if (_disposed) return;
+    if (_disposed || _reconnecting) return;
+    _reconnecting = true;
+    Object? failure;
     try {
       final fresh = await _connectAndFetch(client, config);
       if (_disposed) return;
+      _reconnectAttempt = 0;
       // Whatever was buffered belongs to the dead connection's session —
       // the fresh snapshot above already reflects everything current.
       _pendingUpdates.clear();
       state = AsyncData(fresh);
     } catch (e) {
-      debugPrint('[ha websocket] reconnect attempt failed: $e');
+      failure = e;
+    } finally {
+      _reconnecting = false;
+    }
+    if (failure != null) {
+      debugPrint('[ha websocket] reconnect attempt failed: $failure');
       _scheduleReconnect(client, config);
     }
   }

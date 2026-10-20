@@ -25,6 +25,21 @@ class HaWebSocketClient {
 
   WebSocketChannel? _channel;
   StreamSubscription? _channelSubscription;
+  Timer? _heartbeat;
+
+  /// Opening the socket and authenticating. A host that's down or still
+  /// booting can leave a TCP connect hanging with no error at all; without
+  /// a limit the caller's reconnect loop would wait on it forever.
+  static const _connectTimeout = Duration(seconds: 15);
+
+  /// Any single command. Generous — a calendar lookup HA forwards to iCloud
+  /// can take a while — but finite, so nothing awaits a dead socket forever.
+  static const _commandTimeout = Duration(seconds: 60);
+
+  /// A connection can die without a close (the VM frozen, a cable pulled):
+  /// ping this often, and treat it as gone if the pong doesn't come back.
+  static const _heartbeatEvery = Duration(seconds: 30);
+  static const _pongTimeout = Duration(seconds: 15);
 
   int _messageId = 1;
   final Map<int, Completer<Map<String, dynamic>>> _pendingCommands = {};
@@ -72,6 +87,9 @@ class HaWebSocketClient {
     _channel = channel;
 
     final authCompleter = Completer<void>();
+    // When opening fails, the auth future errors too with nobody awaiting it
+    // (connect has already thrown) — keep that from surfacing as unhandled.
+    unawaited(authCompleter.future.catchError((Object _) {}));
     // Distinguishes an unexpected mid-session drop (worth logging) from the
     // ordinary closure every clean disconnect() also triggers via
     // channel.sink.close() (not worth logging — it's not a failure).
@@ -80,6 +98,7 @@ class HaWebSocketClient {
     _channelSubscription = channel.stream.listen(
       (raw) => _handleMessage(raw, authCompleter, config),
       onError: (Object error) {
+        _heartbeat?.cancel();
         debugPrint('[ha websocket] connection error: $error');
         _setState(HaConnectionState.error);
         if (!authCompleter.isCompleted) {
@@ -88,6 +107,7 @@ class HaWebSocketClient {
         _failPendingCommands(HaConnectionException(error.toString()));
       },
       onDone: () {
+        _heartbeat?.cancel();
         if (wasConnected) debugPrint('[ha websocket] connection closed');
         _setState(HaConnectionState.disconnected);
         if (!authCompleter.isCompleted) {
@@ -100,21 +120,50 @@ class HaWebSocketClient {
     );
 
     try {
-      await channel.ready;
+      await channel.ready.timeout(_connectTimeout);
     } catch (e) {
       debugPrint('[ha websocket] failed to open connection: $e');
-      _setState(HaConnectionState.error);
+      _drop(HaConnectionState.error);
       throw HaConnectionException('Failed to open websocket: $e');
     }
 
     try {
-      await authCompleter.future;
+      await authCompleter.future.timeout(_connectTimeout);
       wasConnected = true;
       debugPrint('[ha websocket] connected and authenticated successfully');
     } catch (e) {
       debugPrint('[ha websocket] authentication failed: $e');
+      _drop(HaConnectionState.error);
+      if (e is TimeoutException) throw HaConnectionException('No auth reply from Home Assistant: $e');
       rethrow;
     }
+    _heartbeat = Timer.periodic(_heartbeatEvery, (_) => _ping());
+  }
+
+  Future<void> _ping() async {
+    if (_state != HaConnectionState.connected) return;
+    try {
+      await _sendCommand({'type': 'ping'}, timeout: _pongTimeout);
+    } catch (e) {
+      if (_state != HaConnectionState.connected) return;
+      debugPrint('[ha websocket] no pong from Home Assistant ($e); dropping the connection');
+      _drop(HaConnectionState.disconnected);
+    }
+  }
+
+  /// Abandons the current socket without waiting on it — closing a socket
+  /// that never finished opening (or whose peer vanished) can itself hang —
+  /// and reports [next] so the owner's reconnect logic takes over.
+  void _drop(HaConnectionState next) {
+    _heartbeat?.cancel();
+    _heartbeat = null;
+    unawaited(_channelSubscription?.cancel());
+    _channelSubscription = null;
+    final channel = _channel;
+    _channel = null;
+    if (channel != null) unawaited(channel.sink.close().timeout(const Duration(seconds: 2), onTimeout: () {}).catchError((Object _) {}));
+    _failPendingCommands(const HaConnectionException('Connection dropped'));
+    _setState(next);
   }
 
   void _handleMessage(dynamic raw, Completer<void> authCompleter, HaConnectionConfig config) {
@@ -152,6 +201,9 @@ class HaWebSocketClient {
         break;
 
       case 'pong':
+        // Answers [_ping] — completes like a result.
+        final completer = _pendingCommands.remove(message['id'] as int?);
+        completer?.complete(message);
         break;
     }
   }
@@ -202,12 +254,25 @@ class HaWebSocketClient {
     channel.sink.add(jsonEncode(message));
   }
 
-  Future<Map<String, dynamic>> _sendCommand(Map<String, dynamic> message) {
+  Future<Map<String, dynamic>> _sendCommand(Map<String, dynamic> message, {Duration timeout = _commandTimeout}) {
     final id = _messageId++;
     final completer = Completer<Map<String, dynamic>>();
     _pendingCommands[id] = completer;
-    _send({...message, 'id': id});
-    return completer.future;
+    try {
+      _send({...message, 'id': id});
+    } catch (_) {
+      // Not sent (no socket): don't leave it pending, or failing it later
+      // reports an error nobody is listening for.
+      _pendingCommands.remove(id);
+      rethrow;
+    }
+    return completer.future.timeout(
+      timeout,
+      onTimeout: () {
+        _pendingCommands.remove(id);
+        throw TimeoutException('No reply to ${message['type']}', timeout);
+      },
+    );
   }
 
   /// Subscribes to `state_changed` events. Must be called once after
@@ -421,11 +486,16 @@ class HaWebSocketClient {
   }
 
   Future<void> disconnect() async {
+    _heartbeat?.cancel();
+    _heartbeat = null;
     await _channelSubscription?.cancel();
     _channelSubscription = null;
-    await _channel?.sink.close();
+    // Bounded: closing a socket that never opened, or whose peer is gone,
+    // can wait forever for a close handshake — which once wedged the whole
+    // reconnect loop for good.
+    await _channel?.sink.close().timeout(const Duration(seconds: 2), onTimeout: () {}).catchError((Object _) {});
     _channel = null;
-    _pendingCommands.clear();
+    _failPendingCommands(const HaConnectionException('Disconnected'));
     _messageId = 1;
     if (_state != HaConnectionState.disconnected) _setState(HaConnectionState.disconnected);
   }

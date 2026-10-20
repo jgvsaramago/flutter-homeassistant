@@ -134,7 +134,9 @@ class _KioskShellState extends ConsumerState<KioskShell> {
   Widget build(BuildContext context) {
     final page = ref.watch(kioskPageProvider);
     ref.watch(settingsLiveReloadProvider);
-    final load = ref.watch(entitiesProvider.select((a) => (loading: a.isLoading && !a.hasValue, error: a.hasError ? a.error : null)));
+    // A retry after an error keeps showing the error (it retries on its own,
+    // see EntitiesNotifier) rather than flashing the spinner each attempt.
+    final load = ref.watch(entitiesProvider.select((a) => (loading: a.isLoading && !a.hasValue && !a.hasError, error: a.hasError ? a.error : null)));
     final settings = ref.watch(settingsHydrationProvider.select((a) => (loading: a.isLoading && !a.hasValue, error: a.hasError ? a.error : null)));
     final kiosk = ref.watch(kioskHydrationProvider.select((a) => a.isLoading && !a.hasValue));
     final loading = load.loading || settings.loading || kiosk;
@@ -310,9 +312,17 @@ class _ErrorView extends StatelessWidget {
             Text('Sem ligação ao Home Assistant', style: KText.modalTitle),
             const SizedBox(height: 12),
             Text(
+              'A tentar de novo automaticamente…',
+              textAlign: TextAlign.center,
+              style: KText.s(22, color: KColors.ink2),
+            ),
+            const SizedBox(height: 8),
+            Text(
               message,
               textAlign: TextAlign.center,
-              style: KText.s(20, color: KColors.muted),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: KText.s(17, color: KColors.muted),
             ),
             const SizedBox(height: 32),
             KButton.primary(label: 'Tentar de novo', height: 72, onTap: onRetry),
