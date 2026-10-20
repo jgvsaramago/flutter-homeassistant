@@ -92,8 +92,16 @@ class ChoresNotifier extends StateNotifier<ChoresState> {
     final done = next.done.where((k) => k.compareTo(cutoff) >= 0).toSet();
     // Drop one-off tasks whose day has long passed, too.
     final chores = next.chores.where((c) => c.days != null || (c.date ?? '').compareTo(cutoff) >= 0).toList();
-    state = ChoresState(chores: chores, done: done);
-    await _client.setSettings(_key, {'tasks': chores.map((c) => c.toJson()).toList(), 'done': done.toList()..sort()});
+    final before = state;
+    final shown = ChoresState(chores: chores, done: done);
+    state = shown;
+    try {
+      await _client.setSettings(_key, {'tasks': chores.map((c) => c.toJson()).toList(), 'done': done.toList()..sort()}).timeout(const Duration(seconds: 8));
+    } catch (_) {
+      // Not saved: undo on screen (unless something newer landed).
+      if (identical(state, shown)) state = before;
+      rethrow;
+    }
   }
 
   Future<void> toggle(DateTime day, Chore c) {

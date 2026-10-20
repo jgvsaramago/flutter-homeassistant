@@ -355,6 +355,21 @@ class _QueuePanelState extends State<_QueuePanel> {
   Future<List<MaQueueItem>>? _items;
   Object? _key;
 
+  /// Removed here and not yet gone from MA's queue — hidden at once, back
+  /// if MA refuses.
+  final _hidden = <String>{};
+
+  Future<void> _hide(Iterable<String> ids, Future<void> Function() remove) async {
+    final these = ids.toSet();
+    setState(() => _hidden.addAll(these));
+    try {
+      await remove();
+    } catch (e) {
+      if (mounted) setState(() => _hidden.removeAll(these));
+      KToast.error(e);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final m = widget.store;
@@ -398,7 +413,7 @@ class _QueuePanelState extends State<_QueuePanel> {
           FutureBuilder<List<MaQueueItem>>(
             future: _items,
             builder: (context, snap) {
-              final items = snap.data ?? const <MaQueueItem>[];
+              final items = (snap.data ?? const <MaQueueItem>[]).where((i) => !_hidden.contains(i.queueItemId)).toList();
               return Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -411,7 +426,7 @@ class _QueuePanelState extends State<_QueuePanel> {
                             style: KText.s(15, weight: FontWeight.w700, color: KColors.muted, spacing: 1),
                           ),
                         ),
-                        if (items.isNotEmpty) KButton(label: 'Limpar fila', height: 52, onTap: () => _run(m.clearUpcoming)),
+                        if (items.isNotEmpty) KButton(label: 'Limpar fila', height: 52, onTap: () => _hide(items.map((i) => i.queueItemId), m.clearUpcoming)),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -442,7 +457,7 @@ class _QueuePanelState extends State<_QueuePanel> {
                                       const SizedBox(width: 18),
                                       Expanded(
                                         child: KPress(
-                                          onTap: () => _run(() => m.playQueueItem(it.queueItemId)),
+                                          onTap: () => _run(() => m.playQueueItem(it)),
                                           child: Row(
                                             children: [
                                               MaArt(image: it.image, item: it.media, label: it.name, size: 60, radius: 12),
@@ -470,7 +485,7 @@ class _QueuePanelState extends State<_QueuePanel> {
                                         bg: Colors.transparent,
                                         fg: KColors.muted,
                                         border: null,
-                                        onTap: () => _run(() => m.removeQueueItem(it.queueItemId)),
+                                        onTap: () => _hide([it.queueItemId], () => m.removeQueueItem(it.queueItemId)),
                                       ),
                                     ],
                                   ),

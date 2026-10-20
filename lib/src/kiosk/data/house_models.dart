@@ -10,6 +10,7 @@ import '../../providers/individual_sensors_provider.dart';
 import '../../providers/individual_sensors_store.dart';
 import '../../providers/rooms_provider.dart';
 import '../../providers/temperature_entities_provider.dart';
+import '../../utils/optimistic.dart';
 import '../../utils/power_reading.dart';
 import '../theme/kiosk_icons.dart';
 import '../theme/kiosk_tokens.dart';
@@ -17,8 +18,31 @@ import 'house_config.dart';
 import 'kiosk_entities.dart';
 import 'pt_dates.dart';
 
-Future<void> _call(Ref ref, String domain, String service, String entityId, [Map<String, dynamic>? data]) =>
-    ref.read(haWebSocketClientProvider).callService(domain, service, target: {'entity_id': entityId}, serviceData: data);
+/// Calls a service on one entity, showing [expect] meanwhile (see
+/// [KioskEntitiesNotifier.run]).
+Future<void> _call(
+  Ref ref,
+  String domain,
+  String service,
+  String entityId, {
+  Map<String, dynamic>? data,
+  List<OptimisticChange<HaEntity>> expect = const [],
+  Duration timeout = OptimisticLayer.defaultTimeout,
+}) => ref
+    .read(kioskEntitiesProvider.notifier)
+    .run(expect, () => ref.read(haWebSocketClientProvider).callService(domain, service, target: {'entity_id': entityId}, serviceData: data), timeout: timeout);
+
+/// The change "[id] will be in [state] / have [attrs]", confirmed once HA
+/// reports exactly that (or by [confirmed], when HA reports it differently).
+OptimisticChange<HaEntity> expectEntity(String id, {String? state, Map<String, Object?> attrs = const {}, bool Function(HaEntity)? confirmed}) =>
+    OptimisticChange(
+      id,
+      slot: [if (state != null) 'state', ...attrs.keys].join(','),
+      patch: (e) => e.copyWith(state: state, attributes: attrs.isEmpty ? null : {...e.attributes, ...attrs}),
+      confirmed: confirmed ?? (e) => (state == null || e.state == state) && attrs.entries.every((a) => _same(e.attributes[a.key], a.value)),
+    );
+
+bool _same(Object? a, Object? b) => a is num && b is num ? (a - b).abs() < 0.01 : a == b;
 
 // ─── Air conditioning ──────────────────────────────────────────────────
 
@@ -136,16 +160,37 @@ class AcActions {
 
   final Ref _ref;
 
-  Future<void> power(AcUnit u, bool on) => _call(_ref, 'climate', on ? 'turn_on' : 'turn_off', u.entityId);
+  Future<void> power(AcUnit u, bool on) => _call(
+    _ref,
+    'climate',
+    on ? 'turn_on' : 'turn_off',
+    u.entityId,
+    // Turning on resumes whatever mode the unit had, which HA doesn't say
+    // while it's off — show the season's likely one until it reports.
+    expect: [expectEntity(u.entityId, state: on ? _likelyHvac(u) : 'off', confirmed: on ? (e) => e.state != 'off' && !e.isUnavailable : null)],
+  );
 
-  Future<void> target(AcUnit u, double t) => _call(_ref, 'climate', 'set_temperature', u.entityId, {'temperature': t.clamp(u.min, u.max)});
+  Future<void> target(AcUnit u, double t) {
+    final v = t.clamp(u.min, u.max);
+    return _call(_ref, 'climate', 'set_temperature', u.entityId, data: {'temperature': v}, expect: [expectEntity(u.entityId, attrs: {'temperature': v})]);
+  }
 
-  Future<void> mode(AcUnit u, AcMode m) => _call(_ref, 'climate', 'set_hvac_mode', u.entityId, {'hvac_mode': u.hvacFor(m)});
+  Future<void> mode(AcUnit u, AcMode m) {
+    final hvac = u.hvacFor(m);
+    return _call(_ref, 'climate', 'set_hvac_mode', u.entityId, data: {'hvac_mode': hvac}, expect: [expectEntity(u.entityId, state: hvac)]);
+  }
 
   Future<void> allOff(List<AcUnit> units) => Future.wait([for (final u in units.where((u) => u.on)) power(u, false)]);
 }
 
 final acActionsProvider = Provider<AcActions>((ref) => AcActions(ref));
+
+String _likelyHvac(AcUnit u) {
+  final month = DateTime.now().month;
+  final want = month >= 5 && month <= 9 ? 'cool' : 'heat';
+  if (u.hvacModes.contains(want)) return want;
+  return u.hvacModes.firstWhere((m) => m != 'off', orElse: () => want);
+}
 
 // ─── Hot water ─────────────────────────────────────────────────────────
 
@@ -260,9 +305,28 @@ class LockActions {
 
   final Ref _ref;
 
+  /// Gates take a while to move: the new state shows until HA reports it
+  /// done (an opening gate already counts), or for up to a minute.
   Future<void> toggle(LockInfo l) {
-    if (l.isCover) return _call(_ref, 'cover', l.secured ? 'open_cover' : 'close_cover', l.entityId);
-    return _call(_ref, 'lock', l.secured ? 'unlock' : 'lock', l.entityId);
+    if (l.isCover) {
+      final open = l.secured;
+      return _call(
+        _ref,
+        'cover',
+        open ? 'open_cover' : 'close_cover',
+        l.entityId,
+        expect: [expectEntity(l.entityId, state: open ? 'open' : 'closed', confirmed: open ? (e) => e.state == 'open' || e.state == 'opening' : null)],
+        timeout: const Duration(seconds: 60),
+      );
+    }
+    return _call(
+      _ref,
+      'lock',
+      l.secured ? 'unlock' : 'lock',
+      l.entityId,
+      expect: [expectEntity(l.entityId, state: l.secured ? 'unlocked' : 'locked', confirmed: l.secured ? (e) => e.state == 'unlocked' || e.state == 'open' : null)],
+      timeout: const Duration(seconds: 30),
+    );
   }
 }
 
@@ -291,17 +355,32 @@ final alarmProvider = Provider<AlarmInfo?>((ref) {
   return AlarmInfo(entityId: e.entityId, mode: mode, triggered: e.state == 'triggered');
 });
 
-Future<void> setAlarmMode(WidgetRef ref, AlarmInfo alarm, AlarmMode mode) => ref
-    .read(haWebSocketClientProvider)
-    .callService(
-      'alarm_control_panel',
-      switch (mode) {
-        AlarmMode.off => 'alarm_disarm',
-        AlarmMode.home => 'alarm_arm_home',
-        AlarmMode.away => 'alarm_arm_away',
-      },
-      target: {'entity_id': alarm.entityId},
-    );
+/// Arming can sit in `arming` through an exit delay, so the chosen mode
+/// keeps showing for up to a minute and a half.
+Future<void> setAlarmMode(WidgetRef ref, AlarmInfo alarm, AlarmMode mode) {
+  final want = switch (mode) {
+    AlarmMode.off => 'disarmed',
+    AlarmMode.home => 'armed_home',
+    AlarmMode.away => 'armed_away',
+  };
+  return ref
+      .read(kioskEntitiesProvider.notifier)
+      .run(
+        [expectEntity(alarm.entityId, state: want, confirmed: (e) => e.state == want || e.state == 'triggered')],
+        () => ref
+            .read(haWebSocketClientProvider)
+            .callService(
+              'alarm_control_panel',
+              switch (mode) {
+                AlarmMode.off => 'alarm_disarm',
+                AlarmMode.home => 'alarm_arm_home',
+                AlarmMode.away => 'alarm_arm_away',
+              },
+              target: {'entity_id': alarm.entityId},
+            ),
+        timeout: mode == AlarmMode.off ? OptimisticLayer.defaultTimeout : const Duration(seconds: 90),
+      );
+}
 
 // ─── Scenes ────────────────────────────────────────────────────────────
 
@@ -359,8 +438,26 @@ final activeSceneProvider = Provider<String?>((ref) {
   return best?.entityId;
 });
 
-Future<void> runScene(WidgetRef ref, SceneInfo s) =>
-    ref.read(haWebSocketClientProvider).callService(s.entityId.split('.').first, 'turn_on', target: {'entity_id': s.entityId});
+/// Highlights the scene straight away; HA confirms by stamping the scene
+/// (or the script changing state).
+Future<void> runScene(WidgetRef ref, SceneInfo s) {
+  final before = ref.read(kioskEntitiesProvider)[s.entityId];
+  final isScene = s.entityId.startsWith('scene.');
+  final now = DateTime.now();
+  return ref
+      .read(kioskEntitiesProvider.notifier)
+      .run(
+        [
+          if (before != null)
+            OptimisticChange(
+              s.entityId,
+              patch: (e) => isScene ? e.copyWith(state: now.toUtc().toIso8601String()) : e.copyWith(lastChanged: now),
+              confirmed: (e) => isScene ? e.state != before.state : e.lastChanged != before.lastChanged,
+            ),
+        ],
+        () => ref.read(haWebSocketClientProvider).callService(s.entityId.split('.').first, 'turn_on', target: {'entity_id': s.entityId}),
+      );
+}
 
 // ─── Security sensors ──────────────────────────────────────────────────
 
@@ -503,7 +600,12 @@ final roomTilesProvider = Provider<List<RoomTile>>((ref) {
 
 Future<void> toggleLight(WidgetRef ref, String entityId, bool on) {
   final domain = entityId.split('.').first;
-  return ref.read(haWebSocketClientProvider).callService(domain == 'switch' ? 'switch' : 'light', on ? 'turn_on' : 'turn_off', target: {'entity_id': entityId});
+  return ref
+      .read(kioskEntitiesProvider.notifier)
+      .run(
+        [expectEntity(entityId, state: on ? 'on' : 'off')],
+        () => ref.read(haWebSocketClientProvider).callService(domain == 'switch' ? 'switch' : 'light', on ? 'turn_on' : 'turn_off', target: {'entity_id': entityId}),
+      );
 }
 
 Future<void> allLightsOff(WidgetRef ref) async {
@@ -516,10 +618,15 @@ Future<void> allLightsOff(WidgetRef ref) async {
   final lights = ids.where((id) => id.startsWith('light.')).toList();
   final switches = ids.where((id) => id.startsWith('switch.')).toList();
   final client = ref.read(haWebSocketClientProvider);
-  await Future.wait([
-    if (lights.isNotEmpty) client.callService('light', 'turn_off', target: {'entity_id': lights}),
-    if (switches.isNotEmpty) client.callService('switch', 'turn_off', target: {'entity_id': switches}),
-  ]);
+  await ref
+      .read(kioskEntitiesProvider.notifier)
+      .run(
+        [for (final id in ids) expectEntity(id, state: 'off')],
+        () => Future.wait([
+          if (lights.isNotEmpty) client.callService('light', 'turn_off', target: {'entity_id': lights}),
+          if (switches.isNotEmpty) client.callService('switch', 'turn_off', target: {'entity_id': switches}),
+        ]),
+      );
 }
 
 // ─── EV cars ───────────────────────────────────────────────────────────

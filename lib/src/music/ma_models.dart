@@ -166,6 +166,21 @@ class MaPlayer {
   /// The queue this player plays from.
   String get queueId => activeSource ?? id;
 
+  MaPlayer copyWith({int? volume, List<String>? groupMembers}) => MaPlayer(
+    id: id,
+    name: name,
+    available: available,
+    volume: volume ?? this.volume,
+    groupMembers: groupMembers ?? this.groupMembers,
+    canGroupWith: canGroupWith,
+    model: model,
+    manufacturer: manufacturer,
+    provider: provider,
+    activeSource: activeSource,
+    syncedTo: syncedTo,
+    activeGroup: activeGroup,
+  );
+
   static MaPlayer? tryParse(Object? raw) {
     if (raw is! Map) return null;
     final m = raw.cast<String, dynamic>();
@@ -256,16 +271,18 @@ class MaQueue {
     return d != null && d > 0 ? p.clamp(0, d.toDouble()) : p;
   }
 
-  MaQueue withElapsed(double seconds) => MaQueue(
+  MaQueue withElapsed(double seconds) => copyWith(elapsed: seconds, elapsedAt: DateTime.now());
+
+  MaQueue copyWith({String? state, bool? shuffle, String? repeat, double? elapsed, DateTime? elapsedAt, int? currentIndex, MaQueueItem? current}) => MaQueue(
     id: id,
-    state: state,
-    shuffle: shuffle,
-    repeat: repeat,
-    elapsed: seconds,
-    elapsedAt: DateTime.now(),
+    state: state ?? this.state,
+    shuffle: shuffle ?? this.shuffle,
+    repeat: repeat ?? this.repeat,
+    elapsed: elapsed ?? this.elapsed,
+    elapsedAt: elapsedAt ?? this.elapsedAt,
     itemCount: itemCount,
-    currentIndex: currentIndex,
-    current: current,
+    currentIndex: currentIndex ?? this.currentIndex,
+    current: current ?? this.current,
     next: next,
   );
 

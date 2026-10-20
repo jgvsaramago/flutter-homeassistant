@@ -8,6 +8,7 @@ import '../providers/ha_providers.dart';
 import '../services/screen_power_controller.dart';
 import '../services/voice_satellite.dart';
 import '../sheets/sheet_registry.dart';
+import '../utils/optimistic.dart';
 import 'data/calendar_data.dart';
 import 'data/chores_data.dart';
 import 'data/house_config.dart';
@@ -71,6 +72,7 @@ class _KioskShellState extends ConsumerState<KioskShell> {
     // Saying the wake word opens the Assistente so the conversation shows
     // on screen.
     VoiceSatellite.instance.start();
+    OptimisticLayer.onNotConfirmed = (message) => KToast.show(message, error: true);
     _voice = VoiceSatellite.instance.events.listen((e) {
       if (e is SatelliteWake && mounted) showAssistant(context, byVoice: true);
     });

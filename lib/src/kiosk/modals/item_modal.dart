@@ -37,7 +37,6 @@ class _ItemModalState extends ConsumerState<ItemModal> {
   final _noteFocus = FocusNode();
   late double _qty = widget.item?.qty ?? 0;
   late String _unit = widget.item?.unit ?? 'un';
-  bool _busy = false;
 
   bool get _isNew => widget.item == null;
 
@@ -65,33 +64,24 @@ class _ItemModalState extends ConsumerState<ItemModal> {
         .toList();
   }
 
-  Future<void> _save() async {
+  /// Closes at once: the list shows the change straight away and undoes
+  /// it (with a toast) if HA doesn't take it.
+  void _save() {
     final name = _name.text.trim();
     if (name.isEmpty) return;
-    setState(() => _busy = true);
     final actions = ref.read(todoActionsProvider);
-    try {
-      if (_isNew) {
-        await actions.add(widget.list.entityId, name: name, qty: _qty, unit: _unit, note: _note.text);
-      } else {
-        await actions.update(widget.list.entityId, widget.item!, name: name, qty: _qty, unit: _unit, note: _note.text.trim());
-      }
-      OnScreenKeyboardController.instance.close();
-      if (mounted) Navigator.of(context).pop();
-    } catch (e) {
-      KToast.error(e);
-      if (mounted) setState(() => _busy = false);
-    }
+    final done = _isNew
+        ? actions.add(widget.list.entityId, name: name, qty: _qty, unit: _unit, note: _note.text)
+        : actions.update(widget.list.entityId, widget.item!, name: name, qty: _qty, unit: _unit, note: _note.text.trim());
+    done.catchError(KToast.error);
+    OnScreenKeyboardController.instance.close();
+    Navigator.of(context).pop();
   }
 
-  Future<void> _delete() async {
-    try {
-      await ref.read(todoActionsProvider).remove(widget.list.entityId, widget.item!);
-      OnScreenKeyboardController.instance.close();
-      if (mounted) Navigator.of(context).pop();
-    } catch (e) {
-      KToast.error(e);
-    }
+  void _delete() {
+    ref.read(todoActionsProvider).remove(widget.list.entityId, widget.item!).catchError(KToast.error);
+    OnScreenKeyboardController.instance.close();
+    Navigator.of(context).pop();
   }
 
   @override
@@ -178,7 +168,6 @@ class _ItemModalState extends ConsumerState<ItemModal> {
           KModalFooter(
             saveLabel: _isNew ? 'Adicionar' : 'Guardar',
             canSave: _name.text.trim().isNotEmpty,
-            busy: _busy,
             onSave: _save,
             onDelete: _isNew ? null : _delete,
           ),

@@ -49,7 +49,6 @@ class _EventModalState extends ConsumerState<EventModal> {
   bool _allDay = false;
   int _start = 9 * 60, _end = 10 * 60;
   EventRepeat _repeat = EventRepeat.none;
-  bool _busy = false;
 
   static const _max = 23 * 60 + 45;
   static const _maxMonths = 12;
@@ -109,32 +108,29 @@ class _EventModalState extends ConsumerState<EventModal> {
     super.dispose();
   }
 
-  Future<void> _save(CalendarSource source) async {
-    setState(() => _busy = true);
-    try {
-      await createKioskEvent(
-        ref,
-        source: source,
-        title: _title.text.trim(),
-        day: _date,
-        endDay: _endDay,
-        allDay: _allDay,
-        startMinutes: _start,
-        endMinutes: _end,
-        repeat: _repeat,
-        location: _location.text.trim(),
-        notes: _notes.text.trim(),
-      );
-      OnScreenKeyboardController.instance.close();
-      final d = _date;
-      KToast.show(
-        'Evento criado: ${_title.text.trim()} · ${PtDates.abbrLower[d.weekday - 1]} ${d.day} ${PtDates.months[d.month - 1].substring(0, 3)}${_allDay ? ', dia todo' : ', ${PtDates.minutes(_start)}'}',
-      );
-      if (mounted) Navigator.of(context).pop(d);
-    } catch (e) {
-      KToast.error(e);
-      if (mounted) setState(() => _busy = false);
-    }
+  /// Closes at once — the event shows on the calendar straight away and
+  /// is taken off again (with a toast) if HA doesn't take it.
+  void _save(CalendarSource source) {
+    final title = _title.text.trim();
+    createKioskEvent(
+      ProviderScope.containerOf(context, listen: false),
+      source: source,
+      title: title,
+      day: _date,
+      endDay: _endDay,
+      allDay: _allDay,
+      startMinutes: _start,
+      endMinutes: _end,
+      repeat: _repeat,
+      location: _location.text.trim(),
+      notes: _notes.text.trim(),
+    ).catchError(KToast.error);
+    OnScreenKeyboardController.instance.close();
+    final d = _date;
+    KToast.show(
+      'Evento criado: $title · ${PtDates.abbrLower[d.weekday - 1]} ${d.day} ${PtDates.months[d.month - 1].substring(0, 3)}${_allDay ? ', dia todo' : ', ${PtDates.minutes(_start)}'}',
+    );
+    Navigator.of(context).pop(d);
   }
 
   @override
@@ -372,7 +368,6 @@ class _EventModalState extends ConsumerState<EventModal> {
           KModalFooter(
             saveLabel: 'Guardar evento',
             canSave: hasTitle && selected != null,
-            busy: _busy,
             hint: hasTitle
                 ? (selected == null ? 'Sem calendário onde guardar' : 'Será adicionado ao calendário de ${selected.name}')
                 : 'Escreva um título para guardar',

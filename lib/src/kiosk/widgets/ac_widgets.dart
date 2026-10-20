@@ -32,6 +32,8 @@ mixin _DebouncedTarget<T extends StatefulWidget> on State<T> {
         await send(next);
       } catch (e) {
         KToast.error(e);
+        if (mounted) setState(() => pending = null);
+        return;
       }
       // Keep showing the sent value until HA echoes it back (or give up).
       _timer = Timer(const Duration(seconds: 4), () {

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/ha_providers.dart';
+import '../../utils/optimistic.dart';
 import 'family_data.dart';
 import 'pt_dates.dart';
 
@@ -88,7 +91,7 @@ final calendarRefreshProvider = StateProvider<int>((ref) => 0);
 /// Every event from every [calendarSourcesProvider] calendar overlapping
 /// [range] (end exclusive). A calendar that fails to load is skipped rather
 /// than failing the whole range.
-final calendarRangeProvider = FutureProvider.family<List<KEvent>, ({DateTime start, DateTime end})>((ref, range) async {
+final _calendarFetchProvider = FutureProvider.family<List<KEvent>, ({DateTime start, DateTime end})>((ref, range) async {
   ref.watch(calendarRefreshProvider);
   final sources = ref.watch(calendarSourcesProvider);
   if (sources.isEmpty) return const [];
@@ -115,12 +118,33 @@ final calendarRangeProvider = FutureProvider.family<List<KEvent>, ({DateTime sta
   return out;
 });
 
+/// Events this screen just created that HA hasn't listed back yet.
+final _pendingEventsProvider = StateProvider<List<KEvent>>((ref) => const []);
+
+/// [range]'s events as the screen shows them: HA's, plus any just created
+/// here and still on their way.
+final calendarRangeProvider = Provider.family<AsyncValue<List<KEvent>>, ({DateTime start, DateTime end})>((ref, range) {
+  final fetched = ref.watch(_calendarFetchProvider(range));
+  final pending = ref.watch(_pendingEventsProvider);
+  if (pending.isEmpty) return fetched;
+  return fetched.whenData((events) {
+    final extra = [
+      for (final p in pending)
+        if (p.start.isBefore(range.end) && p.end.isAfter(range.start) && !events.any((e) => _sameEvent(e, p))) p,
+    ];
+    if (extra.isEmpty) return events;
+    return [...events, ...extra]..sort((a, b) => a.start.compareTo(b.start));
+  });
+});
+
+bool _sameEvent(KEvent a, KEvent b) => a.source.entityId == b.source.entityId && a.title == b.title && a.start == b.start;
+
 ({DateTime start, DateTime end}) weekRange(DateTime monday) => (start: dateOnly(monday), end: addDays(monday, 7));
 
 /// The next holiday from today on, for the header's "Próximo feriado" line.
 final nextHolidayProvider = FutureProvider<KEvent?>((ref) async {
   final today = dateOnly(DateTime.now());
-  final events = await ref.watch(calendarRangeProvider((start: today, end: addDays(today, 90))).future);
+  final events = await ref.watch(_calendarFetchProvider((start: today, end: addDays(today, 90))).future);
   for (final e in events) {
     if (e.source.holiday && !e.lastDay.isBefore(today)) return e;
   }
@@ -141,8 +165,12 @@ String _isoLocal(DateTime d) => '${PtDates.key(d)}T${PtDates.two(d.hour)}:${PtDa
 /// Creates an event on [source]'s calendar, from [day] to [endDay] (the
 /// same day when null). Times are minutes from midnight on their own day;
 /// an all-day event covers every day from [day] to [endDay] inclusive.
+///
+/// The event shows on the calendars at once; it goes away again if HA
+/// rejects it (the error is rethrown) or doesn't list it back. Takes the
+/// container, not a widget's ref, since the modal closes straight away.
 Future<void> createKioskEvent(
-  WidgetRef ref, {
+  ProviderContainer container, {
   required CalendarSource source,
   required String title,
   required DateTime day,
@@ -170,6 +198,24 @@ Future<void> createKioskEvent(
         EventRepeat.none => '',
       },
   };
-  await ref.read(haWebSocketClientProvider).createCalendarEvent(source.entityId, event);
-  ref.read(calendarRefreshProvider.notifier).state++;
+  final shown = KEvent(
+    title: title,
+    start: allDay ? d : d.add(Duration(minutes: startMinutes)),
+    end: allDay ? addDays(e, 1) : e.add(Duration(minutes: endMinutes)),
+    allDay: allDay,
+    source: source,
+  );
+  final pending = container.read(_pendingEventsProvider.notifier);
+  pending.state = [...pending.state, shown];
+  try {
+    await container.read(haWebSocketClientProvider).createCalendarEvent(source.entityId, event).timeout(const Duration(seconds: 8));
+    container.read(calendarRefreshProvider.notifier).state++;
+    final day0 = dateOnly(shown.start);
+    final listed = await container.read(_calendarFetchProvider((start: day0, end: addDays(day0, 1))).future).timeout(const Duration(seconds: 8));
+    if (!listed.any((x) => _sameEvent(x, shown))) OptimisticLayer.onNotConfirmed?.call('O Home Assistant não confirmou o evento "$title"');
+  } on TimeoutException {
+    OptimisticLayer.onNotConfirmed?.call('O Home Assistant não confirmou o evento "$title"');
+  } finally {
+    pending.state = pending.state.where((x) => !identical(x, shown)).toList();
+  }
 }

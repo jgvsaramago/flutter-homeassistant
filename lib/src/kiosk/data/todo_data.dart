@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../ha_client/ha_config_flow.dart';
-import '../../ha_client/ha_websocket_client.dart';
 import '../../models/ha_entity.dart';
 import '../../providers/ha_providers.dart';
+import '../../utils/optimistic.dart';
 import 'pt_dates.dart';
 
 /// The units an item's quantity can be in — the design's unit chips. Keys
@@ -145,43 +145,105 @@ final shoppingListProvider = Provider<TodoListInfo?>((ref) {
   return lists.isEmpty ? null : lists.first;
 });
 
-/// One list's items. Refetches whenever the list entity itself changes —
-/// HA bumps its state/last_updated on every add, edit or completion, from
-/// this kiosk or anywhere else.
-final todoItemsProvider = FutureProvider.family<List<TodoItem>, String>((ref, entityId) async {
+/// One list's items as HA has them. Refetches whenever the list entity
+/// itself changes — HA bumps its state on every add or completion, from
+/// this kiosk or anywhere else — and after each of this screen's own
+/// changes (a rename doesn't change the entity).
+final _todoFetchProvider = FutureProvider.family<List<TodoItem>, String>((ref, entityId) async {
   ref.watch(entitiesProvider.select((async) => async.valueOrNull?[entityId]?.lastUpdated));
   await ref.watch(entitiesProvider.future);
   final raw = await ref.read(haWebSocketClientProvider).getTodoItems(entityId);
-  return raw.map(TodoItem.fromJson).where((i) => i.name.isNotEmpty).toList();
+  final items = raw.map(TodoItem.fromJson).where((i) => i.name.isNotEmpty).toList();
+  ref.read(_todoOverlayProvider.notifier).fetched(entityId, items);
+  return items;
+});
+
+/// This screen's to-do changes HA hasn't confirmed yet, per list.
+class _TodoOverlay extends Notifier<int> {
+  final _real = <String, List<TodoItem>>{};
+
+  late final layer = OptimisticLayer<List<TodoItem>>(
+    real: (id) => _real[id],
+    onChanged: () => state++,
+    notConfirmed: 'O Home Assistant não confirmou a alteração à lista',
+  );
+
+  @override
+  int build() => 0;
+
+  void fetched(String entityId, List<TodoItem> items) {
+    _real[entityId] = items;
+    if (layer.settle()) state++;
+  }
+
+  List<TodoItem> real(String entityId) => _real[entityId] ?? const [];
+}
+
+final _todoOverlayProvider = NotifierProvider<_TodoOverlay, int>(_TodoOverlay.new);
+
+/// One list's items as the screen shows them: HA's, with this screen's
+/// pending changes on top.
+final todoItemsProvider = Provider.family<AsyncValue<List<TodoItem>>, String>((ref, entityId) {
+  ref.watch(_todoOverlayProvider);
+  final layer = ref.read(_todoOverlayProvider.notifier).layer;
+  return ref.watch(_todoFetchProvider(entityId)).whenData((items) => layer.view(entityId, items)!);
 });
 
 String _description(double qty, String unit, String note) => [todoQtyText(qty, unit), note.trim()].where((s) => s.isNotEmpty).join(' · ');
 
-/// Mutations — each a plain `todo.*` service call; the entity's own state
-/// change then refreshes [todoItemsProvider].
+/// Mutations — each a plain `todo.*` service call, shown on the list at
+/// once and undone if HA doesn't confirm it (see [OptimisticLayer]).
 class TodoActions {
-  TodoActions(this._client);
+  TodoActions(this._ref);
 
-  final HaWebSocketClient _client;
+  final Ref _ref;
+
+  Future<void> _run(String entityId, OptimisticChange<List<TodoItem>> change, String service, Map<String, dynamic>? data) => _ref
+      .read(_todoOverlayProvider.notifier)
+      .layer
+      .run([change], () async {
+        await _ref.read(haWebSocketClientProvider).callService('todo', service, target: {'entity_id': entityId}, serviceData: data);
+        _ref.invalidate(_todoFetchProvider(entityId));
+      }, timeout: const Duration(seconds: 8));
+
+  static int _named(List<TodoItem> items, String name) => items.where((i) => !i.done && i.name.toLowerCase() == name.toLowerCase()).length;
 
   Future<void> add(String entityId, {required String name, double qty = 0, String unit = 'un', String note = ''}) {
     final description = _description(qty, unit, note);
-    return _client.callService(
-      'todo',
+    final before = _named(_ref.read(_todoOverlayProvider.notifier).real(entityId), name);
+    final temp = TodoItem(uid: 'pending:${DateTime.now().microsecondsSinceEpoch}', name: name, done: false, qty: qty, unit: unit, note: note.trim());
+    return _run(
+      entityId,
+      OptimisticChange(entityId, slot: temp.uid, patch: (items) => [...items, temp], confirmed: (items) => _named(items, name) > before),
       'add_item',
-      target: {'entity_id': entityId},
-      serviceData: {'item': name, if (description.isNotEmpty) 'description': description},
+      {'item': name, if (description.isNotEmpty) 'description': description},
     );
   }
 
   Future<void> update(String entityId, TodoItem item, {String? name, double? qty, String? unit, String? note, bool? done}) {
+    if (item.uid.startsWith('pending:')) return Future.value(); // not in HA yet
     final description = _description(qty ?? item.qty, unit ?? item.unit, note ?? item.note);
     final changesDetail = qty != null || unit != null || note != null;
-    return _client.callService(
-      'todo',
+    final want = TodoItem(
+      uid: item.uid,
+      name: name ?? item.name,
+      done: done ?? item.done,
+      qty: qty ?? item.qty,
+      unit: unit ?? item.unit,
+      note: (note ?? item.note).trim(),
+    );
+    bool matches(TodoItem i) => i.name == want.name && i.done == want.done && i.detail == want.detail;
+    return _run(
+      entityId,
+      OptimisticChange(
+        entityId,
+        slot: item.uid,
+        patch: (items) => [for (final i in items) i.uid == item.uid ? want : i],
+        // Gone altogether (removed elsewhere) also ends it.
+        confirmed: (items) => !items.any((i) => i.uid == item.uid && !matches(i)),
+      ),
       'update_item',
-      target: {'entity_id': entityId},
-      serviceData: {
+      {
         'item': item.uid,
         if (name != null && name != item.name) 'rename': name,
         if (done != null) 'status': done ? 'completed' : 'needs_action',
@@ -190,13 +252,35 @@ class TodoActions {
     );
   }
 
-  Future<void> remove(String entityId, TodoItem item) =>
-      _client.callService('todo', 'remove_item', target: {'entity_id': entityId}, serviceData: {'item': item.uid});
+  Future<void> remove(String entityId, TodoItem item) {
+    if (item.uid.startsWith('pending:')) return Future.value();
+    return _run(
+    entityId,
+    OptimisticChange(
+      entityId,
+      slot: item.uid,
+      patch: (items) => items.where((i) => i.uid != item.uid).toList(),
+      confirmed: (items) => !items.any((i) => i.uid == item.uid),
+    ),
+    'remove_item',
+    {'item': item.uid},
+  );
+  }
 
-  Future<void> clearDone(String entityId) => _client.callService('todo', 'remove_completed_items', target: {'entity_id': entityId});
+  Future<void> clearDone(String entityId) => _run(
+    entityId,
+    OptimisticChange(
+      entityId,
+      slot: 'clear',
+      patch: (items) => items.where((i) => !i.done).toList(),
+      confirmed: (items) => !items.any((i) => i.done),
+    ),
+    'remove_completed_items',
+    null,
+  );
 }
 
-final todoActionsProvider = Provider<TodoActions>((ref) => TodoActions(ref.watch(haWebSocketClientProvider)));
+final todoActionsProvider = Provider<TodoActions>((ref) => TodoActions(ref));
 
 /// Creates a new Local To-do list and remembers its icon once HA reports
 /// the new entity.

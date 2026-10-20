@@ -7,6 +7,7 @@ import '../../providers/ha_providers.dart';
 import '../../providers/individual_sensors_provider.dart';
 import '../../providers/rooms_provider.dart';
 import '../../providers/temperature_entities_provider.dart';
+import '../../utils/optimistic.dart';
 import 'house_config.dart';
 
 /// Domains the kiosk screens read wholesale. Plain `sensor.*` is not one of
@@ -72,18 +73,41 @@ bool _relevant(HaEntity e, Set<String> configured) {
 /// emits a new map when one of *those* entities changed — so a busy
 /// instance's unrelated sensor chatter doesn't rebuild every screen five
 /// times a second.
+///
+/// It also carries the screen's optimistic changes ([run]): a tapped light
+/// shows on at once, and goes back if HA doesn't confirm it.
 class KioskEntitiesNotifier extends Notifier<Map<String, HaEntity>> {
+  Map<String, HaEntity> _real = const {};
+
+  late final _optimistic = OptimisticLayer<HaEntity>(
+    real: (id) => _real[id],
+    onChanged: _publish,
+    notConfirmed: 'O Home Assistant não confirmou a alteração',
+  );
+
   @override
   Map<String, HaEntity> build() {
     final configured = ref.watch(_configuredIds);
     ref.listen<AsyncValue<Map<String, HaEntity>>>(entitiesProvider, (_, next) {
       final all = next.valueOrNull;
       if (all == null) return;
-      final filtered = _filter(all, configured);
-      if (_changed(state, filtered)) state = filtered;
+      _real = _filter(all, configured);
+      _optimistic.settle();
+      _publish();
     });
-    return _filter(ref.read(entitiesProvider).valueOrNull ?? const {}, configured);
+    _real = _filter(ref.read(entitiesProvider).valueOrNull ?? const {}, configured);
+    return _optimistic.overlay(_real);
   }
+
+  void _publish() {
+    final shown = _optimistic.overlay(_real);
+    if (_changed(state, shown)) state = shown;
+  }
+
+  /// Shows [changes] straight away while [call] (the service call) runs;
+  /// see [OptimisticLayer.run].
+  Future<void> run(List<OptimisticChange<HaEntity>> changes, Future<void> Function() call, {Duration timeout = OptimisticLayer.defaultTimeout}) =>
+      _optimistic.run(changes, call, timeout: timeout);
 
   static Map<String, HaEntity> _filter(Map<String, HaEntity> all, Set<String> configured) => {
     for (final e in all.values)

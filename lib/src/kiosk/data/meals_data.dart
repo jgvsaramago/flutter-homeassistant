@@ -82,8 +82,15 @@ class MealPlanNotifier extends StateNotifier<Map<String, Meal>> {
     }
     final cutoff = PtDates.key(addDays(DateTime.now(), -_keepDays));
     next.removeWhere((k, _) => k.compareTo(cutoff) < 0);
+    final before = state;
     state = next;
-    await _client.setSettings(_key, {for (final e in next.entries) e.key: e.value.toJson()});
+    try {
+      await _client.setSettings(_key, {for (final e in next.entries) e.key: e.value.toJson()}).timeout(const Duration(seconds: 8));
+    } catch (_) {
+      // Not saved: show the plan as it was (unless something newer landed).
+      if (identical(state, next)) state = before;
+      rethrow;
+    }
   }
 }
 

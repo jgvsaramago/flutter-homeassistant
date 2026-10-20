@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/ha_providers.dart';
+import '../utils/optimistic.dart';
 import 'ma_client.dart';
 import 'ma_models.dart';
 
@@ -32,6 +33,10 @@ class PlayContext {
 /// Live Music Assistant state for the Música page: players and their
 /// queues (kept current from MA's events), which speaker this screen plays
 /// to, and every command the page sends.
+///
+/// Commands show their effect at once (pause, volume, grouping…) and go
+/// back if MA doesn't report it within a few seconds — see
+/// [OptimisticLayer].
 class MusicStore extends ChangeNotifier {
   MusicStore(this.client) {
     final c = client;
@@ -49,8 +54,28 @@ class MusicStore extends ChangeNotifier {
   StreamSubscription<MaEvent>? _events;
   static const _targetKey = 'music_target_player';
 
-  final Map<String, MaPlayer> players = {};
-  final Map<String, MaQueue> queues = {};
+  final Map<String, MaPlayer> _players = {};
+  final Map<String, MaQueue> _queues = {};
+
+  /// As shown: MA's, with this screen's unconfirmed changes on top.
+  Map<String, MaPlayer> players = const {};
+  Map<String, MaQueue> queues = const {};
+
+  static const _notConfirmed = 'O Music Assistant não confirmou a alteração';
+  late final _playerLayer = OptimisticLayer<MaPlayer>(real: (id) => _players[id], onChanged: _publish, notConfirmed: _notConfirmed);
+  late final _queueLayer = OptimisticLayer<MaQueue>(real: (id) => _queues[id], onChanged: _publish, notConfirmed: _notConfirmed);
+
+  void _publish() {
+    players = _playerLayer.overlay(_players);
+    queues = _queueLayer.overlay(_queues);
+    notifyListeners();
+  }
+
+  void _settleAndPublish() {
+    _playerLayer.settle();
+    _queueLayer.settle();
+    _publish();
+  }
   final Map<String, PlayContext> contexts = {};
   final List<String> recentSearches = [];
   String? _targetId;
@@ -63,6 +88,8 @@ class MusicStore extends ChangeNotifier {
   void dispose() {
     client?.state.removeListener(_onState);
     _events?.cancel();
+    _playerLayer.dispose();
+    _queueLayer.dispose();
     super.dispose();
   }
 
@@ -79,15 +106,15 @@ class MusicStore extends ChangeNotifier {
     try {
       final ps = await c.call('players/all');
       final qs = await c.call('player_queues/all');
-      players
+      _players
         ..clear()
         ..addEntries([for (final p in (ps as List)) ?MaPlayer.tryParse(p)].map((p) => MapEntry(p.id, p)));
-      queues
+      _queues
         ..clear()
         ..addEntries([for (final q in (qs as List)) ?MaQueue.tryParse(q)].map((q) => MapEntry(q.id, q)));
       loaded = true;
       _pickTarget();
-      notifyListeners();
+      _settleAndPublish();
     } catch (e) {
       debugPrint('[music] load failed: $e');
     }
@@ -98,18 +125,18 @@ class MusicStore extends ChangeNotifier {
       case 'player_added' || 'player_updated':
         final p = MaPlayer.tryParse(e.data);
         if (p != null) {
-          players[p.id] = p;
+          _players[p.id] = p;
         } else if (e.objectId != null) {
-          players.remove(e.objectId);
+          _players.remove(e.objectId);
         }
       case 'player_removed':
-        players.remove(e.objectId);
+        _players.remove(e.objectId);
       case 'queue_added' || 'queue_updated':
         final q = MaQueue.tryParse(e.data);
-        if (q != null) queues[q.id] = q;
+        if (q != null) _queues[q.id] = q;
       case 'queue_time_updated':
-        final q = queues[e.objectId];
-        if (q != null && e.data is num) queues[q.id] = q.withElapsed((e.data as num).toDouble());
+        final q = _queues[e.objectId];
+        if (q != null && e.data is num) _queues[q.id] = q.withElapsed((e.data as num).toDouble());
       case 'queue_items_updated':
         queueItemsVersion++;
       case 'media_item_updated':
@@ -117,7 +144,7 @@ class MusicStore extends ChangeNotifier {
       default:
         return;
     }
-    notifyListeners();
+    _settleAndPublish();
   }
 
   /// Bumped when a queue's items change, so an open "Fila" reloads.
@@ -201,11 +228,62 @@ class MusicStore extends ChangeNotifier {
     if (shuffle && queue?.shuffle != true) await _cmd('player_queues/shuffle', {'queue_id': q, 'shuffle_enabled': true});
   }
 
-  Future<void> playPause() => _cmd('player_queues/play_pause', {'queue_id': _queueId});
-  Future<void> next() => _cmd('player_queues/next', {'queue_id': _queueId});
-  Future<void> previous() => _cmd('player_queues/previous', {'queue_id': _queueId});
-  Future<void> seek(int seconds) => _cmd('player_queues/seek', {'queue_id': _queueId, 'position': seconds});
-  Future<void> setShuffle(bool on) => _cmd('player_queues/shuffle', {'queue_id': _queueId, 'shuffle_enabled': on});
+  /// Runs [command] on the current queue, showing [patch] until MA's
+  /// queue reports [confirmed].
+  Future<void> _onQueue(String command, Map<String, dynamic> args, String slot, MaQueue Function(MaQueue) patch, bool Function(MaQueue) confirmed) {
+    final q = queue;
+    Future<void> run() => _cmd(command, {'queue_id': _queueId, ...args});
+    if (q == null) return run();
+    return _queueLayer.run([OptimisticChange(q.id, slot: slot, patch: patch, confirmed: confirmed)], run);
+  }
+
+  Future<void> playPause() {
+    final now = DateTime.now();
+    final play = queue?.playing != true;
+    final at = queue?.position(now) ?? 0;
+    return _onQueue(
+      'player_queues/play_pause',
+      const {},
+      'state',
+      (q) => q.copyWith(state: play ? 'playing' : 'paused', elapsed: at, elapsedAt: now),
+      (q) => q.playing == play,
+    );
+  }
+
+  Future<void> next() {
+    final from = queue?.current?.queueItemId;
+    final upNext = queue?.next;
+    return _onQueue(
+      'player_queues/next',
+      const {},
+      'track',
+      (q) => q.copyWith(current: upNext, currentIndex: (q.currentIndex ?? -1) + 1, elapsed: 0, elapsedAt: DateTime.now()),
+      (q) => q.current?.queueItemId != from || upNext == null,
+    );
+  }
+
+  /// Back to the start of the track (or the one before, as MA decides).
+  Future<void> previous() {
+    final from = queue?.current?.queueItemId;
+    return _onQueue(
+      'player_queues/previous',
+      const {},
+      'track',
+      (q) => q.copyWith(elapsed: 0, elapsedAt: DateTime.now()),
+      (q) => q.current?.queueItemId != from || q.position(DateTime.now()) < 5,
+    );
+  }
+
+  Future<void> seek(int seconds) => _onQueue(
+    'player_queues/seek',
+    {'position': seconds},
+    'track',
+    (q) => q.copyWith(elapsed: seconds.toDouble(), elapsedAt: DateTime.now()),
+    (q) => (q.position(DateTime.now()) - seconds).abs() < 4,
+  );
+
+  Future<void> setShuffle(bool on) =>
+      _onQueue('player_queues/shuffle', {'shuffle_enabled': on}, 'shuffle', (q) => q.copyWith(shuffle: on), (q) => q.shuffle == on);
 
   Future<void> cycleRepeat() {
     final next = switch (queue?.repeat) {
@@ -213,7 +291,7 @@ class MusicStore extends ChangeNotifier {
       'all' => 'one',
       _ => 'off',
     };
-    return _cmd('player_queues/repeat', {'queue_id': _queueId, 'repeat_mode': next});
+    return _onQueue('player_queues/repeat', {'repeat_mode': next}, 'repeat', (q) => q.copyWith(repeat: next), (q) => q.repeat == next);
   }
 
   Future<List<MaQueueItem>> upcoming({int limit = 30}) async {
@@ -223,7 +301,13 @@ class MusicStore extends ChangeNotifier {
     return [for (final x in (r as List? ?? const [])) ?MaQueueItem.tryParse(x)];
   }
 
-  Future<void> playQueueItem(String queueItemId) => _cmd('player_queues/play_index', {'queue_id': _queueId, 'index': queueItemId});
+  Future<void> playQueueItem(MaQueueItem item) => _onQueue(
+    'player_queues/play_index',
+    {'index': item.queueItemId},
+    'track',
+    (q) => q.copyWith(current: item, state: 'playing', elapsed: 0, elapsedAt: DateTime.now()),
+    (q) => q.current?.queueItemId == item.queueItemId,
+  );
   Future<void> removeQueueItem(String queueItemId) => _cmd('player_queues/delete_item', {'queue_id': _queueId, 'item_id_or_index': queueItemId});
 
   /// Drops what's coming up, keeping the current track playing.
@@ -235,23 +319,26 @@ class MusicStore extends ChangeNotifier {
 
   // ---------------------------------------------------------------- volume
 
-  Future<void> setVolume(String playerId, int v) async {
-    final p = players[playerId];
-    if (p != null) players[playerId] = _withVolume(p, v);
-    notifyListeners();
-    await _cmd('players/cmd/volume_set', {'player_id': playerId, 'volume_level': v});
-  }
+  Future<void> setVolume(String playerId, int v) => _playerLayer.run(
+    [OptimisticChange(playerId, slot: 'volume', patch: (p) => p.copyWith(volume: v), confirmed: (p) => ((p.volume ?? -10) - v).abs() <= 1)],
+    () => _cmd('players/cmd/volume_set', {'player_id': playerId, 'volume_level': v}),
+  );
 
+  /// Moves every speaker in the group by the same amount (MA scales them
+  /// its own way, so any move counts as confirmation).
   Future<void> setGroupVolume(int v) async {
     final on = active;
     if (on.isEmpty) return;
     if (on.length == 1) return setVolume(on.first.id, v);
     final avg = groupVolume;
-    for (final p in on) {
-      players[p.id] = _withVolume(p, ((p.volume ?? 0) + v - avg).clamp(0, 100));
-    }
-    notifyListeners();
-    await _cmd('players/cmd/group_volume', {'player_id': on.first.id, 'volume_level': v});
+    await _playerLayer.run(
+      [
+        for (final p in on)
+          if (((p.volume ?? 0) + v - avg).clamp(0, 100) case final want when want != p.volume)
+            OptimisticChange(p.id, slot: 'volume', patch: (x) => x.copyWith(volume: want), confirmed: (x) => x.volume != p.volume),
+      ],
+      () => _cmd('players/cmd/group_volume', {'player_id': on.first.id, 'volume_level': v}),
+    );
   }
 
   int get groupVolume {
@@ -260,20 +347,20 @@ class MusicStore extends ChangeNotifier {
     return (on.fold<int>(0, (a, p) => a + p.volume!) / on.length).round();
   }
 
-  MaPlayer _withVolume(MaPlayer p, int v) => MaPlayer(
-    id: p.id,
-    name: p.name,
-    available: p.available,
-    volume: v,
-    groupMembers: p.groupMembers,
-    canGroupWith: p.canGroupWith,
-    model: p.model,
-    manufacturer: p.manufacturer,
-    provider: p.provider,
-    activeSource: p.activeSource,
-    syncedTo: p.syncedTo,
-    activeGroup: p.activeGroup,
-  );
+  /// Shows [t]'s group as exactly [members] (leader first) while [call]
+  /// changes it in MA.
+  Future<void> _regroup(MaPlayer t, Set<String> members, Future<void> Function() call) {
+    final want = members.where((id) => id != t.id).toSet();
+    Set<String> followers(MaPlayer p) => p.groupMembers.where((id) => id != p.id).toSet();
+    return _playerLayer.run([
+      OptimisticChange(
+        t.id,
+        slot: 'group',
+        patch: (p) => p.copyWith(groupMembers: want.isEmpty ? const [] : [p.id, ...want]),
+        confirmed: (p) => setEquals(followers(p), want),
+      ),
+    ], call);
+  }
 
   // ---------------------------------------------------------------- groups
 
@@ -304,10 +391,10 @@ class MusicStore extends ChangeNotifier {
       return;
     }
     if (on.contains(id)) {
-      await _cmd('players/cmd/set_members', {'target_player': t.id, 'player_ids_to_remove': [id]});
+      await _regroup(t, on.toSet()..remove(id), () => _cmd('players/cmd/set_members', {'target_player': t.id, 'player_ids_to_remove': [id]}));
     } else {
       if (!canJoin(p)) throw StateError('${p.name} não pode tocar em grupo com ${t.name}');
-      await _cmd('players/cmd/set_members', {'target_player': t.id, 'player_ids_to_add': [id]});
+      await _regroup(t, {...on, id}, () => _cmd('players/cmd/set_members', {'target_player': t.id, 'player_ids_to_add': [id]}));
     }
   }
 
@@ -320,11 +407,11 @@ class MusicStore extends ChangeNotifier {
     final add = want.difference(on).where((id) => id != t.id).toList();
     final remove = on.difference(want).where((id) => id != t.id).toList();
     if (add.isEmpty && remove.isEmpty) return;
-    await _cmd('players/cmd/set_members', {
+    await _regroup(t, {t.id, ...want}, () => _cmd('players/cmd/set_members', {
       'target_player': t.id,
       if (add.isNotEmpty) 'player_ids_to_add': add,
       if (remove.isNotEmpty) 'player_ids_to_remove': remove,
-    });
+    }));
   }
 
   // ---------------------------------------------------------------- library
