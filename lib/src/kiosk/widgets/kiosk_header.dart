@@ -30,9 +30,15 @@ DateTime watchNow(WidgetRef ref) => ref.watch(minuteTickProvider).valueOrNull ??
 /// elsewhere. It's one persistent widget, so moving between pages animates
 /// between the two layouts instead of swapping them.
 class KioskHeader extends ConsumerWidget {
-  const KioskHeader({super.key, required this.compact});
+  const KioskHeader({super.key, required this.compact, this.subtitle, this.onClockTap});
 
   final bool compact;
+
+  /// Replaces the compact header's week line (Música shows what's playing).
+  final String? subtitle;
+
+  /// Tapping the clock — opens Definições.
+  final VoidCallback? onClockTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -73,7 +79,10 @@ class KioskHeader extends ConsumerWidget {
               Positioned(
                 left: 0,
                 top: l(0, 10),
-                child: Text(PtDates.hm(now), style: KText.d(l(168, 88), spacing: l(-6, -3), height: 0.9)),
+                child: _Pressable(
+                  onTap: onClockTap,
+                  child: Text(PtDates.hm(now), style: KText.d(l(168, 88), spacing: l(-6, -3), height: 0.9)),
+                ),
               ),
               Positioned(
                 left: l(0, compactTextLeft),
@@ -83,7 +92,7 @@ class KioskHeader extends ConsumerWidget {
               Positioned(
                 left: l(0, compactTextLeft),
                 top: l(216, 58),
-                child: Text(t < 0.5 ? sub : week, style: KText.s(l(24, 22), color: KColors.muted)),
+                child: Text(t < 0.5 ? sub : (subtitle ?? week), style: KText.s(l(24, 22), color: KColors.muted)),
               ),
               Positioned(
                 right: l(376, compactWeatherRight),
@@ -185,4 +194,33 @@ double _textWidth(String text, TextStyle style) {
   final w = painter.width;
   painter.dispose();
   return w;
+}
+
+/// The clock's tap target: dims while pressed, like the design's
+/// `[data-clock]:active { opacity: .55 }`.
+class _Pressable extends StatefulWidget {
+  const _Pressable({required this.child, this.onTap});
+
+  final Widget child;
+  final VoidCallback? onTap;
+
+  @override
+  State<_Pressable> createState() => _PressableState();
+}
+
+class _PressableState extends State<_Pressable> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.onTap == null) return widget.child;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => setState(() => _down = true),
+      onTapCancel: () => setState(() => _down = false),
+      onTapUp: (_) => setState(() => _down = false),
+      onTap: widget.onTap,
+      child: AnimatedOpacity(opacity: _down ? 0.55 : 1, duration: const Duration(milliseconds: 90), child: widget.child),
+    );
+  }
 }

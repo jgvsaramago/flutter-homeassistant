@@ -11,6 +11,9 @@ enum KioskPage {
   meals('Refeições', KIcons.meals),
   lists('Listas', KIcons.list),
   house('Casa', KIcons.house),
+  music('Música', KIcons.music),
+
+  /// Not in the bar: opened by tapping the header's clock.
   settings('Definições', KIcons.settings);
 
   const KioskPage(this.label, this.icon);
@@ -19,8 +22,8 @@ enum KioskPage {
   final String icon;
 }
 
-/// The bottom bar: six labelled destinations, Definições as an icon only,
-/// then the assistant button.
+/// The bottom bar: seven labelled destinations, then the assistant button.
+/// Definições isn't here — the header's clock opens it.
 class KioskNavBar extends StatelessWidget {
   const KioskNavBar({super.key, required this.selected, required this.onSelect, required this.onAssistant});
 
@@ -32,23 +35,26 @@ class KioskNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 128,
+      width: double.infinity,
+      alignment: Alignment.center,
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: KColors.navBorder, width: 1.5)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 56),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       // Scale-down only as a guard: at the design's sizes the row fits.
       child: FittedBox(
         fit: BoxFit.scaleDown,
         child: Row(
           children: [
-            for (final p in KioskPage.values) ...[
-              if (p != KioskPage.home) const SizedBox(width: 12),
-              _NavItem(page: p, selected: p == selected, onTap: () => onSelect(p)),
-            ],
-            const SizedBox(width: 18),
+            for (final p in KioskPage.values)
+              if (p != KioskPage.settings) ...[
+                if (p != KioskPage.home) const SizedBox(width: 8),
+                _NavItem(page: p, selected: p == selected, onTap: () => onSelect(p)),
+              ],
+            const SizedBox(width: 14),
             Container(width: 1.5, height: 56, color: KColors.navBorder),
-            const SizedBox(width: 18),
+            const SizedBox(width: 14),
             KCircleButton(
               icon: KIcons.wave,
               size: 88,
@@ -77,28 +83,24 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fg = selected ? Colors.white : KColors.ink2;
-    final iconOnly = page == KioskPage.settings;
     return KPress(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: kEase,
         height: 88,
-        width: iconOnly ? 88 : null,
-        padding: iconOnly ? null : EdgeInsets.symmetric(horizontal: selected ? 32 : 26),
+        padding: EdgeInsets.symmetric(horizontal: selected ? 22 : 18),
         decoration: BoxDecoration(color: selected ? KColors.accent : Colors.transparent, borderRadius: BorderRadius.circular(44)),
         alignment: Alignment.center,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            KIcon(page.icon, size: 30, color: fg, stroke: 1.9),
-            if (!iconOnly) ...[
-              const SizedBox(width: 12),
-              Text(
-                page.label,
-                style: KText.s(22, weight: FontWeight.w600, color: fg),
-              ),
-            ],
+            KIcon(page.icon, size: 28, color: fg, stroke: 1.9),
+            const SizedBox(width: 12),
+            Text(
+              page.label,
+              style: KText.s(20, weight: FontWeight.w600, color: fg),
+            ),
           ],
         ),
       ),

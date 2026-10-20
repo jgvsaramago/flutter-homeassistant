@@ -157,4 +157,10 @@ class VoiceSatellite {
 
   /// Aborts the pipeline at whatever phase it's in.
   void stop() => _send('stop_pipeline');
+
+  /// Stops/starts listening for the wake word (LVA's mic mute).
+  void setMuted(bool mute) {
+    _send(mute ? 'mute_mic' : 'unmute_mic');
+    muted.value = mute;
+  }
 }

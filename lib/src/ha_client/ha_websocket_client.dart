@@ -295,7 +295,26 @@ class HaWebSocketClient {
     await _sendCommand({'type': 'flutter_homeassistant/register_screen', 'name': name});
   }
 
-  Future<List<HaEntity>> getStates() async {
+  /// A Supervisor API call proxied through HA (`supervisor/api`) — add-on
+  /// info and ingress sessions, for reaching Music Assistant through HA's
+  /// ingress without a token of its own. Returns the response's data.
+  Future<dynamic> supervisorApi(String endpoint, {String method = 'get', Map<String, dynamic>? data}) async {
+    final result = await _sendCommand({
+      'type': 'supervisor/api',
+      'endpoint': endpoint,
+      'method': method,
+      'data': ?data,
+    });
+    return result['result'];
+  }
+
+  /// HA's core config (`language`, `location_name`, `version`…).
+  Future<Map<String, dynamic>> getConfig() async {
+    final result = await _sendCommand({'type': 'get_config'});
+    return (result['result'] as Map?)?.cast<String, dynamic>() ?? const {};
+  }
+
+    Future<List<HaEntity>> getStates() async {
     final result = await _sendCommand({'type': 'get_states'});
     final states = (result['result'] as List).cast<Map<String, dynamic>>();
     return states.map(HaEntity.fromJson).toList();

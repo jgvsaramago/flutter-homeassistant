@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../music/music_store.dart';
 import '../providers/ha_providers.dart';
 import '../services/screen_power_controller.dart';
 import '../services/voice_satellite.dart';
@@ -19,6 +20,7 @@ import 'pages/home_page.dart';
 import 'pages/house_page.dart';
 import 'pages/lists_page.dart';
 import 'pages/meals_page.dart';
+import 'pages/music_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/tasks_page.dart';
 import 'theme/kiosk_icons.dart';
@@ -61,6 +63,8 @@ class _KioskShellState extends ConsumerState<KioskShell> {
     SheetRegistry.instance.register('temperatures', (_) async => _go(KioskPage.house));
     SheetRegistry.instance.register('ev-left', (_) async => _go(KioskPage.house));
     SheetRegistry.instance.register('ev-right', (_) async => _go(KioskPage.house));
+    SheetRegistry.instance.register('music', (_) async => _go(KioskPage.music));
+    SheetRegistry.instance.register('settings', (_) async => _go(KioskPage.settings));
     SheetRegistry.instance.requestedId.addListener(_onSheetRequested);
     SheetRegistry.instance.closeRequests.addListener(_onCloseRequested);
     ScreenPowerController.instance.isOn.addListener(_onScreenPowerChanged);
@@ -81,7 +85,7 @@ class _KioskShellState extends ConsumerState<KioskShell> {
   void dispose() {
     SheetRegistry.instance.requestedId.removeListener(_onSheetRequested);
     SheetRegistry.instance.closeRequests.removeListener(_onCloseRequested);
-    for (final id in ['calendar', 'temperatures', 'ev-left', 'ev-right']) {
+    for (final id in ['calendar', 'temperatures', 'ev-left', 'ev-right', 'music', 'settings']) {
       SheetRegistry.instance.unregister(id);
     }
     ScreenPowerController.instance.isOn.removeListener(_onScreenPowerChanged);
@@ -133,6 +137,9 @@ class _KioskShellState extends ConsumerState<KioskShell> {
   @override
   Widget build(BuildContext context) {
     final page = ref.watch(kioskPageProvider);
+    final nowPlaying = page == KioskPage.music
+        ? ref.watch(musicStoreProvider.select((m) => m.queue?.playing == true ? m.queue?.current?.name : null))
+        : null;
     ref.watch(settingsLiveReloadProvider);
     // A retry after an error keeps showing the error (it retries on its own,
     // see EntitiesNotifier) rather than flashing the spinner each attempt.
@@ -159,6 +166,7 @@ class _KioskShellState extends ConsumerState<KioskShell> {
           KioskPage.meals => const MealsPage(),
           KioskPage.lists => const ListsPage(),
           KioskPage.house => const HousePage(),
+          KioskPage.music => const MusicPage(),
           KioskPage.settings => const SettingsPage(),
         },
       );
@@ -174,7 +182,15 @@ class _KioskShellState extends ConsumerState<KioskShell> {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(56, 56, 56, 0),
-                  child: KioskHeader(compact: page != KioskPage.home),
+                  child: KioskHeader(
+                    compact: page != KioskPage.home,
+                    subtitle: switch (page) {
+                      KioskPage.music => nowPlaying == null ? 'Música' : '♪ $nowPlaying',
+                      KioskPage.settings => 'Definições do ecrã',
+                      _ => null,
+                    },
+                    onClockTap: () => _go(KioskPage.settings),
+                  ),
                 ),
                 const SizedBox(height: 32),
                 Expanded(

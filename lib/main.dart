@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'src/app.dart';
+import 'src/build_info.dart';
 import 'src/dev/placeholder_entities.dart';
 import 'src/ha_client/ha_connection_config.dart';
 import 'src/ha_client/ha_credentials_store.dart';
@@ -20,7 +21,7 @@ import 'src/theme/theme_mode_controller.dart';
 // Bump on every edit and check this against the console output on the Pi to
 // confirm a rebuild actually got redeployed, rather than the old bundle
 // still running.
-const _buildRevision = 20;
+// See build_info.dart.
 
 /// Parses `--key=value` (and bare `--flag`) launch arguments. Kept as a
 /// secondary source alongside environment variables (see below for why
@@ -42,7 +43,7 @@ Map<String, String> _parseArgs(List<String> args) {
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
-  debugPrint('flutter-homeassistant build revision: $_buildRevision');
+  debugPrint('flutter-homeassistant build revision: $kBuildRevision');
 
   // Restored before the first frame so the app paints in the right theme
   // immediately, rather than flashing dark then swapping once this
