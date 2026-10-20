@@ -56,6 +56,16 @@ dependencies:
   typed_data: ^1.4.0
   flutter_svg: ^2.3.0
 
+  # Door station (Hikvision villa intercom) over ISAPI: plain HTTP requests
+  # plus SHA-256 for its session-login auth. Both are already pulled in
+  # transitively; pinned here as direct deps since the door-station client
+  # uses them head-on. dart:io-based, so only the Pi build exercises them —
+  # the web build gets the no-op stub (door_station_stub.dart).
+  http: ^1.6.0
+  crypto: ^3.0.6
+  video_player: ^2.14.1
+  flutterpi_gstreamer_video_player: ^0.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -11,9 +11,12 @@ import 'src/build_info.dart';
 import 'src/dev/placeholder_entities.dart';
 import 'src/ha_client/ha_connection_config.dart';
 import 'src/ha_client/ha_credentials_store.dart';
+import 'src/kiosk/modals/intercom_modal.dart';
 import 'src/mqtt/mqtt_config.dart';
 import 'src/mqtt/mqtt_credentials_store.dart';
 import 'src/mqtt/pi_telemetry_publisher.dart';
+import 'src/services/door_station.dart';
+import 'src/services/door_video.dart';
 import 'src/services/frame_stats_logger.dart';
 import 'src/services/launch_config.dart';
 import 'src/theme/theme_mode_controller.dart';
@@ -76,6 +79,12 @@ void main(List<String> args) async {
 
   final demoMode = argsAndQuery.containsKey('demo') || env['DEMO'] == 'true' || env['DEMO'] == '1';
 
+  // The door station (Hikvision villa intercom) the kiosk shows and unlocks.
+  // Configured like HA/MQTT: baked into the launch environment on the Pi
+  // (DOOR_HOST on the intercom VLAN, DOOR_USER/DOOR_PASSWORD). When it isn't
+  // set — or on web — the intercom screen keeps its NotConnected stub.
+  IntercomController? doorIntercom;
+
   if (!demoMode) {
     // HA_URL/HA_TOKEN let a kiosk boot straight past onboarding with
     // credentials baked into the launch environment (a systemd unit's
@@ -112,6 +121,23 @@ void main(List<String> args) async {
     } else {
       debugPrint('[mqtt] no MQTT_HOST given or previously saved — device telemetry will not be published');
     }
+
+    final doorHost = config('DOOR_HOST', 'door-host');
+    if (doorHost != null && doorHost.isNotEmpty) {
+      final station = createDoorStation(
+        DoorStationConfig(
+          host: doorHost,
+          port: int.tryParse(config('DOOR_PORT', 'door-port') ?? '') ?? 80,
+          username: config('DOOR_USER', 'door-user') ?? 'admin',
+          password: config('DOOR_PASSWORD', 'door-password') ?? '',
+          channel: int.tryParse(config('DOOR_CHANNEL', 'door-channel') ?? '') ?? 101,
+          doorNo: int.tryParse(config('DOOR_NO', 'door-no') ?? '') ?? 1,
+        ),
+      );
+      doorIntercom = DoorStationIntercom(station);
+    } else {
+      debugPrint('[door] no DOOR_HOST given — intercom screen will show "not connected"');
+    }
   }
   final view = ui.PlatformDispatcher.instance.implicitView;
   if (view != null) {
@@ -145,9 +171,15 @@ void main(List<String> args) async {
   } catch (_) {}
   final fpsLog = config('FPS_LOG', 'fps-log');
   if (fpsLog == '1' || fpsLog == 'true') startFrameStatsLogger();
+  // Install the flutter-pi gstreamer backend for video_player, so the intercom
+  // can show the door's live RTSP stream (no-op on web). Must be before runApp.
+  registerDoorVideo();
   runApp(
     ProviderScope(
-      overrides: demoMode ? placeholderOverrides : const [],
+      overrides: [
+        if (demoMode) ...placeholderOverrides,
+        if (doorIntercom != null) intercomControllerProvider.overrideWithValue(doorIntercom),
+      ],
       child: const HomeAssistantApp(),
     ),
   );

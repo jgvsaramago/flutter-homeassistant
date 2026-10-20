@@ -27,6 +27,12 @@ abstract class IntercomController {
 
   /// How long the lock stays open after [unlock].
   Duration get unlockHold => const Duration(seconds: 5);
+
+  /// Emits whenever the door station's call state changes — [IntercomMode.ringing]
+  /// when someone presses the bell, [IntercomMode.view] when the call ends — so
+  /// the shell can auto-open this screen on a ring and close it when it's over.
+  /// Null when ring detection isn't available (e.g. not connected).
+  Stream<IntercomMode>? get callEvents => null;
 }
 
 class NotConnectedIntercom implements IntercomController {
@@ -52,6 +58,9 @@ class NotConnectedIntercom implements IntercomController {
 
   @override
   Duration get unlockHold => const Duration(seconds: 5);
+
+  @override
+  Stream<IntercomMode>? get callEvents => null;
 }
 
 final intercomControllerProvider = Provider<IntercomController>((ref) => const NotConnectedIntercom());
