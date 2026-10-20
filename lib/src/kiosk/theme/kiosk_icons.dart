@@ -93,6 +93,7 @@ abstract final class KIcons {
   static const arrowLeft = '<path d="M19 12H5M11 6l-6 6 6 6"/>';
   static const arrowDown = '<path d="M12 5v14M6 13l6 6 6-6"/>';
   static const arrowUp = '<path d="M12 19V5M6 11l6-6 6 6"/>';
+  static const oven = '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 8h18M7 5.5h.01M11 5.5h.01"/><rect x="7" y="12" width="10" height="6" rx="1"/>';
   static const fridge = '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 10h14"/>';
   static const tvSmall = '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M9 20h6M12 16v4"/>';
   static const washer = '<rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="13" r="5"/><path d="M8 6h.01"/>';

@@ -4,7 +4,7 @@ import '../ha_client/ha_websocket_client.dart';
 /// matching the energy-flow card's own icon inventory (see
 /// `individual_sensor_icon.dart`), not a free-form icon picker, since this
 /// kiosk has no icon browser/upload path.
-enum IndividualSensorIconKey { plug, washer, fridge, tv, ac, boiler }
+enum IndividualSensorIconKey { plug, washer, fridge, tv, ac, boiler, oven }
 
 extension IndividualSensorIconKeyLabel on IndividualSensorIconKey {
   String get label => switch (this) {
@@ -14,6 +14,7 @@ extension IndividualSensorIconKeyLabel on IndividualSensorIconKey {
     IndividualSensorIconKey.tv => 'TV',
     IndividualSensorIconKey.ac => 'Ar condicionado',
     IndividualSensorIconKey.boiler => 'Bomba de calor (AQS)',
+    IndividualSensorIconKey.oven => 'Forno',
   };
 }
 

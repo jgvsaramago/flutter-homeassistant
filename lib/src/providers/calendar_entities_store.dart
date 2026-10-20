@@ -2,7 +2,7 @@ import '../ha_client/ha_websocket_client.dart';
 
 /// The colour a calendar is drawn in, as saved by the HA sidebar panel.
 /// The kiosk maps each key onto its own palette (see `KPersonColor.fromKey`).
-enum CalendarColorKey { accent, blue, green, amber, red }
+enum CalendarColorKey { accent, blue, green, amber, red, pink }
 
 /// One calendar the app should read events from, and the colour it draws in
 /// the calendar card/sheet — a household picks the entity from its own HA

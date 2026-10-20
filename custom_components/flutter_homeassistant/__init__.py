@@ -13,6 +13,12 @@ individual setting - it's just a shared key/value store with two websocket
 commands, `flutter_homeassistant/get_settings` and
 `flutter_homeassistant/set_settings`.
 
+Screens announce themselves (`flutter_homeassistant/register_screen`) for as
+long as their websocket stays open, so the sidebar panel can say whether a
+screen is connected (`flutter_homeassistant/list_screens`); they also
+subscribe to saved changes (`flutter_homeassistant/subscribe_settings`) and
+apply them live.
+
 Also proxies calendar event lookups (`flutter_homeassistant/get_calendar_events`)
 over this same authenticated websocket connection, so the app's web build
 never has to hit HA's REST `/api/calendars/<entity_id>` endpoint directly —
@@ -24,7 +30,7 @@ import voluptuous as vol
 
 from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.storage import Store
@@ -48,6 +54,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     websocket_api.async_register_command(hass, websocket_get_settings)
     websocket_api.async_register_command(hass, websocket_set_settings)
     websocket_api.async_register_command(hass, websocket_get_calendar_events)
+    websocket_api.async_register_command(hass, websocket_register_screen)
+    websocket_api.async_register_command(hass, websocket_list_screens)
+    websocket_api.async_register_command(hass, websocket_subscribe_settings)
     return True
 
 
@@ -118,6 +127,63 @@ async def websocket_set_settings(
     hass.bus.async_fire(EVENT_SETTINGS_UPDATED, {"key": msg["key"]})
 
     connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "flutter_homeassistant/register_screen",
+        vol.Required("name"): cv.string,
+    }
+)
+@callback
+def websocket_register_screen(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> None:
+    """Track a screen for as long as this connection stays open.
+
+    Registered like a subscription, so HA calls the cleanup itself when the
+    connection closes — a screen that loses power or network drops off the
+    list without having to say goodbye.
+    """
+    screens: dict[int, dict] = hass.data[DOMAIN].setdefault("screens", {})
+    key = id(connection)
+    screens[key] = {"name": msg["name"], "since": dt_util.utcnow().isoformat()}
+
+    @callback
+    def _gone() -> None:
+        screens.pop(key, None)
+
+    connection.subscriptions[msg["id"]] = _gone
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command({vol.Required("type"): "flutter_homeassistant/subscribe_settings"})
+@callback
+def websocket_subscribe_settings(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> None:
+    """Send `{"key": ...}` on this subscription whenever a setting is saved.
+
+    Its own command rather than `subscribe_events`, which only lets admin
+    users subscribe to a custom event type — a screen's token needn't be one.
+    """
+
+    @callback
+    def _forward(event: Event) -> None:
+        connection.send_message(websocket_api.event_message(msg["id"], {"key": event.data.get("key")}))
+
+    connection.subscriptions[msg["id"]] = hass.bus.async_listen(EVENT_SETTINGS_UPDATED, _forward)
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command({vol.Required("type"): "flutter_homeassistant/list_screens"})
+@callback
+def websocket_list_screens(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> None:
+    """The screens connected right now."""
+    screens = hass.data.get(DOMAIN, {}).get("screens", {})
+    connection.send_result(msg["id"], {"screens": list(screens.values())})
 
 
 def _wrap_event_datetime(value: str) -> dict[str, str]:

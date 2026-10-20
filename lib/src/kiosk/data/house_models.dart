@@ -561,7 +561,7 @@ EvCarInfo _ev(EvCarConfig c, Map<String, HaEntity> entities) {
     state = charging == null || charging.isUnavailable ? EvState.unknown : EvState.unplugged;
   }
   return EvCarInfo(
-    name: c.name,
+    name: c.name.trim().isNotEmpty ? c.name : _carNameFrom(battery),
     battery: numState(battery),
     rangeKm: numState(entities[c.rangeEntityId ?? '']),
     limit: numState(entities[c.chargeLimitEntityId ?? '']),
@@ -569,6 +569,13 @@ EvCarInfo _ev(EvCarConfig c, Map<String, HaEntity> entities) {
     powerKw: readPowerKw(entities, c.chargePowerEntityId, 20),
     updated: battery?.lastUpdated.toLocal(),
   );
+}
+
+/// "Megane Bateria" → "Megane": the battery entity's name without the
+/// word for battery, for a car saved without a name of its own.
+String _carNameFrom(HaEntity? battery) {
+  final n = battery?.friendlyName.replaceAll(RegExp(r'\s*(n[íi]vel d[ae] )?(bateria|battery( level)?|soc)\s*$', caseSensitive: false), '').trim();
+  return n == null || n.isEmpty ? 'Carro' : n;
 }
 
 final evCarsProvider = Provider<List<EvCarInfo>>((ref) {

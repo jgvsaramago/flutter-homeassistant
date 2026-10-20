@@ -31,6 +31,8 @@ class HaWebSocketClient {
 
   final _connectionStateController = StreamController<HaConnectionState>.broadcast();
   final _entityUpdatesController = StreamController<HaEntity>.broadcast();
+  final _settingsUpdatesController = StreamController<String>.broadcast();
+  int? _settingsSubscriptionId;
 
   HaConnectionState _state = HaConnectionState.disconnected;
   HaConnectionState get state => _state;
@@ -51,6 +53,10 @@ class HaWebSocketClient {
   /// Emits every entity whose state changes after the initial `get_states`
   /// snapshot has been fetched by the caller.
   Stream<HaEntity> get entityUpdates => _entityUpdatesController.stream;
+
+  /// The key of each setting saved in HA (by the sidebar panel or another
+  /// screen) — see [subscribeToSettings].
+  Stream<String> get settingsUpdates => _settingsUpdatesController.stream;
 
   void _setState(HaConnectionState next) {
     _state = next;
@@ -170,6 +176,10 @@ class HaWebSocketClient {
   void _handleEvent(Map<String, dynamic> message) {
     final event = (message['event'] as Map?)?.cast<String, dynamic>();
     if (event == null) return;
+    if (_settingsSubscriptionId != null && message['id'] == _settingsSubscriptionId) {
+      if (event['key'] case final String key) _settingsUpdatesController.add(key);
+      return;
+    }
     if (event['event_type'] != 'state_changed') return;
 
     final data = (event['data'] as Map?)?.cast<String, dynamic>();
@@ -204,6 +214,20 @@ class HaWebSocketClient {
   /// [connect] resolves; updates then flow through [entityUpdates].
   Future<void> subscribeToStateChanges() async {
     await _sendCommand({'type': 'subscribe_events', 'event_type': 'state_changed'});
+  }
+
+  /// Subscribes to the integration's "a setting was saved" events, which
+  /// then flow through [settingsUpdates]. Call after every [connect].
+  Future<void> subscribeToSettings() async {
+    final id = _messageId;
+    _settingsSubscriptionId = id;
+    await _sendCommand({'type': 'flutter_homeassistant/subscribe_settings'});
+  }
+
+  /// Lists this screen in the sidebar panel ("Ecrã ligado") for as long as
+  /// this connection stays open.
+  Future<void> registerScreen(String name) async {
+    await _sendCommand({'type': 'flutter_homeassistant/register_screen', 'name': name});
   }
 
   Future<List<HaEntity>> getStates() async {
@@ -410,5 +434,6 @@ class HaWebSocketClient {
     await disconnect();
     await _connectionStateController.close();
     await _entityUpdatesController.close();
+    await _settingsUpdatesController.close();
   }
 }

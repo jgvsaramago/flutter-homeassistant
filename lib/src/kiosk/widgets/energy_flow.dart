@@ -255,6 +255,7 @@ class _KEnergyFlowState extends State<KEnergyFlow> with SingleTickerProviderStat
       IndividualSensorIconKey.washer => KIcons.washer,
       IndividualSensorIconKey.ac => KIcons.snow,
       IndividualSensorIconKey.plug => KIcons.plug,
+      IndividualSensorIconKey.oven => KIcons.oven,
     };
     final circle = Container(
       width: 92,

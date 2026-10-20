@@ -51,6 +51,10 @@ abstract final class KColors {
   static const purple = Color(0xFF5F3DC4);
   static const purpleTint = Color(0xFFECE7FD);
 
+  static const pink = Color(0xFFC2255C);
+  static const pinkInk = Color(0xFFA61E4D);
+  static const pinkTint = Color(0xFFFCE7EF);
+
   static const amber = Color(0xFFE8A33A);
   static const amberTint = Color(0xFFFFF1D6);
   static const amberInk = Color(0xFF7A4A00);
@@ -71,10 +75,10 @@ abstract final class KColors {
 }
 
 /// The person/calendar palette — one hue each for a family member, a
-/// calendar, a task owner. Keyed by the same names `CalendarColorKey`
-/// already stores in HA (`accent`/`blue`/`green`/`amber`/`red`), so every
-/// colour already saved by the sidebar panel keeps meaning the same hue
-/// family it always did.
+/// calendar, a task owner. Keyed by the names the sidebar panel stores in
+/// HA (`blue`/`amber`/`green`/`accent`/`pink`). People get pink rather than
+/// red so nobody reads as a holiday; an older saved `red` maps to pink too.
+/// [red] stays for holiday calendars.
 class KPersonColor {
   const KPersonColor(this.color, this.tint, this.ink);
 
@@ -87,14 +91,15 @@ class KPersonColor {
   static const green = KPersonColor(KColors.green, KColors.greenTint, KColors.greenInk);
   static const purple = KPersonColor(KColors.purple, KColors.purpleTint, KColors.purple);
   static const red = KPersonColor(KColors.red, KColors.redTint, KColors.redInk);
+  static const pink = KPersonColor(KColors.pink, KColors.pinkTint, KColors.pinkInk);
 
-  static const cycle = [blue, orange, green, purple, red];
+  static const cycle = [blue, orange, green, purple, pink];
 
   static KPersonColor fromKey(String? key) => switch (key) {
     'blue' => blue,
     'amber' || 'orange' => orange,
     'green' => green,
-    'red' => red,
+    'pink' || 'red' => pink,
     'accent' || 'purple' => purple,
     _ => blue,
   };

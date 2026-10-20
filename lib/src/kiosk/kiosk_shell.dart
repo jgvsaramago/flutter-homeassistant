@@ -12,6 +12,7 @@ import 'data/chores_data.dart';
 import 'data/house_config.dart';
 import 'data/kiosk_hydration.dart';
 import 'data/meals_data.dart';
+import 'data/settings_live_reload.dart';
 import 'modals/assistant_modal.dart';
 import 'pages/calendar_page.dart';
 import 'pages/home_page.dart';
@@ -132,6 +133,7 @@ class _KioskShellState extends ConsumerState<KioskShell> {
   @override
   Widget build(BuildContext context) {
     final page = ref.watch(kioskPageProvider);
+    ref.watch(settingsLiveReloadProvider);
     final load = ref.watch(entitiesProvider.select((a) => (loading: a.isLoading && !a.hasValue, error: a.hasError ? a.error : null)));
     final settings = ref.watch(settingsHydrationProvider.select((a) => (loading: a.isLoading && !a.hasValue, error: a.hasError ? a.error : null)));
     final kiosk = ref.watch(kioskHydrationProvider.select((a) => a.isLoading && !a.hasValue));

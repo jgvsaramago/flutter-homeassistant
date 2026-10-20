@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -111,6 +112,14 @@ class EntitiesNotifier extends AsyncNotifier<Map<String, HaEntity>> {
   Future<Map<String, HaEntity>> _connectAndFetch(HaWebSocketClient client, HaConnectionConfig config) async {
     await client.connect(config);
     await client.subscribeToStateChanges();
+    // Both need the flutter_homeassistant integration to be recent enough;
+    // without them the screen just doesn't pick up panel edits live.
+    try {
+      await client.subscribeToSettings();
+      await client.registerScreen(_screenName());
+    } catch (e) {
+      debugPrint('[ha websocket] settings subscription unavailable: $e');
+    }
     final states = await client.getStates();
     return {for (final entity in states) entity.entityId: entity};
   }
@@ -351,3 +360,10 @@ final settingsHydrationProvider = FutureProvider<void>((ref) async {
   }
 });
 
+/// How this screen is listed in the sidebar panel: `SCREEN_NAME` from the
+/// launch environment, else the machine's hostname.
+String _screenName() {
+  if (kIsWeb) return 'Navegador';
+  final env = Platform.environment['SCREEN_NAME']?.trim();
+  return env == null || env.isEmpty ? Platform.localHostname : env;
+}

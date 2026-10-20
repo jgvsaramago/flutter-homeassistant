@@ -47,7 +47,9 @@ class EvCarConfig {
       chargePowerEntityId == null;
 
   factory EvCarConfig.fromJson(Map<String, dynamic> json, {required String fallbackName}) => EvCarConfig(
-    name: json['name'] as String? ?? fallbackName,
+    // A saved car without a name is named after its battery entity (see
+    // the kiosk's evCarsProvider), not one of the built-in defaults.
+    name: json['name'] as String? ?? '',
     batterySocEntityId: json['batterySocEntityId'] as String?,
     rangeEntityId: json['rangeEntityId'] as String?,
     chargingEntityId: json['chargingEntityId'] as String?,
