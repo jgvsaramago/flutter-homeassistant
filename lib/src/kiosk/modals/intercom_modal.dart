@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,6 +11,10 @@ import '../widgets/kiosk_widgets.dart';
 
 enum IntercomMode { view, ringing, inCall }
 
+/// What the camera area is currently showing, for the header badge: the live
+/// stream still connecting, playing, or fallen back to still snapshots.
+enum IntercomVideoStatus { connecting, live, snapshots }
+
 /// What the intercom screen needs from the door station. The kiosk is meant
 /// to act as a Hikvision indoor station on its own (no Home Assistant in
 /// the path); until that link exists, [NotConnectedIntercom] stands in and
@@ -19,6 +24,14 @@ abstract class IntercomController {
 
   /// A live view of the door camera, or null when there's none.
   Widget? videoView();
+
+  /// The state of [videoView]'s stream, driving the header badge. Null when
+  /// the view has no notion of it (the badge then just says "Ao vivo").
+  ValueListenable<IntercomVideoStatus>? get videoStatus => null;
+
+  /// One still JPEG from the door camera, for the camera card's preview; null
+  /// when there's no camera or the fetch failed.
+  Future<Uint8List?> snapshot() async => null;
 
   Future<void> answer();
   Future<void> hangUp();
@@ -45,6 +58,12 @@ class NotConnectedIntercom implements IntercomController {
   Widget? videoView() => null;
 
   @override
+  ValueListenable<IntercomVideoStatus>? get videoStatus => null;
+
+  @override
+  Future<Uint8List?> snapshot() async => null;
+
+  @override
   Future<void> answer() async {}
 
   @override
@@ -63,7 +82,21 @@ class NotConnectedIntercom implements IntercomController {
   Stream<IntercomMode>? get callEvents => null;
 }
 
-final intercomControllerProvider = Provider<IntercomController>((ref) => const NotConnectedIntercom());
+/// Stands in for [IntercomController.videoStatus] when a controller has none.
+class _NoVideoStatus implements ValueListenable<IntercomVideoStatus?> {
+  const _NoVideoStatus();
+
+  @override
+  IntercomVideoStatus? get value => null;
+
+  @override
+  void addListener(VoidCallback listener) {}
+
+  @override
+  void removeListener(VoidCallback listener) {}
+}
+
+final intercomControllerProvider =Provider<IntercomController>((ref) => const NotConnectedIntercom());
 
 Future<void> showIntercom(BuildContext context, {IntercomMode mode = IntercomMode.view}) => showKModal(context, (_) => IntercomModal(initialMode: mode));
 
@@ -116,16 +149,19 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
   @override
   Widget build(BuildContext context) {
     final ic = ref.watch(intercomControllerProvider);
-    final now = DateTime.now();
     final ringing = _mode == IntercomMode.ringing, inCall = _mode == IntercomMode.inCall, view = _mode == IntercomMode.view;
     final doorOpen = _doorLeft > 0;
-    final (status, statusBg) = !ic.connected
+    (String, Color) status(IntercomVideoStatus? video) => !ic.connected
         ? ('Sem ligação', KColors.muted)
         : ringing
         ? ('A tocar…', KColors.orange)
         : inCall
         ? ('${PtDates.two(_callSecs ~/ 60)}:${PtDates.two(_callSecs % 60)}', KColors.green)
-        : ('Ao vivo', KColors.red);
+        : switch (video) {
+            IntercomVideoStatus.connecting => ('A ligar…', KColors.muted),
+            IntercomVideoStatus.snapshots => ('Imagens', KColors.orange),
+            IntercomVideoStatus.live || null => ('Ao vivo', KColors.red),
+          };
 
     Widget control(String label, String icon, Color bg, VoidCallback? onTap, {Color fg = Colors.white, bool pulse = false}) {
       return Opacity(
@@ -221,34 +257,40 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(ringing ? 'Chamada no portão' : (inCall ? 'Em chamada' : 'Portão da entrada'), style: KText.modalTitle.copyWith(color: Colors.white)),
+                    Text(ringing ? 'Chamada na porta do prédio' : (inCall ? 'Em chamada' : 'Porta do prédio'), style: KText.modalTitle.copyWith(color: Colors.white)),
                     const SizedBox(height: 4),
-                    Text('Intercomunicador · Portão da entrada', style: KText.s(21, color: const Color(0xFFB9BEC4))),
+                    Text('Intercomunicador · Porta do prédio', style: KText.s(21, color: const Color(0xFFB9BEC4))),
                   ],
                 ),
               ),
-              Container(
-                height: 52,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(26)),
-                child: Row(
-                  children: [
-                    KBlink(
-                      enabled: ic.connected,
-                      period: const Duration(milliseconds: 1200),
-                      child: Container(
-                        width: 12,
-                        height: 12,
-                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                      ),
+              ValueListenableBuilder<IntercomVideoStatus?>(
+                valueListenable: ic.videoStatus ?? const _NoVideoStatus(),
+                builder: (context, video, _) {
+                  final (label, bg) = status(video);
+                  return Container(
+                    height: 52,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(26)),
+                    child: Row(
+                      children: [
+                        KBlink(
+                          enabled: ic.connected,
+                          period: const Duration(milliseconds: 1200),
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          label,
+                          style: KText.s(20, weight: FontWeight.w700, color: Colors.white),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 10),
-                    Text(
-                      status,
-                      style: KText.s(20, weight: FontWeight.w700, color: Colors.white),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
               if (!ringing) ...[
                 const SizedBox(width: 16),
@@ -287,14 +329,6 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
                             ),
                           ],
                         ),
-                  ),
-                  Positioned(
-                    top: 20,
-                    left: 24,
-                    child: Text(
-                      '${PtDates.two(now.day)}-${PtDates.two(now.month)}-${now.year} ${PtDates.hm(now)}',
-                      style: KText.s(18, weight: FontWeight.w600, color: const Color(0xD9FFFFFF), spacing: 0.5),
-                    ),
                   ),
                   if (ringing)
                     Positioned(

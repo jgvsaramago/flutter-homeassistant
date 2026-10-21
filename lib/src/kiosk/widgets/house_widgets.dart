@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,7 @@ import '../../services/screen_power_controller.dart';
 import '../data/house_models.dart';
 import '../data/kiosk_entities.dart';
 import '../data/pt_dates.dart';
+import '../modals/intercom_modal.dart';
 import '../theme/kiosk_icons.dart';
 import '../theme/kiosk_tokens.dart';
 import 'kiosk_widgets.dart';
@@ -162,33 +164,94 @@ class WaterHeaterCard extends StatelessWidget {
   }
 }
 
-/// The gate camera tile that opens the intercom ("Ver e falar").
-class GateCameraTile extends StatelessWidget {
+/// The building-door camera tile that opens the intercom ("Ver e falar").
+///
+/// Shows a still from the door camera, refreshed every 15 minutes — just
+/// enough to see the tile is alive, without keeping a stream open. A failed
+/// fetch retries after a minute; until the first still arrives (or with no
+/// door station at all) it shows the plain icon and label.
+class GateCameraTile extends ConsumerStatefulWidget {
   const GateCameraTile({super.key, required this.height, required this.onTap});
 
   final double height;
   final VoidCallback onTap;
 
   @override
+  ConsumerState<GateCameraTile> createState() => _GateCameraTileState();
+}
+
+class _GateCameraTileState extends ConsumerState<GateCameraTile> {
+  static const _refreshEvery = Duration(minutes: 15);
+  static const _retryAfter = Duration(minutes: 1);
+
+  Timer? _timer;
+  Uint8List? _still;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    _timer?.cancel();
+    final bytes = await ref.read(intercomControllerProvider).snapshot();
+    if (!mounted) return;
+    if (bytes != null && bytes.isNotEmpty) setState(() => _still = bytes);
+    _timer = Timer(bytes != null ? _refreshEvery : _retryAfter, _refresh);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final still = _still;
     return KPress(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Container(
-        height: height,
+        height: widget.height,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(color: KColors.camera, borderRadius: BorderRadius.circular(20)),
         child: Stack(
           children: [
-            Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const KIcon(KIcons.video, size: 26, color: KColors.cameraText, stroke: 1.8),
-                  const SizedBox(width: 10),
-                  Text('Portão', style: KText.s(18, color: KColors.cameraText)),
-                ],
+            if (still != null) ...[
+              Positioned.fill(
+                child: LayoutBuilder(
+                  // Decode at the tile's size, not the camera's 1080p.
+                  builder: (context, c) => Image.memory(
+                    still,
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                    cacheWidth: (c.maxWidth * MediaQuery.devicePixelRatioOf(context)).round(),
+                  ),
+                ),
               ),
-            ),
+              Positioned(
+                left: 12,
+                top: 12,
+                child: Container(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(color: const Color(0xB3000000), borderRadius: BorderRadius.circular(18)),
+                  alignment: Alignment.center,
+                  child: Text('Porta do prédio', style: KText.s(16, weight: FontWeight.w600, color: Colors.white)),
+                ),
+              ),
+            ] else
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const KIcon(KIcons.video, size: 26, color: KColors.cameraText, stroke: 1.8),
+                    const SizedBox(width: 10),
+                    Text('Porta do prédio', style: KText.s(18, color: KColors.cameraText)),
+                  ],
+                ),
+              ),
             Positioned(
               right: 12,
               bottom: 12,

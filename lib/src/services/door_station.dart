@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../kiosk/modals/intercom_modal.dart';
@@ -88,10 +88,24 @@ class DoorStationIntercom implements IntercomController {
   @override
   bool get connected => true;
 
+  final _videoStatus = ValueNotifier(IntercomVideoStatus.connecting);
+
   // Live RTSP video (gstreamer on the Pi), with the snapshot view as the
-  // during-connect / failure fallback so there's always a picture.
+  // during-connect / failure fallback so there's always a picture. Its state
+  // drives the modal's header badge through [videoStatus].
   @override
-  Widget? videoView() => doorLiveVideo(station.rtspUrl, station.rtspUrlMain, fallback: DoorCameraView(station: station));
+  Widget? videoView() => doorLiveVideo(
+    station.rtspUrl,
+    station.rtspUrlMain,
+    status: _videoStatus,
+    fallback: DoorCameraView(station: station),
+  );
+
+  @override
+  ValueListenable<IntercomVideoStatus> get videoStatus => _videoStatus;
+
+  @override
+  Future<Uint8List?> snapshot() => station.snapshot();
 
   // Ring auto-popup is driven separately by the SDK ring-watcher (polls the
   // user's own KH8350 indoor station); wired in a later step.
@@ -187,7 +201,7 @@ class _DoorCameraViewState extends State<DoorCameraView> {
         const KIcon(KIcons.video, size: 64, color: Color(0xFF9AA0A6), stroke: 1.5),
         const SizedBox(height: 14),
         Text(
-          _everLoaded ? 'A reconectar à câmara…' : 'A ligar à câmara do portão…',
+          _everLoaded ? 'A reconectar à câmara…' : 'A ligar à câmara da porta do prédio…',
           style: KText.s(22, color: const Color(0xFF9AA0A6)),
         ),
       ],

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutterpi_gstreamer_video_player/flutterpi_gstreamer_video_player.dart';
 import 'package:video_player/video_player.dart';
 
+import '../kiosk/modals/intercom_modal.dart';
+
 bool _registered = false;
 
 /// Install the flutter-pi gstreamer backend as the video_player platform.
@@ -42,29 +44,39 @@ String _pipeline(String rtspUrl) =>
 
 /// Live door-camera view. Plays the 1080p H.264 main stream; while it connects
 /// (~1s) — or if it fails — it shows [fallback] (the snapshot view), so there's
-/// always a picture rather than a spinner or black box.
-Widget doorLiveVideo(String subUrl, String mainUrl, {required Widget fallback}) =>
-    _DoorVideo(url: mainUrl, fallback: fallback);
+/// always a picture rather than a spinner or black box. [status] reports which
+/// of those is on screen, for the intercom modal's header badge.
+Widget doorLiveVideo(
+  String subUrl,
+  String mainUrl, {
+  required ValueNotifier<IntercomVideoStatus> status,
+  required Widget fallback,
+}) => _DoorVideo(url: mainUrl, status: status, fallback: fallback);
 
 class _DoorVideo extends StatefulWidget {
-  const _DoorVideo({required this.url, required this.fallback});
+  const _DoorVideo({required this.url, required this.status, required this.fallback});
 
   final String url;
+  final ValueNotifier<IntercomVideoStatus> status;
   final Widget fallback;
 
   @override
   State<_DoorVideo> createState() => _DoorVideoState();
 }
 
-enum _VideoState { connecting, live, snapshot }
-
 class _DoorVideoState extends State<_DoorVideo> {
   VideoPlayerController? _controller;
-  _VideoState _state = _VideoState.connecting;
+  bool _live = false;
 
   @override
   void initState() {
     super.initState();
+    // The notifier outlives this view (it's the controller's), so it may still
+    // say "live" from the last time the modal was open. Reset it after this
+    // frame — changing it mid-build would rebuild the badge during build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_live) widget.status.value = IntercomVideoStatus.connecting;
+    });
     _start();
   }
 
@@ -77,10 +89,12 @@ class _DoorVideoState extends State<_DoorVideo> {
       await c.initialize().timeout(const Duration(seconds: 10));
       await c.play();
       debugPrint('[door] live video initialized: size=${c.value.size} playing=${c.value.isPlaying}');
-      if (mounted) setState(() => _state = _VideoState.live);
+      if (!mounted) return;
+      setState(() => _live = true);
+      widget.status.value = IntercomVideoStatus.live;
     } catch (e) {
       debugPrint('[door] live video unavailable ($e), showing snapshots');
-      if (mounted) setState(() => _state = _VideoState.snapshot);
+      if (mounted) widget.status.value = IntercomVideoStatus.snapshots;
     }
   }
 
@@ -93,44 +107,13 @@ class _DoorVideoState extends State<_DoorVideo> {
   @override
   Widget build(BuildContext context) {
     final c = _controller;
-    final ready = _state == _VideoState.live && c != null && c.value.isInitialized;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        if (ready)
-          FittedBox(
-            fit: BoxFit.cover,
-            clipBehavior: Clip.hardEdge,
-            child: SizedBox(width: c.value.size.width, height: c.value.size.height, child: VideoPlayer(c)),
-          )
-        else
-          widget.fallback,
-        Positioned(top: 16, left: 16, child: _StatusChip(state: _state)),
-      ],
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.state});
-
-  final _VideoState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final (label, color) = switch (state) {
-      _VideoState.live => ('AO VIVO · HD', const Color(0xFF2E7D32)),
-      _VideoState.connecting => ('A LIGAR…', const Color(0xB3000000)),
-      _VideoState.snapshot => ('IMAGENS (vídeo indisp.)', const Color(0xCCB26A00)),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0x33FFFFFF)),
-      ),
-      child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
-    );
+    if (_live && c != null && c.value.isInitialized) {
+      return FittedBox(
+        fit: BoxFit.cover,
+        clipBehavior: Clip.hardEdge,
+        child: SizedBox(width: c.value.size.width, height: c.value.size.height, child: VideoPlayer(c)),
+      );
+    }
+    return widget.fallback;
   }
 }
