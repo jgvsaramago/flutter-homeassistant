@@ -1,0 +1,140 @@
+diff --git a/src/plugins/gstreamer_video_player/frame.c b/src/plugins/gstreamer_video_player/frame.c
+index 66498ce..3986dc0 100644
+--- a/src/plugins/gstreamer_video_player/frame.c
++++ b/src/plugins/gstreamer_video_player/frame.c
+@@ -359,19 +359,31 @@ UNUSED int dup_gst_buffer_range_as_dmabuf(struct gbm_device *gbm_device, GstBuff
+         return -1;
+     }
+ 
+-    bo = gbm_bo_create(gbm_device, map_info.size, 1, GBM_FORMAT_R8, GBM_BO_USE_LINEAR);
++    // PATCH (flutter-homeassistant): upstream allocates a 1-row BO that is
++    // map_info.size pixels wide, which exceeds the GPU's max BO width for any
++    // real frame (a 1080p frame is ~3 MB) and always fails. Allocate a 2-D
++    // linear R8 BO with a fixed 4096-byte row instead; with stride == width the
++    // bytes stay contiguous, so plane offsets computed from the frame still hold.
++    const uint32_t bo_w = 4096;
++    const uint32_t bo_h = (uint32_t) ((map_info.size + bo_w - 1) / bo_w);
++    bo = gbm_bo_create(gbm_device, bo_w, bo_h, GBM_FORMAT_R8, GBM_BO_USE_LINEAR);
+     if (bo == NULL) {
+         LOG_ERROR("Couldn't create GBM BO to copy video frame into.\n");
+         goto fail_unmap_buffer;
+     }
+ 
+     map_data = NULL;
+-    map = gbm_bo_map(bo, 0, 0, map_info.size, 1, GBM_BO_TRANSFER_WRITE, &stride, &map_data);
++    map = gbm_bo_map(bo, 0, 0, bo_w, bo_h, GBM_BO_TRANSFER_WRITE, &stride, &map_data);
+     if (map == NULL) {
+         LOG_ERROR("Couldn't mmap GBM BO to copy video frame into it.\n");
+         goto fail_destroy_bo;
+     }
+ 
++    if (stride != bo_w) {
++        LOG_ERROR("GBM BO stride %u != width %u, frame layout would be wrong.\n", stride, bo_w);
++        gbm_bo_unmap(bo, map_data);
++        goto fail_destroy_bo;
++    }
+     memcpy(map, map_info.data, map_info.size);
+ 
+     gbm_bo_unmap(bo, map_data);
+@@ -415,19 +427,31 @@ UNUSED int dup_gst_memory_as_dmabuf(struct gbm_device *gbm_device, GstMemory *me
+         return -1;
+     }
+ 
+-    bo = gbm_bo_create(gbm_device, map_info.size, 1, GBM_FORMAT_R8, GBM_BO_USE_LINEAR);
++    // PATCH (flutter-homeassistant): upstream allocates a 1-row BO that is
++    // map_info.size pixels wide, which exceeds the GPU's max BO width for any
++    // real frame (a 1080p frame is ~3 MB) and always fails. Allocate a 2-D
++    // linear R8 BO with a fixed 4096-byte row instead; with stride == width the
++    // bytes stay contiguous, so plane offsets computed from the frame still hold.
++    const uint32_t bo_w = 4096;
++    const uint32_t bo_h = (uint32_t) ((map_info.size + bo_w - 1) / bo_w);
++    bo = gbm_bo_create(gbm_device, bo_w, bo_h, GBM_FORMAT_R8, GBM_BO_USE_LINEAR);
+     if (bo == NULL) {
+         LOG_ERROR("Couldn't create GBM BO to copy video frame into.\n");
+         goto fail_unmap_buffer;
+     }
+ 
+     map_data = NULL;
+-    map = gbm_bo_map(bo, 0, 0, map_info.size, 1, GBM_BO_TRANSFER_WRITE, &stride, &map_data);
++    map = gbm_bo_map(bo, 0, 0, bo_w, bo_h, GBM_BO_TRANSFER_WRITE, &stride, &map_data);
+     if (map == NULL) {
+         LOG_ERROR("Couldn't mmap GBM BO to copy video frame into it.\n");
+         goto fail_destroy_bo;
+     }
+ 
++    if (stride != bo_w) {
++        LOG_ERROR("GBM BO stride %u != width %u, frame layout would be wrong.\n", stride, bo_w);
++        gbm_bo_unmap(bo, map_data);
++        goto fail_destroy_bo;
++    }
+     memcpy(map, map_info.data, map_info.size);
+ 
+     gbm_bo_unmap(bo, map_data);
+diff --git a/src/plugins/gstreamer_video_player/player.c b/src/plugins/gstreamer_video_player/player.c
+index a6555ee..d5fd01c 100644
+--- a/src/plugins/gstreamer_video_player/player.c
++++ b/src/plugins/gstreamer_video_player/player.c
+@@ -207,14 +207,13 @@ static void fetch_duration(struct gstplayer *player) {
+ 
+     ok = gst_element_query_duration(player->pipeline, GST_FORMAT_TIME, &duration);
+     if (ok == FALSE) {
+-        if (player->is_live) {
+-            player->info.info.duration_ms = INT64_MAX;
+-            player->info.has_duration = true;
+-            return;
+-        } else {
+-            LOG_ERROR("Could not fetch duration. (gst_element_query_duration)\n");
+-            return;
+-        }
++        // PATCH (flutter-homeassistant): async live sources like rtspsrc are
++        // mis-detected as non-live (is_live only set on a synchronous
++        // NO_PREROLL). Treat any unknown-duration stream as unbounded so the
++        // "initialized" event still fires instead of hanging forever.
++        player->info.info.duration_ms = INT64_MAX;
++        player->info.has_duration = true;
++        return;
+     }
+ 
+     player->info.info.duration_ms = GST_TIME_AS_MSECONDS(duration);
+@@ -229,16 +228,13 @@ static void fetch_seeking(struct gstplayer *player) {
+     seeking_query = gst_query_new_seeking(GST_FORMAT_TIME);
+     ok = gst_element_query(player->pipeline, seeking_query);
+     if (ok == FALSE) {
+-        if (player->is_live) {
+-            player->info.info.can_seek = false;
+-            player->info.info.seek_begin_ms = 0;
+-            player->info.info.seek_end_ms = 0;
+-            player->info.has_seeking_info = true;
+-            return;
+-        } else {
+-            LOG_DEBUG("Could not query seeking info. (gst_element_query)\n");
+-            return;
+-        }
++        // PATCH (flutter-homeassistant): see fetch_duration. Assume a
++        // non-seekable live stream when the seeking query fails.
++        player->info.info.can_seek = false;
++        player->info.info.seek_begin_ms = 0;
++        player->info.info.seek_end_ms = 0;
++        player->info.has_seeking_info = true;
++        return;
+     }
+ 
+     gst_query_parse_seeking(seeking_query, NULL, &seekable, &seek_begin, &seek_end);
+@@ -959,7 +955,16 @@ static int init(struct gstplayer *player, bool force_sw_decoders) {
+     flutterpi_sd_event_add_io(&busfd_event_source, fd.fd, EPOLLIN, on_bus_fd_ready, player);
+ 
+     LOG_DEBUG("Setting state to paused...\n");
+-    state_change_return = gst_element_set_state(GST_ELEMENT(pipeline), GST_STATE_PAUSED);
++    if (player->pipeline_description != NULL) {
++        // PATCH (flutter-homeassistant): custom pipelines may contain live
++        // sources (rtspsrc) that produce no data in PAUSED, so caps never reach
++        // the appsink and "initialized" never fires -- while Dart only calls
++        // play() after initialized. Start such pipelines straight in PLAYING.
++        player->playpause_state = kPlaying;
++        state_change_return = gst_element_set_state(GST_ELEMENT(pipeline), GST_STATE_PLAYING);
++    } else {
++        state_change_return = gst_element_set_state(GST_ELEMENT(pipeline), GST_STATE_PAUSED);
++    }
+     if (state_change_return == GST_STATE_CHANGE_NO_PREROLL) {
+         LOG_DEBUG("Is Live!\n");
+         player->is_live = true;

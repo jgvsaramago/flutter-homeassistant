@@ -12,27 +12,35 @@ void registerDoorVideo() {
   _registered = true;
 }
 
-/// Low-latency pipeline for the door's **1080p H.265 main stream** (channel 101,
-/// auth disabled).
+/// Low-latency pipeline for the door's **1080p H.264 main stream** (channel 101,
+/// auth disabled), decoded **in software** (`avdec_h264`).
 ///
-/// The Pi 5 has no hardware H.264 decoder, but it *does* have a hardware HEVC
-/// decoder (`v4l2slh265dec`). At 1080p that decoder outputs frames as a
-/// `video/x-raw(memory:DMABuf)` (DRM-format NV12 with the Broadcom SAND
-/// modifier) — exactly the zero-copy DMA-buf that flutter-pi's GL renderer can
-/// import directly. So we feed the decoder straight into the appsink with **no**
-/// `videoconvert` (which can't consume a DMA-buf and would force a slow
-/// system-memory copy, breaking the zero-copy upload). Verified end-to-end with
-/// `gst-launch` on the device.
+/// Software on purpose. The Pi 5 has no hardware H.264 decoder, and its hardware
+/// HEVC decoder (`rpi_hevc_dec`) hung *in the kernel* on this camera's H.265
+/// stream — a stuck process that even SIGKILL can't clear, freezing the whole
+/// kiosk until a hard reboot. A software decoder can at worst fail inside our
+/// process. 1080p25 measured at ~10% of total CPU on the Pi 5 with 0 dropped
+/// frames, so there's no need for hardware decode.
 ///
-/// (The door's sub-stream, channel 102, is left as H.264 because the
-/// neighbours' indoor station pulls it and can't decode H.265 — see project
-/// notes. H.264 has no hardware decode path on the Pi 5, so the sub-stream is
-/// not used for live video here.)
+///  * A leaky queue after the decoder: if the display side ever stops taking
+///    frames, old frames are dropped instead of backing up into the decoder.
+///  * `videoconvert` passes `avdec_h264`'s I420 straight through (I420 is in
+///    the appsink's accepted list); it's only there to adapt if the stream
+///    ever decodes to a format the sink doesn't take.
+///
+/// Also needs our patched flutter-pi (see project notes): stock flutter-pi
+/// never sends `initialized` for a live source, and can't upload 1080p
+/// system-memory frames.
+///
+/// (The sub-stream, channel 102, is what the neighbours' indoor station pulls,
+/// and it only delivers ~8 fps — so the main stream is used here.)
 String _pipeline(String rtspUrl) =>
     'rtspsrc location=$rtspUrl latency=100 protocols=tcp drop-on-latency=true '
-    '! rtph265depay ! h265parse ! v4l2slh265dec ! appsink name="sink"';
+    '! rtph264depay ! h264parse ! avdec_h264 '
+    '! queue leaky=downstream max-size-buffers=2 max-size-bytes=0 max-size-time=0 '
+    '! videoconvert ! appsink name="sink"';
 
-/// Live door-camera view. Plays the 1080p H.265 main stream; while it connects
+/// Live door-camera view. Plays the 1080p H.264 main stream; while it connects
 /// (~1s) — or if it fails — it shows [fallback] (the snapshot view), so there's
 /// always a picture rather than a spinner or black box.
 Widget doorLiveVideo(String subUrl, String mainUrl, {required Widget fallback}) =>
