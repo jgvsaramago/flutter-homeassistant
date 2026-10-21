@@ -127,6 +127,8 @@ flutter:
   # Doorbell ringtones, synthesized by tool/make_ringtones.py.
   assets:
     - assets/ringtones/
+    # Your own: any .wav pasted here shows up as "Os meus toques".
+    - assets/ringtones/custom/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

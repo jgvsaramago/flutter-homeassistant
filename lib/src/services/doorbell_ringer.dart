@@ -10,15 +10,25 @@ import 'ringtone_sound.dart';
 /// tool/make_ringtones.py in the styles of chimes, building intercom
 /// monitors and smart doorbells (none is a copy of a brand's sound).
 class Ringtone {
-  const Ringtone(this.id, this.name, this.description, this.group);
+  const Ringtone(this.id, this.name, this.description, this.group, {String? asset}) : _asset = asset;
 
   final String id;
   final String name;
   final String description;
   final String group;
+  final String? _asset;
+
+  String get asset => _asset ?? 'assets/ringtones/$id.wav';
+
+  /// One of the user's own, from assets/ringtones/custom: it loops with no
+  /// pause while ringing.
+  bool get custom => group == customRingtoneGroup;
 }
 
-const ringtoneGroups = ['Clássicos', 'Intercomunicador', 'Modernos'];
+const customRingtoneGroup = 'Os meus toques';
+const _customFolder = 'assets/ringtones/custom/';
+
+const ringtoneGroups = [customRingtoneGroup, 'Clássicos', 'Intercomunicador', 'Modernos'];
 
 const ringtones = [
   Ringtone('dingdong', 'Ding-dong', 'Campainha clássica de dois tons', 'Clássicos'),
@@ -67,15 +77,36 @@ class DoorbellRinger {
   /// The tone being previewed from Definições, if any.
   final previewing = ValueNotifier<String?>(null);
 
+  /// The .wav files pasted into assets/ringtones/custom, by file name.
+  final customTones = ValueNotifier<List<Ringtone>>(const []);
+
+  List<Ringtone> get all => [...customTones.value, ...ringtones];
+
+  Ringtone _byId(String id) => all.firstWhere((r) => r.id == id, orElse: () => ringtones.first);
+
   RingtoneSound? _sound;
   int _run = 0;
 
   Future<void> load() async {
     try {
+      final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+      customTones.value = [
+        for (final asset in manifest.listAssets()..sort())
+          if (asset.startsWith(_customFolder) && asset.toLowerCase().endsWith('.wav'))
+            () {
+              final file = asset.substring(_customFolder.length);
+              final name = file.substring(0, file.length - 4).replaceAll('_', ' ').trim();
+              return Ringtone('custom:$file', name, 'O seu ficheiro · toca em contínuo', customRingtoneGroup, asset: asset);
+            }(),
+      ];
+    } catch (e) {
+      debugPrint('[ringtone] could not list the custom tones: $e');
+    }
+    try {
       final prefs = await SharedPreferences.getInstance();
       final tone = prefs.getString(_keyTone);
       settings.value = (
-        ringtone: ringtones.any((r) => r.id == tone) ? tone! : settings.value.ringtone,
+        ringtone: all.any((r) => r.id == tone) ? tone! : settings.value.ringtone,
         volume: (prefs.getInt(_keyVolume) ?? settings.value.volume).clamp(0, 100),
       );
     } catch (e) {
@@ -100,7 +131,8 @@ class DoorbellRinger {
 
   Future<RingtoneSound?> _play(String id, int volume) {
     _sound?.stop();
-    return playRingtone(id, () => rootBundle.load('assets/ringtones/$id.wav'), _gain(volume)).then((s) => _sound = s);
+    final tone = _byId(id);
+    return playRingtone(tone.id, () => rootBundle.load(tone.asset), _gain(volume)).then((s) => _sound = s);
   }
 
   /// Someone rang: the chosen tone over and over until [stop]. [afterWake]
@@ -116,7 +148,8 @@ class DoorbellRinger {
       if (s == null) return;
       await s.done;
       if (run != _run) return;
-      await Future<void>.delayed(_gap);
+      // Your own tones loop straight on; the built-in ones leave a pause.
+      if (!_byId(settings.value.ringtone).custom) await Future<void>.delayed(_gap);
     }
   }
 

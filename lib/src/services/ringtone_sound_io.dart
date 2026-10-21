@@ -19,7 +19,8 @@ final _cached = <String, Future<File>>{};
 /// The asset written out once to a temp file, for gstreamer to read.
 Future<File> _file(String id, Future<ByteData> Function() load) => _cached.putIfAbsent(id, () async {
   final dir = await Directory('${Directory.systemTemp.path}/kiosk-ringtones').create(recursive: true);
-  final f = File('${dir.path}/$id.wav');
+  // Custom ids carry a file name ("custom:Toque da avó.wav").
+  final f = File('${dir.path}/${id.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_')}_${id.hashCode.toUnsigned(32)}.wav');
   final data = await load();
   await f.writeAsBytes(data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes), flush: true);
   return f;
@@ -33,7 +34,7 @@ Future<RingtoneSound?> playRingtone(String id, Future<ByteData> Function() load,
   try {
     final file = await _file(id, load);
     final p = await Process.start('timeout', [
-      '20',
+      '120',
       'gst-launch-1.0',
       '-q',
       'filesrc',

@@ -364,7 +364,7 @@ class _DoorbellGroupState extends State<_DoorbellGroup> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([_ringer.settings, _ringer.previewing]),
+      listenable: Listenable.merge([_ringer.settings, _ringer.previewing, _ringer.customTones]),
       builder: (context, _) {
         final s = _ringer.settings.value;
         final playing = _ringer.previewing.value;
@@ -422,16 +422,16 @@ class _DoorbellGroupState extends State<_DoorbellGroup> {
           rows: [
             _Row(
               label: 'Toque',
-              sub: 'O que este ecrã toca quando tocam para casa da entrada do prédio, até atender ou a chamada acabar. Use o botão à direita de cada um para o ouvir.',
+              sub: 'O que este ecrã toca quando tocam para casa da entrada do prédio, até atender ou a chamada acabar. Use o botão à direita de cada um para o ouvir. Os seus próprios .wav vão para a pasta assets/ringtones/custom.',
               below: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (final (g, group) in ringtoneGroups.indexed) ...[
+                  for (final (g, group) in ringtoneGroups.where((g) => _ringer.all.any((r) => r.group == g)).indexed) ...[
                     Padding(
                       padding: EdgeInsets.fromLTRB(4, g == 0 ? 4 : 22, 4, 12),
                       child: Text(group.toUpperCase(), style: KText.label),
                     ),
-                    for (final (i, pair) in _pairs(ringtones.where((r) => r.group == group).toList()).indexed) ...[
+                    for (final (i, pair) in _pairs(_ringer.all.where((r) => r.group == group).toList()).indexed) ...[
                       if (i > 0) const SizedBox(height: 12),
                       Row(
                         children: [
