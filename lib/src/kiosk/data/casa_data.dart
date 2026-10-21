@@ -101,8 +101,10 @@ class _TrendsNotifier extends AsyncNotifier<Map<String, double>> {
     final client = ref.read(haWebSocketClientProvider);
     final windows = <String, Duration>{
       if (temp != null && temp.isNotEmpty) temp: const Duration(hours: 1),
-      ?station[StationRole.pressure]: const Duration(hours: 3),
-      ?station[StationRole.irradiance]: const Duration(minutes: 30),
+      // Not `?key: value`: null-aware map entries crash the release
+      // compiler's constant evaluator (Flutter 3.44).
+      if (station[StationRole.pressure] case final id?) id: const Duration(hours: 3),
+      if (station[StationRole.irradiance] case final id?) id: const Duration(minutes: 30),
     };
     final out = <String, double>{};
     for (final MapEntry(key: id, value: window) in windows.entries) {
