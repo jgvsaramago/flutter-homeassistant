@@ -436,21 +436,7 @@ class _KTextFieldState extends State<KTextField> {
     _focus.addListener(_onFocus);
     if (widget.autofocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        // In a modal, wait until it has risen: the keyboard sliding up
-        // over it at the same time halved the frame rate on the Pi.
-        final anim = ModalRoute.of(context)?.animation;
-        if (anim == null || anim.isCompleted) {
-          _focus.requestFocus();
-          return;
-        }
-        void onStatus(AnimationStatus status) {
-          if (status != AnimationStatus.completed) return;
-          anim.removeStatusListener(onStatus);
-          if (mounted) _focus.requestFocus();
-        }
-
-        anim.addStatusListener(onStatus);
+        if (mounted) _focus.requestFocus();
       });
     }
   }
