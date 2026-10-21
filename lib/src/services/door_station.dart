@@ -81,7 +81,10 @@ DoorStation createDoorStation(DoorStationConfig config) => makeDoorStation(confi
 /// speakers) and door-open are wired; talking back is not — the Pi has no
 /// microphone yet.
 class DoorStationIntercom implements IntercomController {
-  DoorStationIntercom(this.station) : _doorAudio = DoorAudio(station.rtspUrlMain) {
+  // Sound comes from the sub-stream: a second session on the 1080p main
+  // stream (which the video is already playing) made the door send it twice,
+  // halving the video's frame rate. The sub-stream's video is tiny.
+  DoorStationIntercom(this.station) : _doorAudio = DoorAudio(station.rtspUrl) {
     _audio.addListener(() => _doorAudio.setPlaying(_audio.value));
   }
 

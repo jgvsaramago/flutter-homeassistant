@@ -134,6 +134,11 @@ class _DoorVideoState extends State<_DoorVideo> {
 /// PipeWire's pulse socket, which routes to whichever HDMI port the monitor
 /// (and its speakers) is on.
 ///
+/// The door has no audio-only stream; its streams carry audio alongside the
+/// video, and `rtspsrc` receives both. So [rtspUrl] should be the light
+/// sub-stream, not the main stream the video already plays (a second main
+/// session halved the video's frame rate).
+///
 /// Runs as its own `gst-launch-1.0` process with its own RTSP connection, so it
 /// can't affect the video: if it fails, the picture carries on and the player
 /// is respawned after a pause for as long as sound is wanted. `timeout` caps
