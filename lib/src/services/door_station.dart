@@ -8,6 +8,7 @@ import '../kiosk/theme/kiosk_icons.dart';
 import '../kiosk/theme/kiosk_tokens.dart';
 import 'door_station_stub.dart' if (dart.library.io) 'door_station_io.dart';
 import 'door_video.dart';
+import 'doorbell_history.dart';
 import 'doorbell_watcher.dart';
 
 /// Where the door station lives and how to log into it. The kiosk talks to a
@@ -65,6 +66,12 @@ abstract class DoorStation {
   /// Pulse the door-lock relay open. Throws on failure so the UI can toast.
   Future<void> unlock();
 
+  /// How many "door unlocked" events the door station's own log holds, or
+  /// null if it couldn't be read. Comparing two readings tells whether the
+  /// door was opened in between — from this screen, an indoor station or a
+  /// key fob — without trusting the door's clock (it isn't kept in sync).
+  Future<int?> doorUnlockCount();
+
   /// Credential-less RTSP URLs of the sub (default) and main (HD) streams.
   /// Empty on the web stub.
   String get rtspUrl;
@@ -85,7 +92,9 @@ class DoorStationIntercom implements IntercomController {
   // Sound comes from the sub-stream: a second session on the 1080p main
   // stream (which the video is already playing) made the door send it twice,
   // halving the video's frame rate. The sub-stream's video is tiny.
-  DoorStationIntercom(this.station, {required this.doorbell}) : _doorAudio = DoorAudio(station.rtspUrl) {
+  DoorStationIntercom(this.station, {required this.doorbell})
+    : _doorAudio = DoorAudio(station.rtspUrl),
+      history = DoorbellHistory(station: station, statuses: doorbell.calls) {
     _audio.addListener(() => _doorAudio.setPlaying(_audio.value));
   }
 
@@ -95,6 +104,9 @@ class DoorStationIntercom implements IntercomController {
   /// station can't tell apartments apart).
   final DoorbellWatcher doorbell;
   final DoorAudio _doorAudio;
+
+  @override
+  final DoorbellHistory history;
 
   @override
   bool get connected => true;
@@ -132,11 +144,17 @@ class DoorStationIntercom implements IntercomController {
   @override
   ValueListenable<String?> get doorbellProblem => doorbell.problem;
 
-  // A "call" is local for now: answering unmutes the door's sound, hanging up
-  // mutes it again. Nothing is signalled to the door station, and with no
-  // mic nothing is sent back to it.
+  // A "call" is local: answering unmutes the door's sound, hanging up mutes
+  // it again. Nothing is signalled to the indoor or door station, on
+  // purpose: the indoor station keeps ringing and can still pick up. (The
+  // HA add-on's "answer + hangUp" ends the call on every indoor station to
+  // free the door's speaker for two-way audio — only worth it once this
+  // screen has a microphone, and only on a deliberate "Atender".)
   @override
-  Future<void> answer() async => _audio.value = true;
+  Future<void> answer() async {
+    _audio.value = true;
+    history.answeredHere();
+  }
 
   @override
   Future<void> hangUp() async => _audio.value = false;
@@ -145,7 +163,10 @@ class DoorStationIntercom implements IntercomController {
   Future<void> setMuted(bool muted) async => _audio.value = !muted;
 
   @override
-  Future<void> unlock() => station.unlock();
+  Future<void> unlock() async {
+    await station.unlock();
+    history.doorOpenedHere();
+  }
 
   @override
   Duration get unlockHold => const Duration(seconds: 5);

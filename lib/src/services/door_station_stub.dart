@@ -15,6 +15,9 @@ class _NoDoorStation implements DoorStation {
   Future<void> unlock() async {}
 
   @override
+  Future<int?> doorUnlockCount() async => null;
+
+  @override
   String get rtspUrl => '';
 
   @override

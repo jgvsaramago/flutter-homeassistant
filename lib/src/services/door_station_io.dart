@@ -171,6 +171,34 @@ class HikDoorStation implements DoorStation {
   }
 
   @override
+  Future<int?> doorUnlockCount() async {
+    // Event 5/21 is "door unlocked". The window spans the door's whole log
+    // on purpose: its clock is set by hand and drifts. (The door rejects
+    // years far ahead, e.g. 2037, as a "time format error", so the end is
+    // only a little in the future.)
+    final body =
+        '{"AcsEventTotalNumCond":{"major":5,"minor":21,'
+        '"startTime":"2020-01-01T00:00:00+00:00","endTime":"${DateTime.now().year + 2}-12-31T23:59:59+00:00"}}';
+    try {
+      final res = await _authed(
+        (cookie) => _http
+            .post(
+              Uri.parse('${config.base}/ISAPI/AccessControl/AcsEventTotalNum?format=json'),
+              headers: {'Cookie': cookie, 'Content-Type': 'application/json'},
+              body: body,
+            )
+            .timeout(const Duration(seconds: 6)),
+      );
+      if (res.statusCode != 200) return null;
+      final total = (jsonDecode(res.body) as Map<String, dynamic>)['AcsEventTotalNum']?['totalNum'];
+      return total is int ? total : null;
+    } catch (e) {
+      debugPrint('[door] unlock count failed: $e');
+      return null;
+    }
+  }
+
+  @override
   String get rtspUrl => config.rtspUrl;
 
   @override

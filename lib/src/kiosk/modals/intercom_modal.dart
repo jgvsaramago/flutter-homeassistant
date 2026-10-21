@@ -4,10 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../services/doorbell_history.dart';
 import '../data/pt_dates.dart';
 import '../theme/kiosk_icons.dart';
 import '../theme/kiosk_tokens.dart';
 import '../widgets/kiosk_widgets.dart';
+import 'intercom_history.dart';
 
 enum IntercomMode { view, ringing, inCall }
 
@@ -37,6 +39,9 @@ abstract class IntercomController {
   /// loud banner by the shell), or null while it would. Null for a
   /// controller that never had ring detection.
   ValueListenable<String?>? get doorbellProblem => null;
+
+  /// The doorbell calls this screen recorded, or null without ring detection.
+  DoorbellHistory? get history => null;
 
   Future<void> answer();
   Future<void> hangUp();
@@ -70,6 +75,9 @@ class NotConnectedIntercom implements IntercomController {
 
   @override
   ValueListenable<String?>? get doorbellProblem => null;
+
+  @override
+  DoorbellHistory? get history => null;
 
   @override
   Future<void> answer() async {}
@@ -135,6 +143,16 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
   Timer? _tick;
   StreamSubscription<IntercomMode>? _calls;
 
+  /// The call history shown in the camera's slot instead of the live view,
+  /// and the call picked from it (its picture fills the slot).
+  bool _showHistory = false;
+  DoorbellCall? _picked;
+  final _pictures = <String, Future<Uint8List?>>{};
+
+  /// A call's still, loaded once per modal (and again once it has one).
+  Future<Uint8List?> _picture(DoorbellHistory history, DoorbellCall call) =>
+      _pictures.putIfAbsent('${call.id}:${call.hasPicture}', () => history.picture(call));
+
   @override
   void initState() {
     super.initState();
@@ -156,7 +174,11 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
   void _onCallEvent(IntercomMode event) {
     if (!mounted) return;
     if (event == IntercomMode.ringing && _mode == IntercomMode.view) {
-      setState(() => _mode = IntercomMode.ringing);
+      setState(() {
+        _mode = IntercomMode.ringing;
+        _showHistory = false;
+        _picked = null;
+      });
     } else if (event == IntercomMode.view && _mode == IntercomMode.ringing) {
       if (_openedByRing) {
         Navigator.of(context).maybePop();
@@ -188,6 +210,8 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
     final ic = ref.watch(intercomControllerProvider);
     final ringing = _mode == IntercomMode.ringing, inCall = _mode == IntercomMode.inCall, view = _mode == IntercomMode.view;
     final doorOpen = _doorLeft > 0;
+    final history = ic.history;
+    final showHistory = view && _showHistory && history != null;
     (String, Color) status(IntercomVideoStatus? video) => !ic.connected
         ? ('Sem ligação', KColors.muted)
         : ringing
@@ -200,7 +224,7 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
             IntercomVideoStatus.live || null => ('Ao vivo', KColors.red),
           };
 
-    Widget control(String label, String icon, Color bg, VoidCallback? onTap, {Color fg = Colors.white, bool pulse = false}) {
+    Widget control(String label, String icon, Color bg, VoidCallback? onTap, {Color fg = Colors.white, bool pulse = false, int badge = 0}) {
       return Opacity(
         opacity: onTap == null ? 0.4 : 1,
         child: KPress(
@@ -214,7 +238,29 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
                   width: 112,
                   height: 112,
                   decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-                  child: Center(child: KIcon(icon, size: 44, color: fg, stroke: 1.9)),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Center(child: KIcon(icon, size: 44, color: fg, stroke: 1.9)),
+                      if (badge > 0)
+                        Positioned(
+                          top: -4,
+                          right: -4,
+                          child: Container(
+                            constraints: const BoxConstraints(minWidth: 40),
+                            height: 40,
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            decoration: BoxDecoration(
+                              color: KColors.red,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: KColors.dark, width: 3),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text('$badge', style: KText.s(18, weight: FontWeight.w700, color: Colors.white)),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -230,6 +276,21 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
 
     void close() => Navigator.of(context).maybePop();
     final controls = <Widget>[
+      if (showHistory) ...[
+        control(
+          'Voltar',
+          KIcons.arrowLeft,
+          const Color(0x1FFFFFFF),
+          () => setState(() {
+            if (_picked != null) {
+              _picked = null;
+            } else {
+              _showHistory = false;
+            }
+          }),
+        ),
+        control('Fechar', KIcons.close, const Color(0x1FFFFFFF), close),
+      ] else ...[
       if (view)
         control(
           'Falar',
@@ -242,7 +303,9 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
                 })
               : null,
         ),
-      if (ringing) control('Recusar', KIcons.phoneDown, KColors.red, () => _do(ic.hangUp, () {}).then((_) => close())),
+      // Only closes this screen: the indoor station keeps ringing and can
+      // still answer.
+      if (ringing) control('Ignorar', KIcons.phoneDown, KColors.red, () => _do(ic.hangUp, () {}).then((_) => close())),
       if (inCall)
         control(
           _muted ? 'Microfone desligado' : 'Silenciar',
@@ -269,7 +332,23 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
           pulse: true,
         ),
       if (inCall) control('Desligar', KIcons.phoneDown, KColors.red, () => _do(ic.hangUp, () => _mode = IntercomMode.view)),
+      if (view && history != null)
+        ValueListenableBuilder<int>(
+          valueListenable: history.unseenMissed,
+          builder: (context, missed, _) => control(
+            'Histórico',
+            KIcons.clock,
+            const Color(0x1FFFFFFF),
+            () => setState(() {
+              _showHistory = true;
+              _picked = null;
+              history.markSeen();
+            }),
+            badge: missed,
+          ),
+        ),
       if (view) control('Fechar', KIcons.close, const Color(0x1FFFFFFF), close),
+      ],
     ];
 
     return KModal(
@@ -294,12 +373,16 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(ringing ? 'Chamada na porta do prédio' : (inCall ? 'Em chamada' : 'Porta do prédio'), style: KText.modalTitle.copyWith(color: Colors.white)),
+                    Text(
+                      showHistory ? 'Chamadas na porta' : (ringing ? 'Chamada na porta do prédio' : (inCall ? 'Em chamada' : 'Porta do prédio')),
+                      style: KText.modalTitle.copyWith(color: Colors.white),
+                    ),
                     const SizedBox(height: 4),
                     Text('Intercomunicador · Porta do prédio', style: KText.s(21, color: const Color(0xFFB9BEC4))),
                   ],
                 ),
               ),
+              if (!showHistory)
               ValueListenableBuilder<IntercomVideoStatus?>(
                 valueListenable: ic.videoStatus ?? const _NoVideoStatus(),
                 builder: (context, video, _) {
@@ -348,9 +431,13 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
           ClipRRect(
             borderRadius: BorderRadius.circular(32),
             child: Container(
-              height: 544,
+              height: showHistory && _picked == null ? 880 : 544,
               color: KColors.camera,
-              child: Stack(
+              child: showHistory
+                  ? (_picked == null
+                        ? IntercomHistoryList(history: history, pictures: (c) => _picture(history, c), onPick: (c) => setState(() => _picked = c))
+                        : IntercomHistoryPicture(call: _picked!, picture: _picture(history, _picked!)))
+                  : Stack(
                 children: [
                   Positioned.fill(
                     child:
@@ -441,11 +528,14 @@ class _Pulse extends StatefulWidget {
 }
 
 class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600));
+  // Created up front: a lazy one would first be built in dispose() for a
+  // button that never pulsed, while the tree is already being torn down.
+  late final AnimationController _c;
 
   @override
   void initState() {
     super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600));
     if (widget.enabled) _c.repeat();
   }
 

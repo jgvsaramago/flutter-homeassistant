@@ -209,6 +209,12 @@ class _GateCameraTileState extends ConsumerState<GateCameraTile> {
 
   @override
   Widget build(BuildContext context) {
+    final history = ref.watch(intercomControllerProvider).history;
+    if (history == null) return _tile(0);
+    return ValueListenableBuilder<int>(valueListenable: history.unseenMissed, builder: (context, missed, _) => _tile(missed));
+  }
+
+  Widget _tile(int missed) {
     final still = _still;
     return KPress(
       onTap: widget.onTap,
@@ -230,17 +236,18 @@ class _GateCameraTileState extends ConsumerState<GateCameraTile> {
                   ),
                 ),
               ),
-              Positioned(
-                left: 12,
-                top: 12,
-                child: Container(
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(color: const Color(0xB3000000), borderRadius: BorderRadius.circular(18)),
-                  alignment: Alignment.center,
-                  child: Text('Porta do prédio', style: KText.s(16, weight: FontWeight.w600, color: Colors.white)),
+              if (missed == 0)
+                Positioned(
+                  left: 12,
+                  top: 12,
+                  child: Container(
+                    height: 36,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(color: const Color(0xB3000000), borderRadius: BorderRadius.circular(18)),
+                    alignment: Alignment.center,
+                    child: Text('Porta do prédio', style: KText.s(16, weight: FontWeight.w600, color: Colors.white)),
+                  ),
                 ),
-              ),
             ] else
               Center(
                 child: Row(
@@ -250,6 +257,23 @@ class _GateCameraTileState extends ConsumerState<GateCameraTile> {
                     const SizedBox(width: 10),
                     Text('Porta do prédio', style: KText.s(18, color: KColors.cameraText)),
                   ],
+                ),
+              ),
+            // Missed rings take the label's place: the Início tile is too
+            // narrow for both.
+            if (missed > 0)
+              Positioned(
+                left: 12,
+                top: 12,
+                child: Container(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(color: KColors.red, borderRadius: BorderRadius.circular(18)),
+                  alignment: Alignment.center,
+                  child: Text(
+                    missed == 1 ? '1 chamada não atendida' : '$missed chamadas não atendidas',
+                    style: KText.s(16, weight: FontWeight.w600, color: Colors.white),
+                  ),
                 ),
               ),
             Positioned(
