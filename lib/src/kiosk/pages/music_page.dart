@@ -160,12 +160,13 @@ class _MusicPageState extends ConsumerState<MusicPage> {
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(36)),
               child: Stack(
                 children: [
-                  // Under "A tocar": its own layer while that slides over it,
-                  // then hidden (and its animations paused) once covered.
+                  // Under "A tocar": its own layer, and its animations paused
+                  // while covered. Kept painted rather than hidden: hiding
+                  // dropped the Pi's cached copy, and redrawing the page in
+                  // full made every frame of the close slide take ~100 ms.
                   Positioned.fill(
-                    child: Visibility(
-                      visible: !(_np && _covered),
-                      maintainState: true,
+                    child: TickerMode(
+                      enabled: !(_np && _covered),
                       child: RepaintBoundary(
                         child: Column(
                           children: [

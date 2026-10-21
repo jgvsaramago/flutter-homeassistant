@@ -213,23 +213,27 @@ class _PlayingBarsState extends State<PlayingBars> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: widget.height,
-      child: AnimatedBuilder(
-        animation: _c,
-        builder: (context, _) => Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            for (var i = 0; i < 3; i++) ...[
-              if (i > 0) SizedBox(width: widget.gap),
-              Container(
-                width: widget.barWidth,
-                height: widget.height * (widget.playing ? 0.25 + 0.75 * (1 - math.cos(2 * math.pi * ((_c.value - i * 0.25) % 1))) / 2 : 0.35),
-                decoration: BoxDecoration(color: widget.color, borderRadius: BorderRadius.circular(widget.barWidth / 2)),
-              ),
+    // Its own layer, so the bars don't repaint the whole page around them
+    // every frame (which also kept the Pi from caching that page).
+    return RepaintBoundary(
+      child: SizedBox(
+        height: widget.height,
+        child: AnimatedBuilder(
+          animation: _c,
+          builder: (context, _) => Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) SizedBox(width: widget.gap),
+                Container(
+                  width: widget.barWidth,
+                  height: widget.height * (widget.playing ? 0.25 + 0.75 * (1 - math.cos(2 * math.pi * ((_c.value - i * 0.25) % 1))) / 2 : 0.35),
+                  decoration: BoxDecoration(color: widget.color, borderRadius: BorderRadius.circular(widget.barWidth / 2)),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
