@@ -19,6 +19,9 @@ The kiosk's live door-camera video needs a patched flutter-pi. Stock flutter-pi
    `frame_size` pixels wide, which is past the GPU's maximum width for any real
    frame. Fix: a 4096-byte-wide linear buffer with as many rows as needed
    (same contiguous bytes).
+4. **`setVolume` does nothing.** `gstplayer_set_volume` is an unimplemented
+   stub upstream. Fix: it sets the `volume` property of the pipeline element
+   named `volume`, which the app puts in front of the door audio's sink.
 
 The patch is `live-video.patch`, against tag `release/1.1.1` of
 https://github.com/ardera/flutter-pi (the version `flutterpi_tool` 0.12.0

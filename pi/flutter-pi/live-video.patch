@@ -71,7 +71,7 @@ index 66498ce..3986dc0 100644
  
      gbm_bo_unmap(bo, map_data);
 diff --git a/src/plugins/gstreamer_video_player/player.c b/src/plugins/gstreamer_video_player/player.c
-index a6555ee..d5fd01c 100644
+index a6555ee..ae1ce6b 100644
 --- a/src/plugins/gstreamer_video_player/player.c
 +++ b/src/plugins/gstreamer_video_player/player.c
 @@ -207,14 +207,13 @@ static void fetch_duration(struct gstplayer *player) {
@@ -138,3 +138,28 @@ index a6555ee..d5fd01c 100644
      if (state_change_return == GST_STATE_CHANGE_NO_PREROLL) {
          LOG_DEBUG("Is Live!\n");
          player->is_live = true;
+@@ -1228,10 +1233,21 @@ int gstplayer_set_looping(struct gstplayer *player, bool looping) {
+ }
+ 
+ int gstplayer_set_volume(struct gstplayer *player, double volume) {
+-    (void) player;
+-    (void) volume;
++    GstElement *element;
++
+     LOG_DEBUG("gstplayer_set_volume(%f)\n", volume);
+-    /// TODO: Implement
++
++    // PATCH (flutter-homeassistant): upstream leaves this unimplemented. Set the
++    // volume on an element named "volume" (a `volume` element a custom pipeline
++    // puts in front of its audio sink); pipelines without one are left alone.
++    if (player->pipeline == NULL) {
++        return 0;
++    }
++    element = gst_bin_get_by_name(GST_BIN(player->pipeline), "volume");
++    if (element != NULL) {
++        g_object_set(G_OBJECT(element), "volume", volume, NULL);
++        gst_object_unref(element);
++    }
+     return 0;
+ }
+ 

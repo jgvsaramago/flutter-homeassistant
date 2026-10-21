@@ -10,5 +10,6 @@ Widget doorLiveVideo(
   String subUrl,
   String mainUrl, {
   required ValueNotifier<IntercomVideoStatus> status,
+  required ValueNotifier<bool> audio,
   required Widget fallback,
 }) => fallback;

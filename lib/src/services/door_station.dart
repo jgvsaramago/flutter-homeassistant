@@ -77,9 +77,9 @@ abstract class DoorStation {
 DoorStation createDoorStation(DoorStationConfig config) => makeDoorStation(config);
 
 /// Drives the kiosk's existing intercom UI ([IntercomController]) from a live
-/// door station. Video and door-open are wired; two-way audio is not — the
-/// Pi currently has no microphone (and no speaker beyond HDMI), so the talk
-/// controls are accepted but do nothing until that hardware exists.
+/// door station. Video, the door's sound (one way, through the monitor's
+/// speakers) and door-open are wired; talking back is not — the Pi has no
+/// microphone yet.
 class DoorStationIntercom implements IntercomController {
   DoorStationIntercom(this.station);
 
@@ -90,6 +90,10 @@ class DoorStationIntercom implements IntercomController {
 
   final _videoStatus = ValueNotifier(IntercomVideoStatus.connecting);
 
+  /// Whether the door's sound should be playing: on in a call, off while just
+  /// looking (so a glance at the camera doesn't play street noise).
+  final _audio = ValueNotifier(false);
+
   // Live RTSP video (gstreamer on the Pi), with the snapshot view as the
   // during-connect / failure fallback so there's always a picture. Its state
   // drives the modal's header badge through [videoStatus].
@@ -98,6 +102,7 @@ class DoorStationIntercom implements IntercomController {
     station.rtspUrl,
     station.rtspUrlMain,
     status: _videoStatus,
+    audio: _audio,
     fallback: DoorCameraView(station: station),
   );
 
@@ -112,18 +117,17 @@ class DoorStationIntercom implements IntercomController {
   @override
   Stream<IntercomMode>? get callEvents => null;
 
-  // Audio is a no-op for now: answering/hanging up only drives the UI's call
-  // state in the modal; there's no mic to capture from, so nothing is sent
-  // to or played from the door station yet. Kept non-throwing so the call
-  // flow in the modal works end to end.
+  // A "call" is local for now: answering unmutes the door's sound, hanging up
+  // mutes it again. Nothing is signalled to the door station, and with no
+  // mic nothing is sent back to it.
   @override
-  Future<void> answer() async {}
+  Future<void> answer() async => _audio.value = true;
 
   @override
-  Future<void> hangUp() async {}
+  Future<void> hangUp() async => _audio.value = false;
 
   @override
-  Future<void> setMuted(bool muted) async {}
+  Future<void> setMuted(bool muted) async => _audio.value = !muted;
 
   @override
   Future<void> unlock() => station.unlock();
