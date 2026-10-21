@@ -190,7 +190,7 @@ class DoorbellHistory {
     // The visitor is at the panel right now; a miss is retried a few times
     // rather than waiting for a later, emptier frame.
     for (var attempt = 0; attempt < 4; attempt++) {
-      final jpeg = await station.snapshot();
+      final jpeg = await station.snapshot(full: true);
       if (jpeg != null && jpeg.isNotEmpty) {
         try {
           await _store.savePicture(call.id, jpeg);

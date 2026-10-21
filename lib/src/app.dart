@@ -23,6 +23,9 @@ class HomeAssistantApp extends StatelessWidget {
     return MaterialApp(
       title: 'Home Assistant',
       debugShowCheckedModeBanner: false,
+      // No scroll bars, as in the design (`scrollbar-width: none`): on Linux
+      // Flutter draws desktop ones, inside the page's 56 px margin.
+      scrollBehavior: const MaterialScrollBehavior().copyWith(scrollbars: false),
       theme: ThemeData(
         fontFamily: KText.sans,
         scaffoldBackgroundColor: KColors.page,

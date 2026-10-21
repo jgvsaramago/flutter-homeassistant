@@ -132,13 +132,13 @@ class HikDoorStation implements DoorStation {
   }
 
   @override
-  Future<Uint8List?> snapshot({int? channel}) async {
+  Future<Uint8List?> snapshot({int? channel, bool full = false}) async {
     final ch = channel ?? config.channel;
     try {
       final res = await _authed(
         (cookie) => _http
             .get(
-              Uri.parse('${config.base}/ISAPI/Streaming/channels/$ch/picture'),
+              Uri.parse('${config.base}/ISAPI/Streaming/channels/$ch/picture${full ? '?videoResolutionWidth=1920&videoResolutionHeight=1080' : ''}'),
               headers: {'Cookie': cookie},
             )
             .timeout(const Duration(seconds: 6)),

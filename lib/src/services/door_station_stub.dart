@@ -9,7 +9,7 @@ DoorStation makeDoorStation(DoorStationConfig config) => _NoDoorStation();
 
 class _NoDoorStation implements DoorStation {
   @override
-  Future<Uint8List?> snapshot({int? channel}) async => null;
+  Future<Uint8List?> snapshot({int? channel, bool full = false}) async => null;
 
   @override
   Future<void> unlock() async {}

@@ -61,7 +61,10 @@ abstract class DoorStation {
   /// (network blip, auth re-login in progress). Callers keep showing the
   /// previous frame rather than flashing an error on a single miss. [channel]
   /// picks the stream (101 main/HD, 102 sub/SD); defaults to the config channel.
-  Future<Uint8List?> snapshot({int? channel});
+  /// [full] asks for the stream's full 1920×1080: without it the door
+  /// answers with a 704×576 still — fine for tiles, too small for the
+  /// picture of who rang.
+  Future<Uint8List?> snapshot({int? channel, bool full = false});
 
   /// Pulse the door-lock relay open. Throws on failure so the UI can toast.
   Future<void> unlock();
