@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -166,19 +165,6 @@ void main(List<String> args) async {
       'logicalSize=${size.width / view.devicePixelRatio}x${size.height / view.devicePixelRatio}',
     );
   }
-  // The Pi touch panel's sample rate isn't a clean multiple of the display's
-  // refresh rate, which makes raw pointer-driven scrolling look stepped/janky.
-  // Resampling smooths that out (at the cost of a few ms of input latency) by
-  // interpolating pointer position at each frame instead of only updating on
-  // a raw touch sample.
-  GestureBinding.instance.resamplingEnabled = true;
-  // Framework default (-38ms) assumes a ~60Hz digitizer. `evtest` on this
-  // panel measured only 35-40Hz (~25-29ms between raw samples), so the
-  // default margin is too tight and the resampler ends up extrapolating
-  // past the last real sample more often than interpolating between two —
-  // which looks worse, not better. Widen it so there's reliably a bracketing
-  // sample on both sides.
-  GestureBinding.instance.samplingOffset = const Duration(milliseconds: -60);
   // This dashboard targets a portrait wall-mounted panel; lock rotation so
   // stray touches near the edge of the DSI screen can't flip the layout.
   // Guarded because the flutter-pi embedder doesn't implement this channel.
