@@ -33,6 +33,7 @@ class _MusicPageState extends ConsumerState<MusicPage> {
   _Tab _tab = _Tab.home;
   final _stack = <MaItem>[];
   bool _np = false;
+  bool _covered = false;
   int _viewTick = 0;
   final _scroll = ScrollController();
   final _cache = <String, Future<dynamic>>{};
@@ -159,16 +160,27 @@ class _MusicPageState extends ConsumerState<MusicPage> {
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(36)),
               child: Stack(
                 children: [
-                  Column(
-                    children: [
-                      _topBar(s.target, s.group),
-                      Expanded(child: _content(s.conn, s.loaded)),
-                    ],
+                  // Under "A tocar": its own layer while that slides over it,
+                  // then hidden (and its animations paused) once covered.
+                  Positioned.fill(
+                    child: Visibility(
+                      visible: !(_np && _covered),
+                      maintainState: true,
+                      child: RepaintBoundary(
+                        child: Column(
+                          children: [
+                            _topBar(s.target, s.group),
+                            Expanded(child: _content(s.conn, s.loaded)),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                   if (_np)
                     Positioned.fill(
                       child: NowPlayingView(
                         onClose: () => setState(() => _np = false),
+                        onCovered: (covered) => setState(() => _covered = covered),
                         onOpenContext: (item) => _go(() {
                           _stack
                             ..clear()
@@ -182,7 +194,12 @@ class _MusicPageState extends ConsumerState<MusicPage> {
             ),
           ),
         ),
-        if (hasTrack && !_np) ...[const SizedBox(height: 32), MiniPlayer(onOpen: () => setState(() => _np = true))],
+        if (hasTrack && !_np) ...[const SizedBox(height: 32), MiniPlayer(
+            onOpen: () => setState(() {
+              _np = true;
+              _covered = false;
+            }),
+          )],
       ],
     );
   }

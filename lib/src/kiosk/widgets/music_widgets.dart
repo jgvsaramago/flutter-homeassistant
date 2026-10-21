@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../music/ma_client.dart';
 import '../../music/ma_models.dart';
 import '../../music/music_store.dart';
 import '../theme/kiosk_icons.dart';
@@ -72,6 +73,20 @@ String initials(String name) => name
     .take(2)
     .map((w) => w[0])
     .join();
+
+/// The decoded-at-size image [MaArt] draws; the same key [precacheMaArt]
+/// warms, so a pre-loaded cover shows without a decode.
+ImageProvider maArtImage(MaClient client, String url, double px) =>
+    ResizeImage(NetworkImage(url, headers: client.imageHeaders), width: px.round(), policy: ResizeImagePolicy.fit);
+
+/// Decodes [image] at [size] ahead of time — the big "A tocar" cover, so
+/// opening it doesn't stall its slide-in on a decode and texture upload.
+void precacheMaArt(BuildContext context, WidgetRef ref, MaImage? image, double size) {
+  final client = ref.read(maClientProvider);
+  final url = client?.imageUrl(image);
+  if (client == null || url == null) return;
+  precacheImage(maArtImage(client, url, size * MediaQuery.devicePixelRatioOf(context)), context, onError: (_, _) {});
+}
 
 /// An item's artwork: its MA image when it has one, otherwise the design's
 /// gradient tile with the name on it.
@@ -150,7 +165,7 @@ class MaArt extends ConsumerWidget {
       child: url == null
           ? fallback
           : Image(
-              image: ResizeImage(NetworkImage(url, headers: client!.imageHeaders), width: (w * dpr).round(), policy: ResizeImagePolicy.fit),
+              image: maArtImage(client!, url, w * dpr),
               fit: BoxFit.cover,
               gaplessPlayback: true,
               errorBuilder: (_, _, _) => fallback,

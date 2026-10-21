@@ -63,10 +63,14 @@ Future<void> _toggleFav(MusicStore m, MaItem? item, VoidCallback changed) async 
 /// The design's "A tocar": the whole music card, big cover (or the queue),
 /// transport, position, the speakers and their volume.
 class NowPlayingView extends ConsumerStatefulWidget {
-  const NowPlayingView({super.key, required this.onClose, required this.onOpenContext});
+  const NowPlayingView({super.key, required this.onClose, required this.onOpenContext, this.onCovered});
 
   final VoidCallback onClose;
   final ValueChanged<MaItem> onOpenContext;
+
+  /// True once the view has slid all the way in and hides the page behind
+  /// it, false as it starts to leave — so that page can stop painting.
+  final ValueChanged<bool>? onCovered;
 
   @override
   ConsumerState<NowPlayingView> createState() => _NowPlayingViewState();
@@ -74,7 +78,15 @@ class NowPlayingView extends ConsumerStatefulWidget {
 
 class _NowPlayingViewState extends ConsumerState<NowPlayingView> with _Ticking, SingleTickerProviderStateMixin {
   bool _queue = false;
-  late final _enter = AnimationController(vsync: this, duration: const Duration(milliseconds: 420))..forward();
+  late final _enter = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
+
+  @override
+  void initState() {
+    super.initState();
+    _enter.forward().then((_) {
+      if (mounted) widget.onCovered?.call(true);
+    });
+  }
 
   @override
   void dispose() {
@@ -83,6 +95,7 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> with _Ticking, 
   }
 
   Future<void> _close() async {
+    widget.onCovered?.call(false);
     await _enter.animateBack(0, duration: const Duration(milliseconds: 260), curve: Curves.easeIn);
     widget.onClose();
   }
@@ -103,7 +116,10 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> with _Ticking, 
     return AnimatedBuilder(
       animation: _enter,
       builder: (context, child) => FractionalTranslation(translation: Offset(0, 1 - kEase.transform(_enter.value)), child: child),
-      child: Container(
+      // Its own layer: the slide only moves it, rather than repainting the
+      // whole view (and the page under it) every frame.
+      child: RepaintBoundary(
+        child: Container(
         decoration: BoxDecoration(
           // Opaque: the cover's tone laid over white, so the page behind
           // doesn't show through.
@@ -328,6 +344,7 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> with _Ticking, 
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -522,6 +539,9 @@ class MiniPlayer extends ConsumerStatefulWidget {
 }
 
 class _MiniPlayerState extends ConsumerState<MiniPlayer> with _Ticking {
+  /// The track whose "A tocar" cover is already decoded.
+  String? _warmed;
+
   @override
   Widget build(BuildContext context) {
     final m = ref.watch(musicStoreProvider);
@@ -529,6 +549,14 @@ class _MiniPlayerState extends ConsumerState<MiniPlayer> with _Ticking {
     final cur = q?.current;
     final media = cur?.media;
     tickWhile(q?.playing == true);
+    final track = media?.uri ?? cur?.name;
+    if (track != _warmed) {
+      _warmed = track;
+      final image = cur?.image ?? media?.image;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) precacheMaArt(context, ref, image, 880);
+      });
+    }
     final dur = cur?.duration ?? 0;
     final pct = dur > 0 ? (q!.position(DateTime.now()) / dur).clamp(0.0, 1.0) : (cur == null ? 0.0 : 1.0);
     return TweenAnimationBuilder<double>(
