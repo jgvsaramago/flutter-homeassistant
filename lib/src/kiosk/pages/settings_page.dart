@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show NetworkInterface, InternetAddressType, exit;
+import 'dart:io' show NetworkInterface, InternetAddressType, Process, exit;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -26,13 +26,43 @@ final _haLanguageProvider = FutureProvider<String?>((ref) async {
   return config['language'] as String?;
 });
 
-final _networkProvider = FutureProvider<String?>((ref) async {
-  if (kIsWeb) return null;
+/// One network link's row under Ligações.
+typedef _NetLink = ({String label, String sub, bool up});
+
+/// Both links, Ethernet then Wi-Fi — on the kiosk the wired one is the
+/// intercom VLAN and Wi-Fi the home network, so both matter. Re-read each
+/// time the page opens.
+final _networkProvider = FutureProvider.autoDispose<List<_NetLink>>((ref) async {
+  if (kIsWeb) return const [];
   final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
-  final iface = interfaces.where((i) => i.name.startsWith('eth') || i.name.startsWith('end')).firstOrNull ?? interfaces.firstOrNull;
-  if (iface == null || iface.addresses.isEmpty) return null;
-  final kind = iface.name.startsWith('wl') ? 'Wi-Fi' : 'Ethernet';
-  return '$kind · ${iface.addresses.first.address}';
+  String? ip(bool Function(String name) match) => interfaces.where((i) => match(i.name) && i.addresses.isNotEmpty).firstOrNull?.addresses.first.address;
+  final eth = ip((n) => n.startsWith('eth') || n.startsWith('end'));
+  final wifi = ip((n) => n.startsWith('wl'));
+
+  // SSID and signal from NetworkManager; just the address without it.
+  String? ssid;
+  int? signal;
+  if (wifi != null) {
+    try {
+      final r = await Process.run('nmcli', ['-t', '-f', 'active,ssid,signal', 'dev', 'wifi', 'list', '--rescan', 'no']).timeout(const Duration(seconds: 3));
+      for (final line in '${r.stdout}'.split('\n')) {
+        final parts = line.split(':');
+        if (parts.length >= 3 && parts.first == 'yes') {
+          ssid = parts.sublist(1, parts.length - 1).join(':').replaceAll(r'\:', ':');
+          signal = int.tryParse(parts.last);
+          break;
+        }
+      }
+    } catch (_) {}
+  }
+  return [
+    (label: 'Ethernet', sub: eth ?? 'Sem cabo ou sem endereço', up: eth != null),
+    (
+      label: 'Wi-Fi',
+      sub: wifi == null ? 'Desligado' : [if (ssid != null && ssid.isNotEmpty) ssid, if (signal != null) 'sinal $signal%', wifi].join(' · '),
+      up: wifi != null,
+    ),
+  ];
 });
 
 /// Definições (design "Definições"): what belongs to this screen itself.
@@ -384,7 +414,7 @@ class _ConnectionsGroup extends ConsumerWidget {
           state: maState,
         ),
         const _IntercomStatus(),
-        if (net != null) _Status(label: 'Rede', sub: net, state: 'ok'),
+        for (final l in net ?? const <_NetLink>[]) _Status(label: l.label, sub: l.sub, state: l.up ? 'ok' : 'off'),
       ],
     );
   }
