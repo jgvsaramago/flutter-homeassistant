@@ -344,6 +344,10 @@ class _DoorbellGroup extends StatefulWidget {
   State<_DoorbellGroup> createState() => _DoorbellGroupState();
 }
 
+List<(Ringtone, Ringtone?)> _pairs(List<Ringtone> list) => [
+  for (var i = 0; i < list.length; i += 2) (list[i], i + 1 < list.length ? list[i + 1] : null),
+];
+
 class _DoorbellGroupState extends State<_DoorbellGroup> {
   final _ringer = DoorbellRinger.instance;
 
@@ -418,18 +422,25 @@ class _DoorbellGroupState extends State<_DoorbellGroup> {
           rows: [
             _Row(
               label: 'Toque',
-              sub: 'O que este ecrã toca quando alguém carrega na campainha, até atender ou a chamada acabar. Use o botão à direita de cada um para o ouvir.',
+              sub: 'O que este ecrã toca quando tocam para casa da entrada do prédio, até atender ou a chamada acabar. Use o botão à direita de cada um para o ouvir.',
               below: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (var i = 0; i < ringtones.length; i += 2) ...[
-                    if (i > 0) const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(child: option(ringtones[i])),
-                        const SizedBox(width: 12),
-                        Expanded(child: i + 1 < ringtones.length ? option(ringtones[i + 1]) : const SizedBox.shrink()),
-                      ],
+                  for (final (g, group) in ringtoneGroups.indexed) ...[
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(4, g == 0 ? 4 : 22, 4, 12),
+                      child: Text(group.toUpperCase(), style: KText.label),
                     ),
+                    for (final (i, pair) in _pairs(ringtones.where((r) => r.group == group).toList()).indexed) ...[
+                      if (i > 0) const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(child: option(pair.$1)),
+                          const SizedBox(width: 12),
+                          Expanded(child: pair.$2 == null ? const SizedBox.shrink() : option(pair.$2!)),
+                        ],
+                      ),
+                    ],
                   ],
                 ],
               ),

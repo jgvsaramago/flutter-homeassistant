@@ -6,24 +6,41 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ringtone_sound.dart';
 
-/// One of the doorbell tones in assets/ringtones (see
-/// tool/make_ringtones.py).
+/// One of the doorbell tones in assets/ringtones, all synthesized by
+/// tool/make_ringtones.py in the styles of chimes, building intercom
+/// monitors and smart doorbells (none is a copy of a brand's sound).
 class Ringtone {
-  const Ringtone(this.id, this.name, this.description);
+  const Ringtone(this.id, this.name, this.description, this.group);
 
   final String id;
   final String name;
   final String description;
+  final String group;
 }
 
+const ringtoneGroups = ['Clássicos', 'Intercomunicador', 'Modernos'];
+
 const ringtones = [
-  Ringtone('dingdong', 'Ding-dong', 'Campainha clássica de dois tons'),
-  Ringtone('westminster', 'Westminster', 'Carrilhão de quatro notas'),
-  Ringtone('tres_tons', 'Três tons', 'Acorde ascendente, curto'),
-  Ringtone('carrilhao', 'Carrilhão', 'Sinos em cascata'),
-  Ringtone('marimba', 'Marimba', 'Notas de madeira, alegre'),
-  Ringtone('suave', 'Suave', 'Dois tons calmos'),
-  Ringtone('digital', 'Digital', 'Bip de intercomunicador'),
+  Ringtone('dingdong', 'Ding-dong', 'Campainha clássica de dois tons', 'Clássicos'),
+  Ringtone('westminster', 'Westminster', 'Carrilhão de quatro notas', 'Clássicos'),
+  Ringtone('tres_tons', 'Três tons', 'Acorde ascendente, curto', 'Clássicos'),
+  Ringtone('carrilhao', 'Carrilhão', 'Sinos em cascata', 'Clássicos'),
+  Ringtone('trrrim', 'Trrrim', 'Campainha elétrica, de martelo', 'Clássicos'),
+  Ringtone('portaria', 'Portaria', 'O trinado dos monitores de prédio', 'Intercomunicador'),
+  Ringtone('digital', 'Digital', 'Bip duplo de intercomunicador', 'Intercomunicador'),
+  Ringtone('melodia', 'Melodia', 'Melodia polifónica de monitor', 'Intercomunicador'),
+  Ringtone('dois_toques', 'Dois toques', 'Toque eletrónico, repetido', 'Intercomunicador'),
+  Ringtone('harpa', 'Harpa', 'Arpejo de harpa, delicado', 'Modernos'),
+  Ringtone('xilofone', 'Xilofone', 'Escala rápida e alegre', 'Modernos'),
+  Ringtone('triangulo', 'Triângulo', 'Três toques metálicos', 'Modernos'),
+  Ringtone('kalimba', 'Kalimba', 'Piano de polegar, suave', 'Modernos'),
+  Ringtone('marimba', 'Marimba', 'Notas de madeira, alegre', 'Modernos'),
+  Ringtone('vidro', 'Vidro', 'Sinos de cristal, limpos', 'Modernos'),
+  Ringtone('pulsar', 'Pulsar', 'Arpejo de sintetizador', 'Modernos'),
+  Ringtone('bolhas', 'Bolhas', 'Bolhas a subir, divertido', 'Modernos'),
+  Ringtone('retro', 'Retro', 'Jogo de 8 bits', 'Modernos'),
+  Ringtone('suave', 'Suave', 'Dois tons calmos', 'Modernos'),
+  Ringtone('aurora', 'Aurora', 'Acorde lento, para a noite', 'Modernos'),
 ];
 
 /// The tone chosen and its volume (0-100), kept on this screen.
