@@ -559,13 +559,16 @@ class _KBlinkState extends State<KBlink> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
+  // Its own layer, so the pulse doesn't repaint the page around it.
   @override
-  Widget build(BuildContext context) => widget.enabled
-      ? FadeTransition(
-          opacity: Tween(begin: 1.0, end: 0.3).animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut)),
-          child: widget.child,
-        )
-      : widget.child;
+  Widget build(BuildContext context) => RepaintBoundary(
+    child: widget.enabled
+        ? FadeTransition(
+            opacity: Tween(begin: 1.0, end: 0.3).animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut)),
+            child: widget.child,
+          )
+        : widget.child,
+  );
 }
 
 /// White section card (radius 36, padding 32).
@@ -658,7 +661,9 @@ class _KFadeUpState extends State<KFadeUp> with SingleTickerProviderStateMixin {
         opacity: _t.value.clamp(0.0, 1.0),
         child: Transform.translate(offset: Offset(0, 28 * (1 - _t.value)), child: child),
       ),
-      child: widget.child,
+      // Its own layer: the rise only moves the section, rather than
+      // redrawing the whole page every frame.
+      child: RepaintBoundary(child: widget.child),
     );
   }
 }
@@ -730,7 +735,6 @@ class KModal extends StatelessWidget {
         final t = reversing ? Curves.easeIn.transform(anim.value) : kEase.transform(anim.value);
         final fade = Curves.ease.transform(anim.value);
         final dy = reversing ? 40 * (1 - t) : 56 * (1 - t);
-        final scale = reversing ? 0.98 + 0.02 * t : 0.97 + 0.03 * t;
         return Stack(
           children: [
             Positioned.fill(
@@ -739,12 +743,11 @@ class KModal extends StatelessWidget {
                 child: ColoredBox(color: scrim),
               ),
             ),
+            // Fade and rise only, no scale: a moving layer is reused from
+            // the Pi's raster cache, a scaling one is redrawn every frame.
             Opacity(
               opacity: t.clamp(0.0, 1.0),
-              child: Transform.translate(
-                offset: Offset(0, dy),
-                child: Transform.scale(scale: scale, child: child),
-              ),
+              child: Transform.translate(offset: Offset(0, dy), child: child),
             ),
           ],
         );
@@ -766,14 +769,19 @@ class KModal extends StatelessWidget {
                   padding: EdgeInsets.only(top: kb ? keyboardTop : top, bottom: kb ? 680 : 64),
                   child: Align(
                     alignment: Alignment.topCenter,
-                    child: GestureDetector(
-                      // Swallow taps on the card so they don't reach the backdrop.
-                      onTap: () {},
-                      child: Container(
-                        width: width,
-                        padding: padding,
-                        decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(36), boxShadow: [shadow]),
-                        child: child,
+                    // Its own layer: the open/close and the rise over the
+                    // keyboard only move the card, rather than repainting
+                    // it (and its blurred shadow) every frame.
+                    child: RepaintBoundary(
+                      child: GestureDetector(
+                        // Swallow taps on the card so they don't reach the backdrop.
+                        onTap: () {},
+                        child: Container(
+                          width: width,
+                          padding: padding,
+                          decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(36), boxShadow: [shadow]),
+                          child: child,
+                        ),
                       ),
                     ),
                   ),

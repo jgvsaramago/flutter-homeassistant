@@ -321,26 +321,29 @@ class _MicButtonState extends State<_MicButton> with SingleTickerProviderStateMi
   @override
   Widget build(BuildContext context) {
     final on = widget.listening;
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (context, _) {
-        final v = _c.value;
-        final k = Curves.easeOut.transform((v / 0.75).clamp(0.0, 1.0));
-        return Opacity(
-          opacity: widget.enabled ? 1 : 0.45,
-          child: KCircleButton(
-            icon: KIcons.mic,
-            size: 96,
-            iconSize: 40,
-            stroke: 2,
-            bg: on ? KColors.accent : KColors.chip,
-            fg: on ? Colors.white : KColors.ink,
-            border: null,
-            shadow: on && v < 0.75 ? [BoxShadow(color: KColors.accent.withValues(alpha: 0.45 * (1 - k)), spreadRadius: 34 * k)] : null,
-            onTap: widget.onTap,
-          ),
-        );
-      },
+    // Its own layer, so the ripple doesn't repaint the modal every frame.
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (context, _) {
+          final v = _c.value;
+          final k = Curves.easeOut.transform((v / 0.75).clamp(0.0, 1.0));
+          return Opacity(
+            opacity: widget.enabled ? 1 : 0.45,
+            child: KCircleButton(
+              icon: KIcons.mic,
+              size: 96,
+              iconSize: 40,
+              stroke: 2,
+              bg: on ? KColors.accent : KColors.chip,
+              fg: on ? Colors.white : KColors.ink,
+              border: null,
+              shadow: on && v < 0.75 ? [BoxShadow(color: KColors.accent.withValues(alpha: 0.45 * (1 - k)), spreadRadius: 34 * k)] : null,
+              onTap: widget.onTap,
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -367,29 +370,32 @@ class _VoiceWaveState extends State<_VoiceWave> with SingleTickerProviderStateMi
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 56,
-      child: AnimatedBuilder(
-        animation: _c,
-        builder: (context, _) {
-          final t = _c.value * _loop;
-          return Row(
-            children: [
-              for (var i = 0; i < 9; i++) ...[
-                if (i > 0) const SizedBox(width: 8),
-                Transform.scale(
-                  scaleX: 1,
-                  scaleY: _scale(t, i),
-                  child: Container(
-                    width: 8,
-                    height: 56,
-                    decoration: BoxDecoration(color: KColors.accent, borderRadius: BorderRadius.circular(4)),
+    // Its own layer, so the bars don't repaint the modal every frame.
+    return RepaintBoundary(
+      child: SizedBox(
+        height: 56,
+        child: AnimatedBuilder(
+          animation: _c,
+          builder: (context, _) {
+            final t = _c.value * _loop;
+            return Row(
+              children: [
+                for (var i = 0; i < 9; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Transform.scale(
+                    scaleX: 1,
+                    scaleY: _scale(t, i),
+                    child: Container(
+                      width: 8,
+                      height: 56,
+                      decoration: BoxDecoration(color: KColors.accent, borderRadius: BorderRadius.circular(4)),
+                    ),
                   ),
-                ),
+                ],
               ],
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

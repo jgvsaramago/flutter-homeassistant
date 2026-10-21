@@ -284,8 +284,10 @@ class _PageSwitcher extends StatelessWidget {
   final KioskPage page;
   final Widget child;
 
+  // Its own layer, so the toast sliding over it and the header's clock
+  // don't redraw the whole page.
   @override
-  Widget build(BuildContext context) => KeyedSubtree(key: ValueKey(page), child: child);
+  Widget build(BuildContext context) => RepaintBoundary(child: KeyedSubtree(key: ValueKey(page), child: child));
 }
 
 class _ToastLayer extends StatelessWidget {
@@ -311,7 +313,8 @@ class _ToastLayer extends StatelessWidget {
                 child: child,
               ),
             ),
-            child: toast == null ? const SizedBox.shrink() : _Toast(key: ValueKey(toast), toast: toast),
+            // Its own layer: the slide only moves the toast.
+            child: toast == null ? const SizedBox.shrink() : RepaintBoundary(key: ValueKey(toast), child: _Toast(toast: toast)),
           ),
         ),
       ),
@@ -320,7 +323,7 @@ class _ToastLayer extends StatelessWidget {
 }
 
 class _Toast extends StatelessWidget {
-  const _Toast({super.key, required this.toast});
+  const _Toast({required this.toast});
 
   final KToastData toast;
 

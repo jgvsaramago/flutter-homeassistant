@@ -651,24 +651,27 @@ class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     if (!widget.enabled) return widget.child;
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (context, child) {
-        final t = (_c.value / 0.75).clamp(0.0, 1.0);
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: KColors.green.withValues(alpha: 0.6 * (1 - t)),
-                spreadRadius: 40 * t,
-              ),
-            ],
-          ),
-          child: child,
-        );
-      },
-      child: widget.child,
+    // Its own layer, so the ring doesn't repaint the modal every frame.
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (context, child) {
+          final t = (_c.value / 0.75).clamp(0.0, 1.0);
+          return DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: KColors.green.withValues(alpha: 0.6 * (1 - t)),
+                  spreadRadius: 40 * t,
+                ),
+              ],
+            ),
+            child: child,
+          );
+        },
+        child: widget.child,
+      ),
     );
   }
 }
