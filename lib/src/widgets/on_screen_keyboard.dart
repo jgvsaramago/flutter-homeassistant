@@ -88,7 +88,10 @@ class _OnScreenKeyboardHostState extends State<OnScreenKeyboardHost> with Single
             bottom: 0,
             child: SlideTransition(
               position: Tween(begin: const Offset(0, 1), end: Offset.zero).animate(CurvedAnimation(parent: _slide, curve: kEase, reverseCurve: Curves.easeIn)),
-              child: KioskKeyboard(key: ValueKey(_shown), controller: _shown!),
+              // Its own layer: the slide only moves the keyboard, rather
+              // than redrawing every key each frame (measured on the Pi:
+              // half the dropped frames opening a modal with a text field).
+              child: RepaintBoundary(child: KioskKeyboard(key: ValueKey(_shown), controller: _shown!)),
             ),
           ),
       ],

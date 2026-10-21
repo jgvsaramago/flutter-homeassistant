@@ -436,7 +436,21 @@ class _KTextFieldState extends State<KTextField> {
     _focus.addListener(_onFocus);
     if (widget.autofocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _focus.requestFocus();
+        if (!mounted) return;
+        // In a modal, wait until it has risen: the keyboard sliding up
+        // over it at the same time halved the frame rate on the Pi.
+        final anim = ModalRoute.of(context)?.animation;
+        if (anim == null || anim.isCompleted) {
+          _focus.requestFocus();
+          return;
+        }
+        void onStatus(AnimationStatus status) {
+          if (status != AnimationStatus.completed) return;
+          anim.removeStatusListener(onStatus);
+          if (mounted) _focus.requestFocus();
+        }
+
+        anim.addStatusListener(onStatus);
       });
     }
   }
@@ -469,39 +483,43 @@ class _KTextFieldState extends State<KTextField> {
   @override
   Widget build(BuildContext context) {
     final multi = widget.maxLines > 1;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      height: multi ? null : widget.height,
-      constraints: multi ? BoxConstraints(minHeight: widget.height) : null,
-      padding: EdgeInsets.fromLTRB(widget.leading != null ? 28 : (multi ? 24 : 28), multi ? 18 : 0, widget.trailing != null ? 12 : 28, multi ? 18 : 0),
-      decoration: BoxDecoration(
-        color: widget.background,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: _focus.hasFocus ? KColors.accent : Colors.transparent, width: 3),
-      ),
-      child: Row(
-        crossAxisAlignment: multi ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-        children: [
-          if (widget.leading != null) ...[widget.leading!, const SizedBox(width: 16)],
-          Expanded(
-            child: TextField(
-              controller: widget.controller,
-              focusNode: _focus,
-              maxLines: widget.maxLines,
-              minLines: multi ? widget.maxLines : 1,
-              // flutter-pi has no IME; the on-screen keyboard is ours.
-              keyboardType: TextInputType.none,
-              cursorColor: KColors.accent,
-              cursorWidth: 3,
-              style: KText.s(widget.fontSize, weight: multi ? FontWeight.w400 : FontWeight.w500, height: multi ? 1.4 : null),
-              decoration: InputDecoration.collapsed(
-                hintText: widget.hint,
-                hintStyle: KText.s(widget.fontSize, weight: multi ? FontWeight.w400 : FontWeight.w500, color: KColors.faint),
+    // Its own layer: the focus border's fade (as a modal opens with the
+    // field focused) would otherwise redraw the whole modal every frame.
+    return RepaintBoundary(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: multi ? null : widget.height,
+        constraints: multi ? BoxConstraints(minHeight: widget.height) : null,
+        padding: EdgeInsets.fromLTRB(widget.leading != null ? 28 : (multi ? 24 : 28), multi ? 18 : 0, widget.trailing != null ? 12 : 28, multi ? 18 : 0),
+        decoration: BoxDecoration(
+          color: widget.background,
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: _focus.hasFocus ? KColors.accent : Colors.transparent, width: 3),
+        ),
+        child: Row(
+          crossAxisAlignment: multi ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+          children: [
+            if (widget.leading != null) ...[widget.leading!, const SizedBox(width: 16)],
+            Expanded(
+              child: TextField(
+                controller: widget.controller,
+                focusNode: _focus,
+                maxLines: widget.maxLines,
+                minLines: multi ? widget.maxLines : 1,
+                // flutter-pi has no IME; the on-screen keyboard is ours.
+                keyboardType: TextInputType.none,
+                cursorColor: KColors.accent,
+                cursorWidth: 3,
+                style: KText.s(widget.fontSize, weight: multi ? FontWeight.w400 : FontWeight.w500, height: multi ? 1.4 : null),
+                decoration: InputDecoration.collapsed(
+                  hintText: widget.hint,
+                  hintStyle: KText.s(widget.fontSize, weight: multi ? FontWeight.w400 : FontWeight.w500, color: KColors.faint),
+                ),
               ),
             ),
-          ),
-          if (widget.trailing != null) ...[const SizedBox(width: 12), widget.trailing!],
-        ],
+            if (widget.trailing != null) ...[const SizedBox(width: 12), widget.trailing!],
+          ],
+        ),
       ),
     );
   }
