@@ -37,6 +37,7 @@ abstract final class KIcons {
   static const library = '<path d="M4 4v16M8.5 4v16M13 5l3.8 15M18 4.5l2.5 15"/>';
   static const homeOutline = '<path d="M3 11l9-7 9 7M5 10v10h14V10"/>';
   static const playFilled = '<path d="M8 5v14l11-7z"/>';
+  static const stopFilled = '<rect x="6" y="6" width="12" height="12" rx="2"/>';
   static const pauseFilled = '<path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/>';
   static const prevFilled = '<path d="M18 6L9.5 12 18 18zM6 6h2.4v12H6z"/>';
   static const nextFilled = '<path d="M6 6l8.5 6L6 18zM15.6 6H18v12h-2.4z"/>';

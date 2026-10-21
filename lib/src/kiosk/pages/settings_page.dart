@@ -10,6 +10,7 @@ import '../../ha_client/ha_websocket_client.dart';
 import '../../music/ma_client.dart';
 import '../../music/music_store.dart';
 import '../../providers/ha_providers.dart';
+import '../../services/doorbell_ringer.dart';
 import '../../services/screen_brightness_service.dart';
 import '../../services/screen_power_controller.dart';
 import '../../services/system_control_service.dart';
@@ -100,6 +101,8 @@ class SettingsPage extends ConsumerWidget {
                   Expanded(child: _VoiceGroup()),
                 ],
               ),
+              const SizedBox(height: 28),
+              const _DoorbellGroup(),
               const SizedBox(height: 28),
               const _ConnectionsGroup(),
               const SizedBox(height: 28),
@@ -326,6 +329,144 @@ class _ScreenGroupState extends State<_ScreenGroup> {
           trailing: _OutlineButton(label: 'Desligar', onTap: () => ScreenPowerController.instance.setPowered(false)),
         ),
       ],
+    );
+  }
+}
+
+// ------------------------------------------------------------------ Campainha
+
+/// The tone this screen rings with when someone presses the doorbell, each
+/// one playable here, and how loud.
+class _DoorbellGroup extends StatefulWidget {
+  const _DoorbellGroup();
+
+  @override
+  State<_DoorbellGroup> createState() => _DoorbellGroupState();
+}
+
+class _DoorbellGroupState extends State<_DoorbellGroup> {
+  final _ringer = DoorbellRinger.instance;
+
+  /// While dragging, before it's saved.
+  int? _volume;
+
+  @override
+  void dispose() {
+    // Leaving Definições doesn't leave a preview playing.
+    if (_ringer.previewing.value != null) _ringer.stop();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Listenable.merge([_ringer.settings, _ringer.previewing]),
+      builder: (context, _) {
+        final s = _ringer.settings.value;
+        final playing = _ringer.previewing.value;
+        final volume = _volume ?? s.volume;
+        Widget option(Ringtone r) {
+          final on = r.id == s.ringtone;
+          final isPlaying = playing == r.id;
+          return KPress(
+            onTap: on ? null : () => _ringer.choose(ringtone: r.id),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              height: 88,
+              padding: const EdgeInsets.fromLTRB(20, 0, 14, 0),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: on ? KColors.accent : Colors.white, width: 2),
+              ),
+              child: Row(
+                children: [
+                  KCheckCircle(done: on, size: 32),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(r.name, style: KText.s(21, weight: FontWeight.w600)),
+                        const SizedBox(height: 2),
+                        Text(r.description, maxLines: 1, overflow: TextOverflow.ellipsis, style: KText.s(16, color: KColors.muted)),
+                      ],
+                    ),
+                  ),
+                  KPress(
+                    onTap: () => _ringer.preview(r.id),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(color: isPlaying ? KColors.accent : KColors.accentSoft, shape: BoxShape.circle),
+                      child: Center(
+                        child: KIcon(isPlaying ? KIcons.stopFilled : KIcons.playFilled, size: 24, color: isPlaying ? Colors.white : KColors.accent, filled: true),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return _Group(
+          icon: KIcons.bell,
+          title: 'Campainha',
+          rows: [
+            _Row(
+              label: 'Toque',
+              sub: 'O que este ecrã toca quando alguém carrega na campainha, até atender ou a chamada acabar. Use o botão à direita de cada um para o ouvir.',
+              below: Column(
+                children: [
+                  for (var i = 0; i < ringtones.length; i += 2) ...[
+                    if (i > 0) const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: option(ringtones[i])),
+                        const SizedBox(width: 12),
+                        Expanded(child: i + 1 < ringtones.length ? option(ringtones[i + 1]) : const SizedBox.shrink()),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            _Row(
+              label: 'Volume do toque',
+              sub: 'Nas colunas do monitor. Não muda o volume da música nem do intercomunicador.',
+              below: Row(
+                children: [
+                  const KIcon(KIcons.volLow, size: 26, color: KColors.muted, stroke: 2),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: KSlider(
+                      value: volume / 100,
+                      height: 52,
+                      trackHeight: 12,
+                      knob: 36,
+                      track: KMusic.line,
+                      fill: KColors.accent,
+                      onChanged: (v) => setState(() => _volume = (v * 100).round()),
+                      onEnd: (v) {
+                        _ringer.choose(volume: (v * 100).round());
+                        setState(() => _volume = null);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const KIcon(KIcons.volHigh, size: 26, color: KColors.muted, stroke: 2),
+                  SizedBox(width: 84, child: Text('$volume%', textAlign: TextAlign.right, style: KText.s(22, weight: FontWeight.w600))),
+                  const SizedBox(width: 20),
+                  _OutlineButton(label: playing == s.ringtone ? 'Parar' : 'Testar', onTap: () => _ringer.preview(s.ringtone)),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

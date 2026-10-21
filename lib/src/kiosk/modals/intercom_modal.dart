@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../services/doorbell_history.dart';
+import '../../services/doorbell_ringer.dart';
 import '../data/pt_dates.dart';
 import '../theme/kiosk_icons.dart';
 import '../theme/kiosk_tokens.dart';
@@ -219,6 +220,9 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
 
   @override
   void dispose() {
+    // Closing the screen silences the bell, like declining on an indoor
+    // station.
+    DoorbellRinger.instance.stop();
     IntercomModal._open--;
     _tick?.cancel();
     _calls?.cancel();
@@ -328,10 +332,13 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
             'Atender',
             KIcons.phone,
             KColors.green,
-            () => _do(ic.answer, () {
-              _mode = IntercomMode.inCall;
-              _callSecs = 0;
-            }),
+            () {
+              DoorbellRinger.instance.stop();
+              _do(ic.answer, () {
+                _mode = IntercomMode.inCall;
+                _callSecs = 0;
+              });
+            },
             pulse: true,
           ),
         if (inCall) control('Desligar', KIcons.phoneDown, KColors.red, () => _do(ic.hangUp, () => _mode = IntercomMode.view)),

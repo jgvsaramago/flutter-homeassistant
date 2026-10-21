@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../music/music_store.dart';
 import '../providers/ha_providers.dart';
+import '../services/doorbell_ringer.dart';
 import '../services/screen_power_controller.dart';
 import '../services/voice_satellite.dart';
 import '../sheets/sheet_registry.dart';
@@ -60,6 +61,7 @@ class _KioskShellState extends ConsumerState<KioskShell> {
   void initState() {
     super.initState();
     _doorbell = ref.read(intercomControllerProvider).callEvents?.listen(_onDoorbell);
+    DoorbellRinger.instance.load();
     // MQTT "open sheet" commands from the old dashboard: the calendar one
     // still has a home here; the rest belonged to screens this design
     // folds into Casa.
@@ -105,7 +107,13 @@ class _KioskShellState extends ConsumerState<KioskShell> {
   /// whatever page or modal was up. An intercom screen that's already open
   /// switches itself to "A tocar…".
   void _onDoorbell(IntercomMode event) {
-    if (event != IntercomMode.ringing || !mounted) return;
+    // The speakers ring for as long as the call does.
+    if (event != IntercomMode.ringing) {
+      DoorbellRinger.instance.stop();
+      return;
+    }
+    if (!mounted) return;
+    unawaited(DoorbellRinger.instance.ring(afterWake: !ScreenPowerController.instance.isOn.value));
     ScreenPowerController.instance.setPowered(true);
     if (IntercomModal.isOpen) return;
     Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst);

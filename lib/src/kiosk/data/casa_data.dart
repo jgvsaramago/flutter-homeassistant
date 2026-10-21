@@ -103,7 +103,9 @@ class _TrendsNotifier extends AsyncNotifier<Map<String, double>> {
       if (temp != null && temp.isNotEmpty) temp: const Duration(hours: 1),
       // Not `?key: value`: null-aware map entries crash the release
       // compiler's constant evaluator (Flutter 3.44).
+      // ignore: use_null_aware_elements
       if (station[StationRole.pressure] case final id?) id: const Duration(hours: 3),
+      // ignore: use_null_aware_elements
       if (station[StationRole.irradiance] case final id?) id: const Duration(minutes: 30),
     };
     final out = <String, double>{};
