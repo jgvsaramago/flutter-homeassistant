@@ -18,9 +18,9 @@ class ScreenPowerController {
   /// this in sync; nothing else should write to it.
   final ValueNotifier<bool> isOn = ValueNotifier(true);
 
-  void Function(bool on)? _handler;
+  void Function(bool on, {bool respectTouch})? _handler;
 
-  void attach(void Function(bool on) handler) => _handler = handler;
+  void attach(void Function(bool on, {bool respectTouch}) handler) => _handler = handler;
 
   /// Only clears [_handler] if it's still [handler] — not unconditionally.
   /// The app can remount its whole subtree at runtime (a theme switch; see
@@ -33,11 +33,16 @@ class ScreenPowerController {
   /// was a real, reproduced bug, not a hypothetical one. Dart guarantees
   /// two tear-offs of the same instance method from the same receiver
   /// compare `==`, so this comparison is safe without needing `identical`.
-  void detach(void Function(bool on) handler) {
+  void detach(void Function(bool on, {bool respectTouch}) handler) {
     if (_handler == handler) _handler = null;
   }
 
   /// Requests the screen be turned on/off. No-op if no `ScreenPowerGuard`
   /// is currently mounted.
-  void setPowered(bool on) => _handler?.call(on);
+  ///
+  /// [respectTouch] is for remote "off" commands (HA's presence automation
+  /// over MQTT): if someone touched the screen recently, the off is
+  /// deferred until they've stopped, instead of blanking it under their
+  /// finger because the presence sensor briefly lost them.
+  void setPowered(bool on, {bool respectTouch = false}) => _handler?.call(on, respectTouch: respectTouch);
 }

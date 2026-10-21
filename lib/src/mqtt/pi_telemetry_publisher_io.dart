@@ -296,7 +296,7 @@ class PiTelemetryPublisher {
 
   void _handleCommand(String topic, String payload) {
     if (topic == '$_baseTopic/light/screen/set') {
-      ScreenPowerController.instance.setPowered(payload.toUpperCase() == 'ON');
+      ScreenPowerController.instance.setPowered(payload.toUpperCase() == 'ON', respectTouch: true);
     } else if (topic == '$_baseTopic/light/screen/brightness_set') {
       final percent = int.tryParse(payload);
       if (percent == null) return;

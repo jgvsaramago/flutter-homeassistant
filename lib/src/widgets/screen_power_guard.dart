@@ -7,6 +7,11 @@ import '../services/screen_power_service.dart';
 
 const _idleTimeout = Duration(minutes: 2);
 
+/// A remote "off" (HA's presence automation) within this long of the last
+/// touch waits until this long after it instead — the presence sensor
+/// sometimes reports the hall empty while someone is using the screen.
+const _touchGrace = Duration(minutes: 1);
+
 /// Wraps the whole app: blanks the physical screen after [_idleTimeout] of
 /// no touch input, and wakes it again on the next touch — without that
 /// wake-up touch reaching whatever screen/button happened to be under it.
@@ -37,6 +42,7 @@ class _ScreenPowerGuardState extends State<ScreenPowerGuard> {
   static bool _recoveredThisProcess = false;
 
   Timer? _idleTimer;
+  DateTime _lastActivity = DateTime.now();
 
   /// Seeded from the controller's last known state, not a hardcoded
   /// `false` — `ScreenPowerController.instance` is a singleton that
@@ -74,6 +80,7 @@ class _ScreenPowerGuardState extends State<ScreenPowerGuard> {
   }
 
   void _resetIdleTimer() {
+    _lastActivity = DateTime.now();
     _idleTimer?.cancel();
     _idleTimer = Timer(_idleTimeout, _turnOff);
   }
@@ -114,7 +121,18 @@ class _ScreenPowerGuardState extends State<ScreenPowerGuard> {
     if (on) _resetIdleTimer();
   }
 
-  void _applyPowerExternal(bool on) => _applyPower(on);
+  void _applyPowerExternal(bool on, {bool respectTouch = false}) {
+    if (!on && respectTouch && !_screenOff) {
+      final left = _touchGrace - DateTime.now().difference(_lastActivity);
+      if (left > Duration.zero) {
+        // Reuses the idle timer, so a further touch pushes it out again.
+        _idleTimer?.cancel();
+        _idleTimer = Timer(left, _turnOff);
+        return;
+      }
+    }
+    _applyPower(on);
+  }
 
   Future<void> _turnOff() => _applyPower(false);
 
