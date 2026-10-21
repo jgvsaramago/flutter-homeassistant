@@ -105,7 +105,7 @@ String _guessIcon(String name) {
 final todoListIconsProvider = StateProvider<Map<String, String>>((ref) => const {});
 
 final savedTodoListIconsProvider = FutureProvider<Map<String, String>>((ref) async {
-  await ref.watch(entitiesProvider.future);
+  await haReady(ref);
   final raw = await ref.read(haWebSocketClientProvider).getSettings('todo_list_icons');
   if (raw is! Map) return const {};
   return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
@@ -151,7 +151,7 @@ final shoppingListProvider = Provider<TodoListInfo?>((ref) {
 /// changes (a rename doesn't change the entity).
 final _todoFetchProvider = FutureProvider.family<List<TodoItem>, String>((ref, entityId) async {
   ref.watch(entitiesProvider.select((async) => async.valueOrNull?[entityId]?.lastUpdated));
-  await ref.watch(entitiesProvider.future);
+  await haReady(ref);
   final raw = await ref.read(haWebSocketClientProvider).getTodoItems(entityId);
   final items = raw.map(TodoItem.fromJson).where((i) => i.name.isNotEmpty).toList();
   ref.read(_todoOverlayProvider.notifier).fetched(entityId, items);
@@ -186,7 +186,12 @@ final _todoOverlayProvider = NotifierProvider<_TodoOverlay, int>(_TodoOverlay.ne
 final todoItemsProvider = Provider.family<AsyncValue<List<TodoItem>>, String>((ref, entityId) {
   ref.watch(_todoOverlayProvider);
   final layer = ref.read(_todoOverlayProvider.notifier).layer;
-  return ref.watch(_todoFetchProvider(entityId)).whenData((items) => layer.view(entityId, items)!);
+  final fetched = ref.watch(_todoFetchProvider(entityId));
+  // whenData turns a refetch's loading into one with no value; keep the
+  // last items on screen until the new ones arrive.
+  final items = fetched.valueOrNull;
+  if (items != null) return AsyncData(layer.view(entityId, items)!);
+  return fetched.whenData((items) => layer.view(entityId, items)!);
 });
 
 String _description(double qty, String unit, String note) => [todoQtyText(qty, unit), note.trim()].where((s) => s.isNotEmpty).join(' · ');

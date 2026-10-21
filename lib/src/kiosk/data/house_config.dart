@@ -92,7 +92,7 @@ class HouseConfigStore {
 final houseConfigStoreProvider = Provider<HouseConfigStore>((ref) => HouseConfigStore(ref.watch(haWebSocketClientProvider)));
 
 final savedHouseConfigProvider = FutureProvider<HouseConfig>((ref) async {
-  await ref.watch(entitiesProvider.future);
+  await haReady(ref);
   return ref.watch(houseConfigStoreProvider).read();
 });
 

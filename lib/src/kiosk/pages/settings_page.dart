@@ -20,7 +20,7 @@ import '../widgets/kiosk_widgets.dart';
 import '../widgets/music_widgets.dart';
 
 final _haLanguageProvider = FutureProvider<String?>((ref) async {
-  await ref.watch(entitiesProvider.future);
+  await haReady(ref);
   final config = await ref.read(haWebSocketClientProvider).getConfig();
   return config['language'] as String?;
 });

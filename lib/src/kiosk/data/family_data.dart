@@ -40,7 +40,7 @@ class FamilyStore {
 final familyStoreProvider = Provider<FamilyStore>((ref) => FamilyStore(ref.watch(haWebSocketClientProvider)));
 
 final savedFamilyProvider = FutureProvider<List<FamilyMemberConfig>>((ref) async {
-  await ref.watch(entitiesProvider.future);
+  await haReady(ref);
   return ref.watch(familyStoreProvider).read();
 });
 

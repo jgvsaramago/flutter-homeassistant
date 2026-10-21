@@ -224,6 +224,15 @@ class EntitiesNotifier extends AsyncNotifier<Map<String, HaEntity>> {
 
 final entitiesProvider = AsyncNotifierProvider<EntitiesNotifier, Map<String, HaEntity>>(EntitiesNotifier.new);
 
+/// Waits until HA is connected. Use this, not `ref.watch(entitiesProvider.future)`:
+/// that future is replaced on every state flush (several a second on a busy
+/// HA), which re-ran the watching provider each time and dropped its value
+/// back to loading — the Início "Compras" card blinked empty and back.
+Future<void> haReady(Ref ref) async {
+  ref.watch(entitiesProvider.select((async) => async.hasValue));
+  await ref.read(entitiesProvider.future);
+}
+
 /// Entities grouped by domain and sorted by friendly name within each group,
 /// with domains sorted alphabetically by their display label.
 final entitiesByDomainProvider = Provider<List<MapEntry<String, List<HaEntity>>>>((ref) {
@@ -325,7 +334,7 @@ final floorsProvider = StateProvider<List<HaFloor>>((ref) => const []);
 /// its own *synchronous* build phase, which ends the moment this function
 /// first suspends. Don't hoist any of these assignments earlier.
 final settingsHydrationProvider = FutureProvider<void>((ref) async {
-  await ref.watch(entitiesProvider.future);
+  await haReady(ref);
 
   try {
     final savedEnergyEntities = await ref.read(savedEnergyEntityConfigProvider.future);

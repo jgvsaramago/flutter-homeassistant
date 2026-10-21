@@ -105,7 +105,14 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> with _Ticking, 
       builder: (context, child) => FractionalTranslation(translation: Offset(0, 1 - kEase.transform(_enter.value)), child: child),
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [tint.withValues(alpha: .2), Colors.white], stops: const [0, .46]),
+          // Opaque: the cover's tone laid over white, so the page behind
+          // doesn't show through.
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color.alphaBlend(tint.withValues(alpha: .2), Colors.white), Colors.white],
+            stops: const [0, .46],
+          ),
         ),
         padding: const EdgeInsets.fromLTRB(36, 28, 36, 40),
         child: Column(

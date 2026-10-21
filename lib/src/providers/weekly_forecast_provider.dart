@@ -53,7 +53,7 @@ class WeeklyForecastNotifier extends AsyncNotifier<List<WeeklyForecastDay>> {
 
     // Waits for a live connection first, same idiom as the rest of this
     // app's HA-backed providers (`areaByEntityIdProvider`, etc.).
-    await ref.watch(entitiesProvider.future);
+    await haReady(ref);
     final client = ref.read(haWebSocketClientProvider);
 
     // A self-rescheduling one-shot timer rather than `Timer.periodic`: each

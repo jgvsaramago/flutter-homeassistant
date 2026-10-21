@@ -8,7 +8,7 @@ final evCarsStoreProvider = Provider<EvCarsStore>((ref) => EvCarsStore(ref.watch
 /// Config persisted from a previous session, read once at startup — waits
 /// for the HA connection first, same idiom as `areaByEntityIdProvider`.
 final savedEvCarsConfigProvider = FutureProvider<EvCarsConfig>((ref) async {
-  await ref.watch(entitiesProvider.future);
+  await haReady(ref);
   return ref.watch(evCarsStoreProvider).read();
 });
 

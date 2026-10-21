@@ -10,7 +10,7 @@ final temperatureEntitiesStoreProvider = Provider<TemperatureEntitiesStore>(
 /// Config persisted from a previous session, read once at startup — waits
 /// for the HA connection first, same idiom as `areaByEntityIdProvider`.
 final savedTemperatureEntityConfigProvider = FutureProvider<TemperatureEntityConfig>((ref) async {
-  await ref.watch(entitiesProvider.future);
+  await haReady(ref);
   return ref.watch(temperatureEntitiesStoreProvider).read();
 });
 

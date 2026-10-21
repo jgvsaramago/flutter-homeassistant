@@ -10,7 +10,7 @@ final energyEntitiesStoreProvider = Provider<EnergyEntitiesStore>(
 /// Config persisted from a previous session, read once at startup — waits
 /// for the HA connection first, same idiom as `areaByEntityIdProvider`.
 final savedEnergyEntityConfigProvider = FutureProvider<EnergyEntityConfig>((ref) async {
-  await ref.watch(entitiesProvider.future);
+  await haReady(ref);
   return ref.watch(energyEntitiesStoreProvider).read();
 });
 

@@ -11,7 +11,7 @@ final calendarEntitiesStoreProvider = Provider<CalendarEntitiesStore>(
 /// startup — waits for the HA connection first, same idiom as
 /// `areaByEntityIdProvider`.
 final savedCalendarEntriesProvider = FutureProvider<List<CalendarEntryConfig>>((ref) async {
-  await ref.watch(entitiesProvider.future);
+  await haReady(ref);
   return ref.watch(calendarEntitiesStoreProvider).read();
 });
 

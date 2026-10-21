@@ -13,7 +13,7 @@ final roomsStoreProvider = Provider<RoomsStore>((ref) => RoomsStore(ref.watch(ha
 /// waits on the area registry: `RoomsStore.read` needs the current area
 /// list to validate/migrate saved entries against (see its own doc).
 final savedRoomsProvider = FutureProvider<List<RoomConfig>>((ref) async {
-  await ref.watch(entitiesProvider.future);
+  await haReady(ref);
   final areas = await ref.watch(savedAreasProvider.future);
   return ref.watch(roomsStoreProvider).read(areas);
 });

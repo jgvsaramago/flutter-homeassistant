@@ -11,7 +11,7 @@ import 'todo_data.dart';
 /// shape and reasoning as `settingsHydrationProvider` (each read is
 /// independently try/caught, so one missing key never blocks the screen).
 final kioskHydrationProvider = FutureProvider<void>((ref) async {
-  await ref.watch(entitiesProvider.future);
+  await haReady(ref);
 
   try {
     final family = await ref.read(savedFamilyProvider.future);

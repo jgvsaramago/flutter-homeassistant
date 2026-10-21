@@ -10,7 +10,7 @@ final individualSensorsStoreProvider = Provider<IndividualSensorsStore>(
 /// Config persisted from a previous session, read once at startup — waits
 /// for the HA connection first, same idiom as `areaByEntityIdProvider`.
 final savedIndividualSensorsProvider = FutureProvider<List<IndividualSensorConfig>>((ref) async {
-  await ref.watch(entitiesProvider.future);
+  await haReady(ref);
   return ref.watch(individualSensorsStoreProvider).read();
 });
 

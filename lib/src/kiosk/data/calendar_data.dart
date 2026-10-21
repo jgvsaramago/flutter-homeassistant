@@ -95,7 +95,7 @@ final _calendarFetchProvider = FutureProvider.family<List<KEvent>, ({DateTime st
   ref.watch(calendarRefreshProvider);
   final sources = ref.watch(calendarSourcesProvider);
   if (sources.isEmpty) return const [];
-  await ref.watch(entitiesProvider.future);
+  await haReady(ref);
   final client = ref.read(haWebSocketClientProvider);
 
   final perSource = await Future.wait([
