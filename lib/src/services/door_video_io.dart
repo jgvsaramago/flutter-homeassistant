@@ -30,6 +30,10 @@ void registerDoorVideo() {
 ///
 ///  * A leaky queue after the decoder: if the display side ever stops taking
 ///    frames, old frames are dropped instead of backing up into the decoder.
+///    It must hold well over the ~100 ms the synced sink keeps in flight: at
+///    2 frames it leaked constantly, thinning the video to 1/2 or 1/3 of 25 fps
+///    and often staying there (measured: 1 s of room gives a steady 25 fps,
+///    even with the door-audio player starting and stopping alongside).
 ///  * `videoconvert` passes `avdec_h264`'s I420 straight through (I420 is in
 ///    the appsink's accepted list); it's only there to adapt if the stream
 ///    ever decodes to a format the sink doesn't take.
@@ -47,7 +51,7 @@ void registerDoorVideo() {
 String _pipeline(String rtspUrl) =>
     'rtspsrc location=$rtspUrl latency=100 protocols=tcp drop-on-latency=true '
     '! rtph264depay ! h264parse ! avdec_h264 '
-    '! queue leaky=downstream max-size-buffers=2 max-size-bytes=0 max-size-time=0 '
+    '! queue leaky=downstream max-size-buffers=0 max-size-bytes=0 max-size-time=1000000000 '
     '! videoconvert ! appsink name="sink"';
 
 /// Live door-camera view. Plays the 1080p H.264 main stream; while it connects

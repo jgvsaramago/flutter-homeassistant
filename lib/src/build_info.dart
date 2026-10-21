@@ -1,2 +1,2 @@
 /// Bumped with every build deployed to the screen; shown in Definições.
-const kBuildRevision = 37;
+const kBuildRevision = 38;
