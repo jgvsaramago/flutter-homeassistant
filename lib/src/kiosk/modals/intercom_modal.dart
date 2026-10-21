@@ -134,6 +134,10 @@ class IntercomModal extends ConsumerStatefulWidget {
   ConsumerState<IntercomModal> createState() => _IntercomModalState();
 }
 
+/// What fills the camera slot: the live door, the call history, or one
+/// call's picture from it.
+enum _Slot { live, list, detail }
+
 class _IntercomModalState extends ConsumerState<IntercomModal> {
   late IntercomMode _mode = widget.initialMode;
   late final bool _openedByRing = widget.initialMode == IntercomMode.ringing;
@@ -143,10 +147,22 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
   Timer? _tick;
   StreamSubscription<IntercomMode>? _calls;
 
-  /// The call history shown in the camera's slot instead of the live view,
-  /// and the call picked from it (its picture fills the slot).
-  bool _showHistory = false;
-  DoorbellCall? _picked;
+  _Slot _slot = _Slot.live;
+
+  /// The call whose picture is open (by id, so a new ring that shifts the
+  /// list doesn't change which one is shown).
+  String? _pickedId;
+
+  /// Missed calls that were new when the history was opened: tagged «NOVA»
+  /// for this visit only.
+  Set<String> _newIds = const {};
+
+  /// The list keeps its scroll position while a picture is open.
+  ScrollController _listScroll = ScrollController();
+  double _listOffset = 0;
+
+  /// Bumped on every slot change so the switcher animates it.
+  int _view = 0;
   final _pictures = <String, Future<Uint8List?>>{};
 
   /// A call's still, loaded once per modal (and again once it has one).
@@ -167,17 +183,17 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
     _calls = ref.read(intercomControllerProvider).callEvents?.listen(_onCallEvent);
   }
 
-  /// The doorbell, while this screen is open: a ring turns "just looking"
-  /// into "A tocar…"; when the ringing stops without being answered here
-  /// (answered on the indoor station, or the visitor gave up), a screen the
-  /// ring opened closes again and one opened by hand goes back to the view.
+  /// The doorbell, while this screen is open: a ring turns "just looking" —
+  /// or the history — into "A tocar…" on the live view; when the ringing
+  /// stops without being answered here (answered on the indoor station, or
+  /// the visitor gave up), a screen the ring opened closes again and one
+  /// opened by hand goes back to the view.
   void _onCallEvent(IntercomMode event) {
     if (!mounted) return;
     if (event == IntercomMode.ringing && _mode == IntercomMode.view) {
       setState(() {
         _mode = IntercomMode.ringing;
-        _showHistory = false;
-        _picked = null;
+        _showSlot(_Slot.live);
       });
     } else if (event == IntercomMode.view && _mode == IntercomMode.ringing) {
       if (_openedByRing) {
@@ -188,11 +204,25 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
     }
   }
 
+  void _showSlot(_Slot slot, {String? picked}) {
+    if (_slot == _Slot.list && slot != _Slot.list && _listScroll.hasClients) _listOffset = _listScroll.offset;
+    if (slot == _Slot.list && _slot != _Slot.list) {
+      // Back from a picture: same place in the list; from the camera: the top.
+      final old = _listScroll;
+      WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+      _listScroll = ScrollController(initialScrollOffset: _slot == _Slot.detail ? _listOffset : 0);
+    }
+    _slot = slot;
+    _pickedId = picked;
+    _view++;
+  }
+
   @override
   void dispose() {
     IntercomModal._open--;
     _tick?.cancel();
     _calls?.cancel();
+    _listScroll.dispose();
     super.dispose();
   }
 
@@ -211,7 +241,8 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
     final ringing = _mode == IntercomMode.ringing, inCall = _mode == IntercomMode.inCall, view = _mode == IntercomMode.view;
     final doorOpen = _doorLeft > 0;
     final history = ic.history;
-    final showHistory = view && _showHistory && history != null;
+    final slot = history == null ? _Slot.live : _slot;
+    final log = slot != _Slot.live;
     (String, Color) status(IntercomVideoStatus? video) => !ic.connected
         ? ('Sem ligação', KColors.muted)
         : ringing
@@ -224,7 +255,7 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
             IntercomVideoStatus.live || null => ('Ao vivo', KColors.red),
           };
 
-    Widget control(String label, String icon, Color bg, VoidCallback? onTap, {Color fg = Colors.white, bool pulse = false, int badge = 0}) {
+    Widget control(String label, String icon, Color bg, VoidCallback? onTap, {Color fg = Colors.white, bool pulse = false}) {
       return Opacity(
         opacity: onTap == null ? 0.4 : 1,
         child: KPress(
@@ -238,29 +269,7 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
                   width: 112,
                   height: 112,
                   decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Center(child: KIcon(icon, size: 44, color: fg, stroke: 1.9)),
-                      if (badge > 0)
-                        Positioned(
-                          top: -4,
-                          right: -4,
-                          child: Container(
-                            constraints: const BoxConstraints(minWidth: 40),
-                            height: 40,
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            decoration: BoxDecoration(
-                              color: KColors.red,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: KColors.dark, width: 3),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text('$badge', style: KText.s(18, weight: FontWeight.w700, color: Colors.white)),
-                          ),
-                        ),
-                    ],
-                  ),
+                  child: Center(child: KIcon(icon, size: 44, color: fg, stroke: 1.9)),
                 ),
               ),
               const SizedBox(height: 16),
@@ -276,80 +285,150 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
 
     void close() => Navigator.of(context).maybePop();
     final controls = <Widget>[
-      if (showHistory) ...[
+      if (log) ...[
         control(
           'Voltar',
           KIcons.arrowLeft,
           const Color(0x1FFFFFFF),
-          () => setState(() {
-            if (_picked != null) {
-              _picked = null;
-            } else {
-              _showHistory = false;
-            }
-          }),
+          () => setState(() => _showSlot(slot == _Slot.detail ? _Slot.list : _Slot.live)),
         ),
         control('Fechar', KIcons.close, const Color(0x1FFFFFFF), close),
       ] else ...[
-      if (view)
-        control(
-          'Falar',
-          KIcons.phone,
-          KColors.green,
-          ic.connected
-              ? () => _do(ic.answer, () {
-                  _mode = IntercomMode.inCall;
-                  _callSecs = 0;
-                })
-              : null,
-        ),
-      // Only closes this screen: the indoor station keeps ringing and can
-      // still answer.
-      if (ringing) control('Ignorar', KIcons.phoneDown, KColors.red, () => _do(ic.hangUp, () {}).then((_) => close())),
-      if (inCall)
-        control(
-          _muted ? 'Microfone desligado' : 'Silenciar',
-          KIcons.micOff,
-          _muted ? Colors.white : const Color(0x1FFFFFFF),
-          () => _do(() => ic.setMuted(!_muted), () => _muted = !_muted),
-          fg: _muted ? KColors.ink : Colors.white,
-        ),
-      control(
-        doorOpen ? 'Porta aberta' : 'Abrir porta',
-        doorOpen ? KIcons.lockOpen : KIcons.lock,
-        doorOpen ? KColors.green : const Color(0x1FFFFFFF),
-        ic.connected && !doorOpen ? () => _do(ic.unlock, () => _doorLeft = ic.unlockHold.inSeconds) : null,
-      ),
-      if (ringing)
-        control(
-          'Atender',
-          KIcons.phone,
-          KColors.green,
-          () => _do(ic.answer, () {
-            _mode = IntercomMode.inCall;
-            _callSecs = 0;
-          }),
-          pulse: true,
-        ),
-      if (inCall) control('Desligar', KIcons.phoneDown, KColors.red, () => _do(ic.hangUp, () => _mode = IntercomMode.view)),
-      if (view && history != null)
-        ValueListenableBuilder<int>(
-          valueListenable: history.unseenMissed,
-          builder: (context, missed, _) => control(
-            'Histórico',
-            KIcons.clock,
-            const Color(0x1FFFFFFF),
-            () => setState(() {
-              _showHistory = true;
-              _picked = null;
-              history.markSeen();
-            }),
-            badge: missed,
+        if (view)
+          control(
+            'Falar',
+            KIcons.phone,
+            KColors.green,
+            ic.connected
+                ? () => _do(ic.answer, () {
+                    _mode = IntercomMode.inCall;
+                    _callSecs = 0;
+                  })
+                : null,
           ),
+        // Only closes this screen: the indoor station keeps ringing and can
+        // still answer.
+        if (ringing) control('Ignorar', KIcons.bellOff, const Color(0x1FFFFFFF), () => _do(ic.hangUp, () {}).then((_) => close())),
+        if (inCall)
+          control(
+            _muted ? 'Microfone desligado' : 'Silenciar',
+            KIcons.micOff,
+            _muted ? Colors.white : const Color(0x1FFFFFFF),
+            () => _do(() => ic.setMuted(!_muted), () => _muted = !_muted),
+            fg: _muted ? KColors.ink : Colors.white,
+          ),
+        control(
+          doorOpen ? 'Porta aberta' : 'Abrir porta',
+          doorOpen ? KIcons.check : KIcons.lockOpen,
+          doorOpen ? KColors.green : const Color(0x1FFFFFFF),
+          ic.connected && !doorOpen ? () => _do(ic.unlock, () => _doorLeft = ic.unlockHold.inSeconds) : null,
         ),
-      if (view) control('Fechar', KIcons.close, const Color(0x1FFFFFFF), close),
+        if (ringing)
+          control(
+            'Atender',
+            KIcons.phone,
+            KColors.green,
+            () => _do(ic.answer, () {
+              _mode = IntercomMode.inCall;
+              _callSecs = 0;
+            }),
+            pulse: true,
+          ),
+        if (inCall) control('Desligar', KIcons.phoneDown, KColors.red, () => _do(ic.hangUp, () => _mode = IntercomMode.view)),
+        if (view) control('Fechar', KIcons.close, const Color(0x1FFFFFFF), close),
       ],
     ];
+
+    final Widget slotView = switch (slot) {
+      _Slot.list => IntercomHistoryList(
+        history: history!,
+        newIds: _newIds,
+        pictures: (c) => _picture(history, c),
+        controller: _listScroll,
+        onPick: (i) => setState(() => _showSlot(_Slot.detail, picked: history.calls.value[i].id)),
+        onRinging: () => setState(() {
+          _mode = IntercomMode.ringing;
+          _showSlot(_Slot.live);
+        }),
+      ),
+      _Slot.detail => ValueListenableBuilder<List<DoorbellCall>>(
+        valueListenable: history!.calls,
+        builder: (context, calls, _) {
+          final i = calls.indexWhere((c) => c.id == _pickedId);
+          if (i < 0) return const SizedBox.shrink();
+          return IntercomHistoryDetail(
+            calls: calls,
+            index: i,
+            picture: (c) => _picture(history, c),
+            onIndex: (to) => setState(() => _showSlot(_Slot.detail, picked: calls[to].id)),
+          );
+        },
+      ),
+      _Slot.live => Stack(
+        children: [
+          Positioned.fill(
+            child:
+                ic.videoView() ??
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const KIcon(KIcons.video, size: 64, color: Color(0xFF9AA0A6), stroke: 1.5),
+                    const SizedBox(height: 14),
+                    Text(
+                      ic.connected ? 'Vídeo indisponível' : 'O intercomunicador ainda não está ligado a este ecrã',
+                      style: KText.s(22, color: const Color(0xFF9AA0A6)),
+                    ),
+                  ],
+                ),
+          ),
+          if (ringing)
+            Positioned(
+              top: 20,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  height: 56,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  decoration: BoxDecoration(color: const Color(0xC717191C), borderRadius: BorderRadius.circular(28)),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'Alguém tocou à campainha',
+                    style: KText.s(22, weight: FontWeight.w600, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          if (doorOpen)
+            Positioned(
+              left: 24,
+              right: 24,
+              bottom: 24,
+              child: Container(
+                height: 80,
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                decoration: BoxDecoration(color: KColors.greenInk, borderRadius: BorderRadius.circular(24)),
+                child: Row(
+                  children: [
+                    const KIcon(KIcons.lockOpen, size: 32, color: Colors.white, stroke: 2),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        'Porta destrancada',
+                        style: KText.s(24, weight: FontWeight.w600, color: Colors.white),
+                      ),
+                    ),
+                    Text(
+                      'Volta a trancar em $_doorLeft s',
+                      style: KText.s(20, weight: FontWeight.w500, color: const Color(0xFFD3F0DA)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    };
 
     return KModal(
       width: 1040,
@@ -366,7 +445,18 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
                 width: 64,
                 height: 64,
                 decoration: const BoxDecoration(color: Color(0x1AFFFFFF), shape: BoxShape.circle),
-                child: Center(child: KIcon(ringing ? KIcons.bell : KIcons.gateHouse, size: 34, color: Colors.white, stroke: 2)),
+                child: Center(
+                  child: KIcon(
+                    ringing
+                        ? KIcons.bell
+                        : log
+                        ? KIcons.history
+                        : KIcons.gateHouse,
+                    size: log ? 32 : 34,
+                    color: Colors.white,
+                    stroke: 2,
+                  ),
+                ),
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -374,50 +464,69 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      showHistory ? 'Chamadas na porta' : (ringing ? 'Chamada na porta do prédio' : (inCall ? 'Em chamada' : 'Porta do prédio')),
+                      log ? 'Chamadas na porta' : (ringing ? 'Chamada na Porta do Prédio' : (inCall ? 'Em chamada' : 'Porta do Prédio')),
                       style: KText.modalTitle.copyWith(color: Colors.white),
                     ),
                     const SizedBox(height: 4),
-                    Text('Intercomunicador · Porta do prédio', style: KText.s(21, color: const Color(0xFFB9BEC4))),
+                    Text(
+                      log ? 'Intercomunicador · registadas por este ecrã' : 'Intercomunicador · Porta do Prédio',
+                      style: KText.s(21, color: const Color(0xFFB9BEC4)),
+                    ),
                   ],
                 ),
               ),
-              if (!showHistory)
-              ValueListenableBuilder<IntercomVideoStatus?>(
-                valueListenable: ic.videoStatus ?? const _NoVideoStatus(),
-                builder: (context, video, _) {
-                  final (label, bg) = status(video);
-                  return Container(
-                    height: 52,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(26)),
-                    child: Row(
-                      children: [
-                        KBlink(
-                          enabled: ic.connected,
-                          period: const Duration(milliseconds: 1200),
-                          child: Container(
-                            width: 12,
-                            height: 12,
-                            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+              if (!log)
+                ValueListenableBuilder<IntercomVideoStatus?>(
+                  valueListenable: ic.videoStatus ?? const _NoVideoStatus(),
+                  builder: (context, video, _) {
+                    final (label, bg) = status(video);
+                    return Container(
+                      height: 52,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(26)),
+                      child: Row(
+                        children: [
+                          KBlink(
+                            enabled: ic.connected,
+                            period: const Duration(milliseconds: 1200),
+                            child: Container(
+                              width: 12,
+                              height: 12,
+                              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          label,
-                          style: KText.s(20, weight: FontWeight.w700, color: Colors.white),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
+                          const SizedBox(width: 10),
+                          Text(
+                            label,
+                            style: KText.s(20, weight: FontWeight.w700, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              // The history sits in the header, not the call controls: it
+              // isn't part of answering, and it goes away while ringing or
+              // in a call.
+              if (view && !log && history != null) ...[
+                const SizedBox(width: 16),
+                ValueListenableBuilder<int>(
+                  valueListenable: history.unseenMissed,
+                  builder: (context, missed, _) => _HistoryButton(
+                    missed: missed,
+                    onTap: () => setState(() {
+                      _newIds = history.markSeen();
+                      _showSlot(_Slot.list);
+                    }),
+                  ),
+                ),
+              ],
               if (!ringing) ...[
                 const SizedBox(width: 16),
                 KCircleButton(
                   icon: KIcons.close,
                   size: 64,
-                  iconSize: 30,
+                  iconSize: 26,
                   stroke: 2.2,
                   bg: const Color(0x1AFFFFFF),
                   fg: Colors.white,
@@ -430,76 +539,23 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
           const SizedBox(height: 28),
           ClipRRect(
             borderRadius: BorderRadius.circular(32),
-            child: Container(
-              height: showHistory && _picked == null ? 880 : 544,
-              color: KColors.camera,
-              child: showHistory
-                  ? (_picked == null
-                        ? IntercomHistoryList(history: history, pictures: (c) => _picture(history, c), onPick: (c) => setState(() => _picked = c))
-                        : IntercomHistoryPicture(call: _picked!, picture: _picture(history, _picked!)))
-                  : Stack(
-                children: [
-                  Positioned.fill(
-                    child:
-                        ic.videoView() ??
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const KIcon(KIcons.video, size: 64, color: Color(0xFF9AA0A6), stroke: 1.5),
-                            const SizedBox(height: 14),
-                            Text(
-                              ic.connected ? 'Vídeo indisponível' : 'O intercomunicador ainda não está ligado a este ecrã',
-                              style: KText.s(22, color: const Color(0xFF9AA0A6)),
-                            ),
-                          ],
-                        ),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 450),
+              curve: const Cubic(0.2, 0.8, 0.2, 1),
+              height: log ? 880 : 544,
+              color: log ? const Color(0xFF1C1F23) : KColors.camera,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 320),
+                switchInCurve: const Cubic(0.2, 0.8, 0.2, 1),
+                transitionBuilder: (child, anim) => FadeTransition(
+                  opacity: anim,
+                  child: SlideTransition(
+                    position: Tween(begin: const Offset(0, 16 / 880), end: Offset.zero).animate(anim),
+                    child: child,
                   ),
-                  if (ringing)
-                    Positioned(
-                      top: 20,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: Container(
-                          height: 56,
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          decoration: BoxDecoration(color: const Color(0xC717191C), borderRadius: BorderRadius.circular(28)),
-                          alignment: Alignment.center,
-                          child: Text(
-                            'Alguém tocou à campainha',
-                            style: KText.s(22, weight: FontWeight.w600, color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (doorOpen)
-                    Positioned(
-                      left: 24,
-                      right: 24,
-                      bottom: 24,
-                      child: Container(
-                        height: 80,
-                        padding: const EdgeInsets.symmetric(horizontal: 28),
-                        decoration: BoxDecoration(color: KColors.greenInk, borderRadius: BorderRadius.circular(24)),
-                        child: Row(
-                          children: [
-                            const KIcon(KIcons.lockOpen, size: 32, color: Colors.white, stroke: 2),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Text(
-                                'Porta destrancada',
-                                style: KText.s(24, weight: FontWeight.w600, color: Colors.white),
-                              ),
-                            ),
-                            Text(
-                              'Volta a trancar em $_doorLeft s',
-                              style: KText.s(20, weight: FontWeight.w500, color: const Color(0xFFD3F0DA)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
+                ),
+                layoutBuilder: (current, previous) => Stack(children: [...previous, ?current]),
+                child: KeyedSubtree(key: ValueKey(_view), child: slotView),
               ),
             ),
           ),
@@ -510,7 +566,54 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
               for (final (i, c) in controls.indexed) ...[if (i > 0) const SizedBox(width: 56), c],
             ],
           ),
+          if (ringing) ...[
+            const SizedBox(height: 20),
+            Text(
+              'Ignorar só fecha este ecrã. O intercomunicador interior continua a tocar e pode ser atendido lá.',
+              textAlign: TextAlign.center,
+              style: KText.s(18, color: const Color(0xFF9AA0A6)),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// The header's "Histórico" pill, with the count of missed calls nobody
+/// has looked at yet.
+class _HistoryButton extends StatelessWidget {
+  const _HistoryButton({required this.missed, required this.onTap});
+
+  final int missed;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return KPress(
+      onTap: onTap,
+      child: Container(
+        height: 64,
+        padding: EdgeInsets.fromLTRB(20, 0, missed > 0 ? 16 : 26, 0),
+        decoration: BoxDecoration(color: const Color(0x1AFFFFFF), borderRadius: BorderRadius.circular(32)),
+        child: Row(
+          children: [
+            const KIcon(KIcons.history, size: 28, color: Colors.white, stroke: 2),
+            const SizedBox(width: 12),
+            Text('Histórico', style: KText.s(20, weight: FontWeight.w600, color: Colors.white)),
+            if (missed > 0) ...[
+              const SizedBox(width: 12),
+              Container(
+                constraints: const BoxConstraints(minWidth: 36),
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 9),
+                decoration: BoxDecoration(color: const Color(0xFFE5484D), borderRadius: BorderRadius.circular(18)),
+                alignment: Alignment.center,
+                child: Text('$missed', style: KText.s(19, weight: FontWeight.w700, color: Colors.white)),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

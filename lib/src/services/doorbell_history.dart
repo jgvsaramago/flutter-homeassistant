@@ -18,6 +18,8 @@ class DoorbellCall {
     this.answeredHere = false,
     this.doorOpened = false,
     this.hasPicture = false,
+    this.heardAt,
+    this.heardEndedAt,
   });
 
   factory DoorbellCall.fromJson(Map<String, dynamic> j) => DoorbellCall(
@@ -29,6 +31,8 @@ class DoorbellCall {
     answeredHere: j['answeredHere'] == true,
     doorOpened: j['doorOpened'] == true,
     hasPicture: j['hasPicture'] == true,
+    heardAt: j['heardAt'] == null ? null : DateTime.fromMillisecondsSinceEpoch(j['heardAt'] as int),
+    heardEndedAt: j['heardEndedAt'] == null ? null : DateTime.fromMillisecondsSinceEpoch(j['heardEndedAt'] as int),
   );
 
   final String id;
@@ -48,10 +52,20 @@ class DoorbellCall {
   bool doorOpened;
   bool hasPicture;
 
+  /// When "Atender" was tapped here, and when this screen stopped listening.
+  DateTime? heardAt;
+  DateTime? heardEndedAt;
+
+  bool get ringing => endedAt == null;
   bool get missed => endedAt != null && !answeredIndoor && !answeredHere;
 
-  /// How long the indoor station was in the call.
-  Duration? get talkTime => answeredAt != null && endedAt != null ? endedAt!.difference(answeredAt!) : null;
+  /// How long the call lasted where it was answered: on the indoor station
+  /// if it picked up, else how long this screen listened in.
+  Duration? get talkTime {
+    if (answeredIndoor) return answeredAt != null && endedAt != null ? endedAt!.difference(answeredAt!) : null;
+    final from = heardAt, to = heardEndedAt ?? endedAt;
+    return answeredHere && from != null && to != null && to.isAfter(from) ? to.difference(from) : null;
+  }
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -62,6 +76,8 @@ class DoorbellCall {
     'answeredHere': answeredHere,
     'doorOpened': doorOpened,
     'hasPicture': hasPicture,
+    if (heardAt != null) 'heardAt': heardAt!.millisecondsSinceEpoch,
+    if (heardEndedAt != null) 'heardEndedAt': heardEndedAt!.millisecondsSinceEpoch,
   };
 }
 
@@ -204,7 +220,19 @@ class DoorbellHistory {
     final c = _current;
     if (c == null || c.answeredHere) return;
     c.answeredHere = true;
+    c.heardAt = DateTime.now();
     _changed();
+  }
+
+  /// This screen stopped listening (hung up, or the screen closed).
+  void stoppedListening() {
+    for (final c in calls.value.take(3)) {
+      if (c.heardAt != null && c.heardEndedAt == null) {
+        c.heardEndedAt = DateTime.now();
+        _changed();
+        return;
+      }
+    }
   }
 
   /// The door was opened from this screen: counts for the ringing call or
@@ -220,9 +248,13 @@ class DoorbellHistory {
   }
 
   /// The history was looked at: missed calls so far no longer count as new.
-  void markSeen() {
+  /// Returns the ids of the ones that were new until now, so this visit can
+  /// still tag them.
+  Set<String> markSeen() {
+    final fresh = {for (final c in calls.value) if (c.missed && c.at.isAfter(_seenUntil)) c.id};
     _seenUntil = DateTime.now();
     _changed();
+    return fresh;
   }
 
   Future<Uint8List?> picture(DoorbellCall call) => call.hasPicture ? _store.loadPicture(call.id) : Future.value();

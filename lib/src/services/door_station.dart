@@ -95,7 +95,10 @@ class DoorStationIntercom implements IntercomController {
   DoorStationIntercom(this.station, {required this.doorbell})
     : _doorAudio = DoorAudio(station.rtspUrl),
       history = DoorbellHistory(station: station, statuses: doorbell.calls) {
-    _audio.addListener(() => _doorAudio.setPlaying(_audio.value));
+    _audio.addListener(() {
+      _doorAudio.setPlaying(_audio.value);
+      if (!_audio.value) history.stoppedListening();
+    });
   }
 
   final DoorStation station;

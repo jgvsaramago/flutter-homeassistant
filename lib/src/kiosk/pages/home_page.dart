@@ -115,7 +115,7 @@ class _HouseSection extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        GateCameraTile(height: 220, onTap: () => showIntercom(context)),
+                        GateCameraTile(height: 220, compact: true, onTap: () => showIntercom(context)),
                         const SizedBox(height: 14),
                         if (locks.isEmpty) Text(locksSetupHint, style: KText.s(15, color: KColors.muted)),
                         for (final l in locks.take(3))

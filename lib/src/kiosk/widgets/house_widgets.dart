@@ -171,10 +171,13 @@ class WaterHeaterCard extends StatelessWidget {
 /// fetch retries after a minute; until the first still arrives (or with no
 /// door station at all) it shows the plain icon and label.
 class GateCameraTile extends ConsumerStatefulWidget {
-  const GateCameraTile({super.key, required this.height, required this.onTap});
+  const GateCameraTile({super.key, required this.height, required this.onTap, this.compact = false});
 
   final double height;
   final VoidCallback onTap;
+
+  /// The narrow Início tile (352 wide) rather than the roomier Casa one.
+  final bool compact;
 
   @override
   ConsumerState<GateCameraTile> createState() => _GateCameraTileState();
@@ -216,6 +219,23 @@ class _GateCameraTileState extends ConsumerState<GateCameraTile> {
 
   Widget _tile(int missed) {
     final still = _still;
+    final compact = widget.compact;
+    final missedLabel = missed == 1 ? '1 chamada não atendida' : '$missed chamadas não atendidas';
+    Widget pill(Widget icon, String label, Color fg) => Container(
+      height: compact ? 44 : 48,
+      padding: EdgeInsets.fromLTRB(compact ? 12 : 14, 0, compact ? 16 : 18, 0),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(compact ? 22 : 24)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          icon,
+          const SizedBox(width: 8),
+          Text(label, style: KText.s(compact ? 17 : 18, weight: FontWeight.w700, color: fg)),
+        ],
+      ),
+    );
+    final talk = pill(const KIcon(KIcons.phone, size: 20), 'Ver e falar', KColors.ink);
+    final missedPill = pill(const KIcon(KIcons.phoneMissed, size: 18, color: KColors.red, stroke: 2.2), missedLabel, KColors.red);
     return KPress(
       onTap: widget.onTap,
       child: Container(
@@ -224,7 +244,7 @@ class _GateCameraTileState extends ConsumerState<GateCameraTile> {
         decoration: BoxDecoration(color: KColors.camera, borderRadius: BorderRadius.circular(20)),
         child: Stack(
           children: [
-            if (still != null) ...[
+            if (still != null)
               Positioned.fill(
                 child: LayoutBuilder(
                   // Decode at the tile's size, not the camera's 1080p.
@@ -235,63 +255,47 @@ class _GateCameraTileState extends ConsumerState<GateCameraTile> {
                     cacheWidth: (c.maxWidth * MediaQuery.devicePixelRatioOf(context)).round(),
                   ),
                 ),
-              ),
-              if (missed == 0)
-                Positioned(
-                  left: 12,
-                  top: 12,
-                  child: Container(
-                    height: 36,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(color: const Color(0xB3000000), borderRadius: BorderRadius.circular(18)),
-                    alignment: Alignment.center,
-                    child: Text('Porta do prédio', style: KText.s(16, weight: FontWeight.w600, color: Colors.white)),
-                  ),
-                ),
-            ] else
+              )
+            else
               Center(
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const KIcon(KIcons.video, size: 26, color: KColors.cameraText, stroke: 1.8),
-                    const SizedBox(width: 10),
-                    Text('Porta do prédio', style: KText.s(18, color: KColors.cameraText)),
+                    if (!compact) ...[const SizedBox(width: 10), Text('Porta do Prédio', style: KText.s(18, color: KColors.cameraText))],
                   ],
                 ),
               ),
-            // Missed rings take the label's place: the Início tile is too
-            // narrow for both.
-            if (missed > 0)
-              Positioned(
-                left: 12,
-                top: 12,
-                child: Container(
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(color: KColors.red, borderRadius: BorderRadius.circular(18)),
-                  alignment: Alignment.center,
-                  child: Text(
-                    missed == 1 ? '1 chamada não atendida' : '$missed chamadas não atendidas',
-                    style: KText.s(16, weight: FontWeight.w600, color: Colors.white),
+            // Início: the tile is narrow, so "Ver e falar" sits top-right and
+            // missed calls take the "Porta do Prédio" label's place at the
+            // bottom. Casa: room for both along the bottom.
+            if (compact) ...[
+              Positioned(right: 12, top: 12, child: talk),
+              if (missed > 0)
+                Positioned(left: 12, bottom: 12, child: missedPill)
+              else
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    height: 64,
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                    alignment: Alignment.bottomLeft,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0x002C3036), Color(0xB317191C)],
+                      ),
+                    ),
+                    child: Text('Porta do Prédio', style: KText.s(17, weight: FontWeight.w600, color: Colors.white)),
                   ),
                 ),
-              ),
-            Positioned(
-              right: 12,
-              bottom: 12,
-              child: Container(
-                height: 44,
-                padding: const EdgeInsets.fromLTRB(12, 0, 16, 0),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
-                child: Row(
-                  children: [
-                    const KIcon(KIcons.phone, size: 22),
-                    const SizedBox(width: 8),
-                    Text('Ver e falar', style: KText.s(17, weight: FontWeight.w700)),
-                  ],
-                ),
-              ),
-            ),
+            ] else ...[
+              Positioned(right: 12, bottom: 12, child: talk),
+              if (missed > 0) Positioned(left: 12, bottom: 12, child: missedPill),
+            ],
           ],
         ),
       ),

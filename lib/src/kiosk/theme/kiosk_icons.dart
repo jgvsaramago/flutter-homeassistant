@@ -121,6 +121,11 @@ abstract final class KIcons {
   static const home2 = '<path d="M4 11 L12 4 L20 11 V20 H4 Z"/><path d="M10 20 V14 H14 V20"/>';
   static const arrowRight = '<path d="M5 12h14M13 6l6 6-6 6"/>';
   static const arrowLeft = '<path d="M19 12H5M11 6l-6 6 6 6"/>';
+  // Intercom call history
+  static const history = '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>';
+  static const bellOff = '<path d="M8.5 4.6A6 6 0 0 1 18 11v4M6 11v5l-1.5 2h11M10 21h4M3 3l18 18"/>';
+  static const phoneMissed = '<path d="M5 4h3l2 5-2.5 1.5a11 11 0 0 0 6 6L15 14l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2zM15 3l6 6M21 3l-6 6"/>';
+  static const cameraOff = '<path d="M3 3l18 18M10.5 6H14l1.5 2H19a2 2 0 0 1 2 2v7.5M17.5 19H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h1"/><path d="M9.5 11.2A3 3 0 0 0 13 15.5"/>';
   static const arrowDown = '<path d="M12 5v14M6 13l6 6 6-6"/>';
   static const arrowUp = '<path d="M12 19V5M6 11l6-6 6 6"/>';
   static const oven = '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 8h18M7 5.5h.01M11 5.5h.01"/><rect x="7" y="12" width="10" height="6" rx="1"/>';
