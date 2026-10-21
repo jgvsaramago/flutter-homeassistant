@@ -81,9 +81,12 @@ DoorStation createDoorStation(DoorStationConfig config) => makeDoorStation(confi
 /// speakers) and door-open are wired; talking back is not — the Pi has no
 /// microphone yet.
 class DoorStationIntercom implements IntercomController {
-  DoorStationIntercom(this.station);
+  DoorStationIntercom(this.station) : _doorAudio = DoorAudio(station.rtspUrlMain) {
+    _audio.addListener(() => _doorAudio.setPlaying(_audio.value));
+  }
 
   final DoorStation station;
+  final DoorAudio _doorAudio;
 
   @override
   bool get connected => true;

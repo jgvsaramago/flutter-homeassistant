@@ -13,3 +13,12 @@ Widget doorLiveVideo(
   required ValueNotifier<bool> audio,
   required Widget fallback,
 }) => fallback;
+
+/// No door sound off the Pi.
+class DoorAudio {
+  DoorAudio(this.rtspUrl);
+
+  final String rtspUrl;
+
+  void setPlaying(bool on) {}
+}
