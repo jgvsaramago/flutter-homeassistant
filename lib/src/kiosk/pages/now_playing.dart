@@ -98,8 +98,12 @@ class _NowPlayingViewState extends ConsumerState<NowPlayingView> with _Ticking, 
     // Bring the page back first and let it paint before moving: redrawing
     // the whole page in the slide's first frame made the close stutter.
     widget.onCovered?.call(false);
-    await WidgetsBinding.instance.endOfFrame;
-    await WidgetsBinding.instance.endOfFrame;
+    final binding = WidgetsBinding.instance;
+    await binding.endOfFrame;
+    // Awaited from that frame's own post-frame phase, endOfFrame wouldn't
+    // schedule another and waited for the next 1 s tick; ask for one.
+    binding.scheduleFrame();
+    await binding.endOfFrame;
     if (!mounted) return;
     await _enter.animateBack(0, duration: const Duration(milliseconds: 260), curve: Curves.easeIn);
     widget.onClose();
