@@ -359,12 +359,12 @@ final settingsHydrationProvider = FutureProvider<void>((ref) async {
     // Proceed with no calendars configured — the card/sheet show an empty state.
   }
   try {
-    final savedEvCars = await ref.read(savedEvCarsConfigProvider.future);
-    if (!savedEvCars.isEmpty) {
-      ref.read(evCarsConfigProvider.notifier).state = savedEvCars;
+    final savedCars = await ref.read(savedCarsConfigProvider.future);
+    if (!savedCars.isEmpty) {
+      ref.read(carsConfigProvider.notifier).state = savedCars;
     }
   } catch (_) {
-    // Proceed with the EV cards' own default names and "--" readings.
+    // Proceed with no cars.
   }
   try {
     final savedIndividualSensors = await ref.read(savedIndividualSensorsProvider.future);

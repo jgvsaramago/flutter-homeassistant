@@ -169,6 +169,107 @@ class _KAcRowState extends ConsumerState<KAcRow> with _DebouncedTarget {
   }
 }
 
+/// A room's AC in its modal (the design's "Modal de uma divisão"): the
+/// power badge, "Ar condicionado" with its mode and the room's
+/// temperature, the −/+ target — or "Ligar" while off — and the modes.
+class KRoomAcBlock extends ConsumerStatefulWidget {
+  const KRoomAcBlock({super.key, required this.unit});
+
+  final AcUnit unit;
+
+  @override
+  ConsumerState<KRoomAcBlock> createState() => _KRoomAcBlockState();
+}
+
+class _KRoomAcBlockState extends ConsumerState<KRoomAcBlock> with _DebouncedTarget {
+  @override
+  void didUpdateWidget(KRoomAcBlock old) {
+    super.didUpdateWidget(old);
+    settleIfEchoed(widget.unit.target);
+  }
+
+  void _run(Future<void> Function() f) => f().catchError(KToast.error);
+
+  @override
+  Widget build(BuildContext context) {
+    final u = widget.unit;
+    final actions = ref.read(acActionsProvider);
+    final target = pending ?? u.target;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
+      decoration: BoxDecoration(color: KColors.sub, borderRadius: BorderRadius.circular(28)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              KCircleButton(
+                icon: u.on ? acModeIcon(u.mode) : KIcons.power,
+                size: 56,
+                iconSize: 28,
+                bg: u.on ? u.mode.tint : KColors.chipAlt,
+                fg: u.on ? u.mode.color : KColors.muted,
+                border: null,
+                onTap: () => _run(() => actions.power(u, !u.on)),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Ar condicionado', style: KText.s(24, weight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    Text('${u.on ? u.mode.label : 'Desligado'} · agora ${ptDeg(u.current)}', style: KText.s(17, color: KColors.muted)),
+                  ],
+                ),
+              ),
+              if (u.on) ...[
+                KStepButton(plus: false, size: 64, onTap: () => bump(u.target ?? 21, -u.step, u.min, u.max, (t) => actions.target(u, t))),
+                SizedBox(
+                  width: 96,
+                  child: Text(
+                    ptDeg(target),
+                    textAlign: TextAlign.center,
+                    style: KText.d(34, color: u.mode.color),
+                  ),
+                ),
+                KStepButton(plus: true, size: 64, onTap: () => bump(u.target ?? 21, u.step, u.min, u.max, (t) => actions.target(u, t))),
+              ] else
+                KButton.primary(
+                  label: 'Ligar',
+                  height: 56,
+                  fontSize: 20,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  onTap: () => _run(() => actions.power(u, true)),
+                ),
+            ],
+          ),
+          if (u.on && u.modes.length > 1) ...[
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                for (final m in u.modes) ...[
+                  KChip(
+                    label: m.label,
+                    on: u.mode == m,
+                    height: 56,
+                    fontSize: 20,
+                    padX: 22,
+                    offBg: Colors.white,
+                    onBg: m.color,
+                    onTap: u.mode == m ? null : () => _run(() => actions.mode(u, m)),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// Início's "Ar Condicionado" tile: one thermostat for the whole group —
 /// the ring shows the average target across the units that are on, the
 /// centre button switches them all, −/+ shifts every running unit.

@@ -1,22 +1,34 @@
 import '../ha_client/ha_websocket_client.dart';
 
-/// One EV card's entity mapping — a display name plus the HA entities that
-/// make it live. All entity fields are optional; an unset one just leaves
-/// that reading out of the card.
-class EvCarConfig {
-  const EvCarConfig({
+enum CarKind { electric, fuel }
+
+/// One car's entity mapping — a display name, whether it's electric or
+/// runs on fuel, and the HA entities that make its card live. All entity
+/// fields are optional; an unset one just leaves that reading out.
+class CarConfig {
+  const CarConfig({
     required this.name,
+    this.kind = CarKind.electric,
+    this.homeEntityId,
     this.batterySocEntityId,
     this.rangeEntityId,
     this.chargingEntityId,
     this.plugConnectedEntityId,
     this.chargeLimitEntityId,
     this.chargePowerEntityId,
+    this.fuelEntityId,
+    this.lockEntityId,
   });
 
   final String name;
+  final CarKind kind;
 
-  /// Battery state of charge, 0-100.
+  /// `device_tracker.*`, `person.*` or `binary_sensor.*` saying the car is
+  /// at home. The screen shows the first two cars at home; unset means
+  /// always shown.
+  final String? homeEntityId;
+
+  /// Battery state of charge, 0-100 (electric).
   final String? batterySocEntityId;
 
   /// Remaining range, in whatever unit the sensor reports.
@@ -37,66 +49,87 @@ class EvCarConfig {
   /// Charging power (W or kW, auto-detected) — shown while charging.
   final String? chargePowerEntityId;
 
-  bool isUnconfigured(String fallbackName) =>
-      name == fallbackName &&
-      batterySocEntityId == null &&
-      rangeEntityId == null &&
-      chargingEntityId == null &&
-      plugConnectedEntityId == null &&
-      chargeLimitEntityId == null &&
-      chargePowerEntityId == null;
+  /// Fuel left, % of the tank (fuel).
+  final String? fuelEntityId;
 
-  factory EvCarConfig.fromJson(Map<String, dynamic> json, {required String fallbackName}) => EvCarConfig(
-    // A saved car without a name is named after its battery entity (see
-    // the kiosk's evCarsProvider), not one of the built-in defaults.
-    name: json['name'] as String? ?? '',
-    batterySocEntityId: json['batterySocEntityId'] as String?,
-    rangeEntityId: json['rangeEntityId'] as String?,
-    chargingEntityId: json['chargingEntityId'] as String?,
-    plugConnectedEntityId: json['plugConnectedEntityId'] as String?,
-    chargeLimitEntityId: json['chargeLimitEntityId'] as String?,
-    chargePowerEntityId: json['chargePowerEntityId'] as String?,
-  );
-}
+  /// `lock.*` or `binary_sensor.*` (on = unlocked) for "Trancado" (fuel).
+  final String? lockEntityId;
 
-/// The kiosk's two EV cards, left and right — a fixed pair, as configured
-/// in the HA sidebar panel.
-class EvCarsConfig {
-  const EvCarsConfig({required this.left, required this.right});
+  List<String?> get entityIds => [
+    homeEntityId,
+    batterySocEntityId,
+    rangeEntityId,
+    chargingEntityId,
+    plugConnectedEntityId,
+    chargeLimitEntityId,
+    chargePowerEntityId,
+    fuelEntityId,
+    lockEntityId,
+  ];
 
-  final EvCarConfig left;
-  final EvCarConfig right;
+  bool get isBlank => name.trim().isEmpty && entityIds.every((id) => id == null);
 
-  /// True when nothing has been saved yet, so hydration doesn't clobber a
-  /// demo-mode override with blank defaults.
-  bool get isEmpty => left.isUnconfigured(defaults.left.name) && right.isUnconfigured(defaults.right.name);
+  factory CarConfig.fromJson(Map<String, dynamic> json) {
+    String? id(String k) {
+      final v = json[k];
+      return v is String && v.trim().isNotEmpty ? v.trim() : null;
+    }
 
-  static const defaults = EvCarsConfig(
-    left: EvCarConfig(name: 'Renault Mégane E-Tech'),
-    right: EvCarConfig(name: 'Tesla Model Y'),
-  );
-
-  factory EvCarsConfig.fromJson(Map<String, dynamic> json) {
-    final leftJson = (json['left'] as Map?)?.cast<String, dynamic>();
-    final rightJson = (json['right'] as Map?)?.cast<String, dynamic>();
-    return EvCarsConfig(
-      left: leftJson == null ? defaults.left : EvCarConfig.fromJson(leftJson, fallbackName: defaults.left.name),
-      right: rightJson == null ? defaults.right : EvCarConfig.fromJson(rightJson, fallbackName: defaults.right.name),
+    return CarConfig(
+      // A car without a name is named after its battery entity (see the
+      // kiosk's carsProvider).
+      name: json['name'] as String? ?? '',
+      kind: json['kind'] == 'fuel' ? CarKind.fuel : CarKind.electric,
+      homeEntityId: id('homeEntityId'),
+      batterySocEntityId: id('batterySocEntityId'),
+      rangeEntityId: id('rangeEntityId'),
+      chargingEntityId: id('chargingEntityId'),
+      plugConnectedEntityId: id('plugConnectedEntityId'),
+      chargeLimitEntityId: id('chargeLimitEntityId'),
+      chargePowerEntityId: id('chargePowerEntityId'),
+      fuelEntityId: id('fuelEntityId'),
+      lockEntityId: id('lockEntityId'),
     );
   }
 }
 
-/// Reads [EvCarsConfig] as saved by the HA sidebar panel.
-class EvCarsStore {
-  EvCarsStore(this._client);
+/// The house's cars, in the order chosen in the HA sidebar panel.
+class CarsConfig {
+  const CarsConfig(this.cars);
+
+  final List<CarConfig> cars;
+
+  /// True when nothing has been saved yet, so hydration doesn't clobber a
+  /// demo-mode override.
+  bool get isEmpty => cars.isEmpty;
+
+  static const empty = CarsConfig([]);
+
+  /// A list, or — saved before cars became a list — the old fixed
+  /// `{left, right}` pair of electric cars.
+  factory CarsConfig.fromJson(Object? raw) {
+    if (raw is List) {
+      return CarsConfig([for (final c in raw.whereType<Map>()) CarConfig.fromJson(c.cast<String, dynamic>())]);
+    }
+    if (raw is Map) {
+      return CarsConfig(
+        [
+          for (final slot in ['left', 'right'])
+            if (raw[slot] case final Map c) CarConfig.fromJson(c.cast<String, dynamic>()),
+        ].where((c) => !c.isBlank).toList(),
+      );
+    }
+    return empty;
+  }
+}
+
+/// Reads [CarsConfig] as saved by the HA sidebar panel.
+class CarsStore {
+  CarsStore(this._client);
 
   final HaWebSocketClient _client;
 
   static const _key = 'ev_cars';
 
-  Future<EvCarsConfig> read() async {
-    final raw = await _client.getSettings(_key);
-    if (raw is! Map) return EvCarsConfig.defaults;
-    return EvCarsConfig.fromJson(raw.cast<String, dynamic>());
-  }
+  Future<CarsConfig> read() async => CarsConfig.fromJson(await _client.getSettings(_key));
 }

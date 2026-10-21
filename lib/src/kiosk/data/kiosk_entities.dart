@@ -8,6 +8,7 @@ import '../../providers/individual_sensors_provider.dart';
 import '../../providers/rooms_provider.dart';
 import '../../providers/temperature_entities_provider.dart';
 import '../../utils/optimistic.dart';
+import 'casa_data.dart';
 import 'house_config.dart';
 
 /// Domains the kiosk screens read wholesale. Plain `sensor.*` is not one of
@@ -39,9 +40,8 @@ final _configuredIds = Provider<Set<String>>((ref) {
   for (final s in ref.watch(individualSensorsProvider)) {
     ids.addAll([s.powerEntityId, s.temperatureEntityId]);
   }
-  final ev = ref.watch(evCarsConfigProvider);
-  for (final c in [ev.left, ev.right]) {
-    ids.addAll([c.batterySocEntityId, c.rangeEntityId, c.chargingEntityId, c.plugConnectedEntityId, c.chargeLimitEntityId, c.chargePowerEntityId]);
+  for (final c in ref.watch(carsConfigProvider).cars) {
+    ids.addAll(c.entityIds);
   }
   final t = ref.watch(temperatureEntityConfigProvider);
   ids.addAll([t.exteriorTempEntityId, t.weatherStateEntityId]);
@@ -51,6 +51,7 @@ final _configuredIds = Provider<Set<String>>((ref) {
   for (final r in ref.watch(roomsProvider)) {
     ids.addAll([r.secondaryEntityId, r.lightEntityId, r.windowEntityId, r.climateEntityId, r.coverEntityId]);
   }
+  ids.addAll(ref.watch(weatherStationIdsProvider));
   final house = ref.watch(houseConfigProvider);
   ids.addAll([house.alarmEntityId, house.waterHeaterEntityId, house.waterHeaterPowerEntityId, house.waterHeaterTempEntityId]);
   for (final e in [...house.scenes, ...house.locks, ...house.cameras]) {
@@ -79,11 +80,7 @@ bool _relevant(HaEntity e, Set<String> configured) {
 class KioskEntitiesNotifier extends Notifier<Map<String, HaEntity>> {
   Map<String, HaEntity> _real = const {};
 
-  late final _optimistic = OptimisticLayer<HaEntity>(
-    real: (id) => _real[id],
-    onChanged: _publish,
-    notConfirmed: 'O Home Assistant não confirmou a alteração',
-  );
+  late final _optimistic = OptimisticLayer<HaEntity>(real: (id) => _real[id], onChanged: _publish, notConfirmed: 'O Home Assistant não confirmou a alteração');
 
   @override
   Map<String, HaEntity> build() {

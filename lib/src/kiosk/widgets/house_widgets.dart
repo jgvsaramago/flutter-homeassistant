@@ -176,7 +176,7 @@ class GateCameraTile extends ConsumerStatefulWidget {
   final double height;
   final VoidCallback onTap;
 
-  /// The narrow Início tile (352 wide) rather than the roomier Casa one.
+  /// The narrow Início tile (352 wide) rather than Casa's camera-grid one.
   final bool compact;
 
   @override
@@ -230,7 +230,10 @@ class _GateCameraTileState extends ConsumerState<GateCameraTile> {
         children: [
           icon,
           const SizedBox(width: 8),
-          Text(label, style: KText.s(compact ? 17 : 18, weight: FontWeight.w700, color: fg)),
+          Text(
+            label,
+            style: KText.s(compact ? 17 : 18, weight: FontWeight.w700, color: fg),
+          ),
         ],
       ),
     );
@@ -241,34 +244,23 @@ class _GateCameraTileState extends ConsumerState<GateCameraTile> {
       child: Container(
         height: widget.height,
         clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(color: KColors.camera, borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(color: KColors.camera, borderRadius: BorderRadius.circular(compact ? 20 : 22)),
         child: Stack(
           children: [
             if (still != null)
               Positioned.fill(
                 child: LayoutBuilder(
                   // Decode at the tile's size, not the camera's 1080p.
-                  builder: (context, c) => Image.memory(
-                    still,
-                    fit: BoxFit.cover,
-                    gaplessPlayback: true,
-                    cacheWidth: (c.maxWidth * MediaQuery.devicePixelRatioOf(context)).round(),
-                  ),
+                  builder: (context, c) =>
+                      Image.memory(still, fit: BoxFit.cover, gaplessPlayback: true, cacheWidth: (c.maxWidth * MediaQuery.devicePixelRatioOf(context)).round()),
                 ),
               )
             else
-              Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const KIcon(KIcons.video, size: 26, color: KColors.cameraText, stroke: 1.8),
-                    if (!compact) ...[const SizedBox(width: 10), Text('Porta do Prédio', style: KText.s(18, color: KColors.cameraText))],
-                  ],
-                ),
-              ),
+              const Center(child: KIcon(KIcons.video, size: 26, color: KColors.cameraText, stroke: 1.8)),
             // Início: the tile is narrow, so "Ver e falar" sits top-right and
             // missed calls take the "Porta do Prédio" label's place at the
-            // bottom. Casa: room for both along the bottom.
+            // bottom. Casa: one of the camera grid's tiles, ringed in the
+            // accent, with an "Intercomunicador" tag (or the missed calls).
             if (compact) ...[
               Positioned(right: 12, top: 12, child: talk),
               if (missed > 0)
@@ -283,24 +275,120 @@ class _GateCameraTileState extends ConsumerState<GateCameraTile> {
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
                     alignment: Alignment.bottomLeft,
                     decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0x002C3036), Color(0xB317191C)],
-                      ),
+                      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x002C3036), Color(0xB317191C)]),
                     ),
-                    child: Text('Porta do Prédio', style: KText.s(17, weight: FontWeight.w600, color: Colors.white)),
+                    child: Text(
+                      'Porta do Prédio',
+                      style: KText.s(17, weight: FontWeight.w600, color: Colors.white),
+                    ),
                   ),
                 ),
             ] else ...[
-              Positioned(right: 12, bottom: 12, child: talk),
-              if (missed > 0) Positioned(left: 12, bottom: 12, child: missedPill),
+              const CameraCaption(label: 'Porta do Prédio', icon: KIcons.phone),
+              const Positioned(left: 10, top: 10, child: LiveBadge()),
+              Positioned(
+                right: 10,
+                top: 10,
+                child: Container(
+                  height: 36,
+                  padding: const EdgeInsets.fromLTRB(10, 0, 14, 0),
+                  decoration: BoxDecoration(color: missed > 0 ? Colors.white : KColors.accent, borderRadius: BorderRadius.circular(18)),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      KIcon(missed > 0 ? KIcons.phoneMissed : KIcons.phone, size: 16, color: missed > 0 ? KColors.red : Colors.white, stroke: 2.2),
+                      const SizedBox(width: 6),
+                      Text(
+                        missed > 0 ? (missed == 1 ? '1 não atendida' : '$missed não atendidas') : 'Intercomunicador',
+                        style: KText.s(15, weight: FontWeight.w700, color: missed > 0 ? KColors.red : Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: KColors.accent, width: 4),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ],
         ),
       ),
     );
   }
+}
+
+/// The red "AO VIVO" badge on a camera tile.
+class LiveBadge extends StatelessWidget {
+  const LiveBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 28,
+    padding: const EdgeInsets.symmetric(horizontal: 10),
+    decoration: BoxDecoration(color: KColors.red, borderRadius: BorderRadius.circular(14)),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        KBlink(
+          period: const Duration(milliseconds: 1200),
+          child: Container(
+            width: 7,
+            height: 7,
+            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          'AO VIVO',
+          style: KText.s(13, weight: FontWeight.w700, color: Colors.white),
+        ),
+      ],
+    ),
+  );
+}
+
+/// A camera tile's name, bottom-left over a dark fade.
+class CameraCaption extends StatelessWidget {
+  const CameraCaption({super.key, required this.label, this.icon, this.size = 17});
+
+  final String label;
+  final String? icon;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Positioned(
+    left: 0,
+    right: 0,
+    bottom: 0,
+    child: Container(
+      height: 56,
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+      alignment: Alignment.bottomLeft,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x0017191C), Color(0xBF17191C)]),
+      ),
+      child: Row(
+        children: [
+          if (icon != null) ...[KIcon(icon!, size: size - 1, color: Colors.white, stroke: 2.2), const SizedBox(width: 8)],
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: KText.s(size, weight: FontWeight.w600, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// A Home Assistant camera as a still that refreshes every few seconds —
@@ -312,11 +400,34 @@ class _GateCameraTileState extends ConsumerState<GateCameraTile> {
 /// frame every 5 s for a 150 px tile; each superseded frame is evicted, or
 /// the image cache would keep every one of them (each has a new URL).
 class HaCameraTile extends ConsumerStatefulWidget {
-  const HaCameraTile({super.key, required this.entityId, required this.label, required this.height});
+  const HaCameraTile({
+    super.key,
+    required this.entityId,
+    required this.label,
+    required this.height,
+    this.live = false,
+    this.every = const Duration(seconds: 5),
+    this.radius = 22,
+    this.labelSize = 17,
+    this.ring,
+  });
 
   final String entityId;
-  final String label;
+
+  /// The name along the bottom; none for the camera modal's big view.
+  final String? label;
   final double height;
+
+  /// Shows the "AO VIVO" badge.
+  final bool live;
+
+  /// How often the still refreshes.
+  final Duration every;
+  final double radius;
+  final double labelSize;
+
+  /// A selection ring (the camera modal's strip).
+  final Color? ring;
 
   @override
   ConsumerState<HaCameraTile> createState() => _HaCameraTileState();
@@ -330,7 +441,7 @@ class _HaCameraTileState extends ConsumerState<HaCameraTile> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 5), (_) {
+    _timer = Timer.periodic(widget.every, (_) {
       if (mounted && ScreenPowerController.instance.isOn.value) setState(() => _tick++);
     });
   }
@@ -362,7 +473,13 @@ class _HaCameraTileState extends ConsumerState<HaCameraTile> {
     return Container(
       height: widget.height,
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(color: KColors.camera, borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(color: KColors.camera, borderRadius: BorderRadius.circular(widget.radius)),
+      foregroundDecoration: widget.ring == null
+          ? null
+          : BoxDecoration(
+              borderRadius: BorderRadius.circular(widget.radius),
+              border: Border.all(color: widget.ring!, width: 3),
+            ),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -382,14 +499,8 @@ class _HaCameraTileState extends ConsumerState<HaCameraTile> {
             Center(
               child: Text('Câmara indisponível', style: KText.s(16, color: KColors.cameraText)),
             ),
-          Positioned(
-            left: 12,
-            bottom: 10,
-            child: Text(
-              widget.label,
-              style: KText.s(15, weight: FontWeight.w600, color: Colors.white),
-            ),
-          ),
+          if (widget.label != null) CameraCaption(label: widget.label!, size: widget.labelSize),
+          if (widget.live) const Positioned(left: 10, top: 10, child: LiveBadge()),
         ],
       ),
     );

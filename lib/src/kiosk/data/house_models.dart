@@ -16,7 +16,6 @@ import '../theme/kiosk_icons.dart';
 import '../theme/kiosk_tokens.dart';
 import 'house_config.dart';
 import 'kiosk_entities.dart';
-import 'pt_dates.dart';
 
 /// Calls a service on one entity, showing [expect] meanwhile (see
 /// [KioskEntitiesNotifier.run]).
@@ -30,7 +29,11 @@ Future<void> _call(
   Duration timeout = OptimisticLayer.defaultTimeout,
 }) => ref
     .read(kioskEntitiesProvider.notifier)
-    .run(expect, () => ref.read(haWebSocketClientProvider).callService(domain, service, target: {'entity_id': entityId}, serviceData: data), timeout: timeout);
+    .run(
+      expect,
+      () => ref.read(haWebSocketClientProvider).callService(domain, service, target: {'entity_id': entityId}, serviceData: data),
+      timeout: timeout,
+    );
 
 /// The change "[id] will be in [state] / have [attrs]", confirmed once HA
 /// reports exactly that (or by [confirmed], when HA reports it differently).
@@ -172,15 +175,33 @@ class AcActions {
 
   Future<void> target(AcUnit u, double t) {
     final v = t.clamp(u.min, u.max);
-    return _call(_ref, 'climate', 'set_temperature', u.entityId, data: {'temperature': v}, expect: [expectEntity(u.entityId, attrs: {'temperature': v})]);
+    return _call(
+      _ref,
+      'climate',
+      'set_temperature',
+      u.entityId,
+      data: {'temperature': v},
+      expect: [
+        expectEntity(u.entityId, attrs: {'temperature': v}),
+      ],
+    );
   }
 
   Future<void> mode(AcUnit u, AcMode m) {
     final hvac = u.hvacFor(m);
-    return _call(_ref, 'climate', 'set_hvac_mode', u.entityId, data: {'hvac_mode': hvac}, expect: [expectEntity(u.entityId, state: hvac)]);
+    return _call(
+      _ref,
+      'climate',
+      'set_hvac_mode',
+      u.entityId,
+      data: {'hvac_mode': hvac},
+      expect: [expectEntity(u.entityId, state: hvac)],
+    );
   }
 
   Future<void> allOff(List<AcUnit> units) => Future.wait([for (final u in units.where((u) => u.on)) power(u, false)]);
+
+  Future<void> allOn(List<AcUnit> units) => Future.wait([for (final u in units.where((u) => !u.on)) power(u, true)]);
 }
 
 final acActionsProvider = Provider<AcActions>((ref) => AcActions(ref));
@@ -300,38 +321,6 @@ final locksProvider = Provider<List<LockInfo>>((ref) {
 /// Where to pick them, shown while none are configured.
 const locksSetupHint = 'Escolha as fechaduras no Home Assistant: Flutter Dashboard › Casa';
 
-class LockActions {
-  LockActions(this._ref);
-
-  final Ref _ref;
-
-  /// Gates take a while to move: the new state shows until HA reports it
-  /// done (an opening gate already counts), or for up to a minute.
-  Future<void> toggle(LockInfo l) {
-    if (l.isCover) {
-      final open = l.secured;
-      return _call(
-        _ref,
-        'cover',
-        open ? 'open_cover' : 'close_cover',
-        l.entityId,
-        expect: [expectEntity(l.entityId, state: open ? 'open' : 'closed', confirmed: open ? (e) => e.state == 'open' || e.state == 'opening' : null)],
-        timeout: const Duration(seconds: 60),
-      );
-    }
-    return _call(
-      _ref,
-      'lock',
-      l.secured ? 'unlock' : 'lock',
-      l.entityId,
-      expect: [expectEntity(l.entityId, state: l.secured ? 'unlocked' : 'locked', confirmed: l.secured ? (e) => e.state == 'unlocked' || e.state == 'open' : null)],
-      timeout: const Duration(seconds: 30),
-    );
-  }
-}
-
-final lockActionsProvider = Provider<LockActions>((ref) => LockActions(ref));
-
 enum AlarmMode { off, home, away }
 
 class AlarmInfo {
@@ -382,230 +371,184 @@ Future<void> setAlarmMode(WidgetRef ref, AlarmInfo alarm, AlarmMode mode) {
       );
 }
 
-// ─── Scenes ────────────────────────────────────────────────────────────
-
-class SceneInfo {
-  const SceneInfo({required this.entityId, required this.name, required this.icon, required this.lastRun});
-
-  final String entityId;
-  final String name;
-  final String icon;
-  final DateTime? lastRun;
-}
-
-String sceneIcon(String name) {
-  final n = name.toLowerCase();
-  if (n.contains('dia') || n.contains('manhã') || n.contains('acordar')) return KIcons.sunrise;
-  if (n.contains('sair') || n.contains('fora') || n.contains('ausente')) return KIcons.leave;
-  if (n.contains('jantar') || n.contains('refei') || n.contains('almoço')) return KIcons.meals;
-  if (n.contains('cinema') || n.contains('filme') || n.contains('tv')) return KIcons.tv;
-  if (n.contains('noite') || n.contains('dormir')) return KIcons.moon;
-  return KIcons.bulb;
-}
-
-final scenesProvider = Provider<List<SceneInfo>>((ref) {
-  final entities = ref.watch(kioskEntitiesProvider);
-  final configured = ref.watch(houseConfigProvider.select((c) => c.scenes));
-  SceneInfo info(HaEntity e, String name) => SceneInfo(
-    entityId: e.entityId,
-    name: name,
-    icon: sceneIcon(name),
-    lastRun: e.domain == 'scene' ? DateTime.tryParse(e.state)?.toLocal() : e.lastChanged.toLocal(),
-  );
-  if (configured.isNotEmpty) {
-    return [
-      for (final c in configured)
-        if (entities[c.entityId] case final e?) info(e, c.name.isEmpty ? e.friendlyName : c.name),
-    ];
-  }
-  final all = [
-    for (final e in entities.values)
-      if (e.domain == 'scene' && e.state != 'unavailable') info(e, e.friendlyName),
-  ]..sort((a, b) => a.name.compareTo(b.name));
-  return all.take(5).toList();
-});
-
-/// The scene run most recently, if within the last 12 hours — the one the
-/// design highlights as "on". Scenes have no on/off state in HA.
-final activeSceneProvider = Provider<String?>((ref) {
-  final scenes = ref.watch(scenesProvider);
-  final cutoff = DateTime.now().subtract(const Duration(hours: 12));
-  SceneInfo? best;
-  for (final s in scenes) {
-    if (s.lastRun == null || s.lastRun!.isBefore(cutoff)) continue;
-    if (best == null || s.lastRun!.isAfter(best.lastRun!)) best = s;
-  }
-  return best?.entityId;
-});
-
-/// Highlights the scene straight away; HA confirms by stamping the scene
-/// (or the script changing state).
-Future<void> runScene(WidgetRef ref, SceneInfo s) {
-  final before = ref.read(kioskEntitiesProvider)[s.entityId];
-  final isScene = s.entityId.startsWith('scene.');
-  final now = DateTime.now();
-  return ref
-      .read(kioskEntitiesProvider.notifier)
-      .run(
-        [
-          if (before != null)
-            OptimisticChange(
-              s.entityId,
-              patch: (e) => isScene ? e.copyWith(state: now.toUtc().toIso8601String()) : e.copyWith(lastChanged: now),
-              confirmed: (e) => isScene ? e.state != before.state : e.lastChanged != before.lastChanged,
-            ),
-        ],
-        () => ref.read(haWebSocketClientProvider).callService(s.entityId.split('.').first, 'turn_on', target: {'entity_id': s.entityId}),
-      );
-}
-
-// ─── Security sensors ──────────────────────────────────────────────────
-
-class SensorLine {
-  const SensorLine(this.text, this.color);
-
-  final String text;
-  final Color color;
-}
-
-final securitySensorsProvider = Provider<List<SensorLine>>((ref) {
-  final entities = ref.watch(kioskEntitiesProvider);
-  final areas = ref.watch(areaByEntityIdProvider).valueOrNull ?? const <String, String>{};
-  final openings = <HaEntity>[], motion = <HaEntity>[], alerts = <HaEntity>[];
-  for (final e in entities.values) {
-    if (e.domain != 'binary_sensor' || e.isUnavailable) continue;
-    switch (e.deviceClass) {
-      case 'door' || 'window' || 'opening' || 'garage_door':
-        openings.add(e);
-      case 'motion' || 'occupancy' || 'presence':
-        motion.add(e);
-      case 'smoke' || 'moisture' || 'gas' || 'carbon_monoxide':
-        alerts.add(e);
-    }
-  }
-  final lines = <SensorLine>[];
-  if (openings.isNotEmpty) {
-    final open = openings.where((e) => e.isOn).toList();
-    lines.add(
-      open.isEmpty
-          ? const SensorLine('Janelas e portas: todas fechadas', KColors.green)
-          : SensorLine('Janelas e portas: ${open.length == 1 ? open.first.friendlyName : '${open.length} abertas'}', KColors.amber),
-    );
-  }
-  if (motion.isNotEmpty) {
-    final active = motion.where((e) => e.isOn).toList();
-    if (active.isNotEmpty) {
-      final where = areas[active.first.entityId] ?? active.first.friendlyName;
-      lines.add(SensorLine('Movimento: ${where.toLowerCase()}, agora', KColors.amber));
-    } else {
-      final last = (motion.toList()..sort((a, b) => b.lastChanged.compareTo(a.lastChanged))).first;
-      final mins = DateTime.now().difference(last.lastChanged).inMinutes;
-      final where = (areas[last.entityId] ?? last.friendlyName).toLowerCase();
-      final ago = mins < 1
-          ? 'agora mesmo'
-          : mins < 60
-          ? 'há $mins min'
-          : (mins < 24 * 60 ? 'há ${mins ~/ 60} h' : 'há mais de um dia');
-      lines.add(SensorLine('Movimento: $where, $ago', KColors.faint2));
-    }
-  }
-  if (alerts.isNotEmpty) {
-    final on = alerts.where((e) => e.isOn).toList();
-    lines.add(on.isEmpty ? const SensorLine('Fumo e inundação: sem alertas', KColors.green) : SensorLine('Alerta: ${on.first.friendlyName}', KColors.red));
-  }
-  return lines;
-});
-
 // ─── Rooms (Casa grid) ─────────────────────────────────────────────────
 
-class RoomInfoLine {
-  const RoomInfoLine(this.text, this.dot);
-
-  final String text;
-  final Color dot;
-}
-
+/// One room of the Divisões grid and its modal: the area's readings and
+/// whatever of light, window, blinds, AC and ventilation it has.
 class RoomTile {
-  const RoomTile({required this.name, required this.temp, required this.info, required this.lightId, required this.lightOn, required this.lightLabel});
+  const RoomTile({
+    required this.areaId,
+    required this.name,
+    required this.temp,
+    required this.humidity,
+    required this.light,
+    required this.lightsOn,
+    required this.brightness,
+    required this.window,
+    required this.cover,
+    required this.ac,
+    required this.vent,
+    required this.extra,
+    required this.note,
+  });
 
+  final String areaId;
   final String name;
   final double? temp;
-  final List<RoomInfoLine> info;
-  final String? lightId;
-  final bool lightOn;
-  final String lightLabel;
+  final double? humidity;
+
+  final HaEntity? light;
+
+  /// How many lights are on (a group's members), 0 when off.
+  final int lightsOn;
+
+  /// 1-100 while on, when the light dims; null otherwise.
+  final int? brightness;
+  final HaEntity? window;
+  final HaEntity? cover;
+  final AcUnit? ac;
+
+  /// A fan or extractor (the room's "Linha extra" when it's one).
+  final HaEntity? vent;
+
+  /// The "Linha extra" entity otherwise.
+  final HaEntity? extra;
+
+  /// The grey line beside the icons: the extra entity, or a high humidity.
+  final String? note;
+
+  bool get lightOn => lightsOn > 0;
+  bool get windowOpen => window != null && window!.isOn;
+  bool get ventOn => vent != null && vent!.isOn;
+
+  /// Blinds open, 0-100 (null without position or blinds).
+  int? get coverPosition {
+    final c = cover;
+    if (c == null || c.isUnavailable) return null;
+    final pos = numAttr(c, 'current_position');
+    if (pos != null) return pos.round();
+    return c.state == 'closed' ? 0 : 100;
+  }
+
+  bool get coverSettable => ((cover?.attributes['supported_features'] as num?)?.toInt() ?? 0) & 4 != 0;
+
+  bool get dimmable {
+    final modes = (light?.attributes['supported_color_modes'] as List?)?.whereType<String>().toList();
+    if (light?.domain != 'light') return false;
+    return modes == null ? light!.attributes['brightness'] != null : modes.any((m) => m != 'onoff');
+  }
 }
 
-String _coverText(HaEntity c) {
-  final pos = numAttr(c, 'current_position');
-  if (c.state == 'closed' || pos == 0) return 'Estores fechados';
-  if (pos != null && pos < 100) return 'Estores a ${pos.round()}%';
-  if (c.state == 'opening') return 'Estores a abrir';
-  if (c.state == 'closing') return 'Estores a fechar';
-  return 'Estores abertos';
+bool _isVent(HaEntity e) =>
+    e.domain == 'fan' ||
+    ((e.domain == 'switch' || e.domain == 'input_boolean') &&
+        RegExp('extrat|ventila|exaust', caseSensitive: false).hasMatch('${e.entityId} ${e.friendlyName}'));
+
+String? extraText(HaEntity e) {
+  if (e.isUnavailable) return null;
+  if (e.domain == 'lock') return '${e.friendlyName} ${e.state == 'locked' ? 'trancada' : 'aberta'}';
+  if (e.domain == 'cover') return '${e.friendlyName} ${e.state == 'closed' ? 'fechado' : 'aberto'}';
+  return '${e.friendlyName} · ${e.displayState}';
 }
 
 final roomTilesProvider = Provider<List<RoomTile>>((ref) {
   final entities = ref.watch(kioskEntitiesProvider);
   final rooms = ref.watch(roomEntriesProvider);
+  final units = {for (final u in ref.watch(acUnitsProvider)) u.entityId: u};
   return [
     for (final r in rooms)
       () {
-        final info = <RoomInfoLine>[];
-        final climate = entities[r.config.climateEntityId ?? ''];
-        if (climate != null && climate.domain == 'climate') {
-          final on = climate.state != 'off' && !climate.isUnavailable;
-          info.add(
-            on
-                ? RoomInfoLine('Ar condicionado · ${ptDeg(numAttr(climate, 'temperature'))}', _acModeOf(climate.state)?.color ?? KColors.orange)
-                : const RoomInfoLine('Ar condicionado desligado', KColors.ring),
-          );
-        }
-        final cover = entities[r.config.coverEntityId ?? ''];
-        if (cover != null && !cover.isUnavailable) info.add(RoomInfoLine(_coverText(cover), KColors.faint2));
-        final window = entities[r.config.windowEntityId ?? ''];
-        if (window != null && !window.isUnavailable) {
-          info.add(window.isOn ? const RoomInfoLine('Janela aberta', KColors.amber) : const RoomInfoLine('Janelas fechadas', KColors.green));
-        }
-        final hum = numState(entities[r.area.humidityEntityId ?? '']);
-        if (hum != null) info.add(RoomInfoLine('Humidade ${hum.round()}%', KColors.blue));
-        final secondary = entities[r.config.secondaryEntityId ?? ''];
-        if (secondary != null && !secondary.isUnavailable && info.length < 3) {
-          final text = secondary.domain == 'lock'
-              ? (secondary.state == 'locked' ? '${secondary.friendlyName} trancada' : '${secondary.friendlyName} aberta')
-              : '${secondary.friendlyName} · ${secondary.displayState}';
-          info.add(RoomInfoLine(text, secondary.domain == 'lock' && secondary.state == 'locked' ? KColors.green : KColors.faint2));
+        HaEntity? get(String? id) {
+          final e = entities[id ?? ''];
+          return e == null || e.isUnavailable ? null : e;
         }
 
-        final light = entities[r.config.lightEntityId ?? ''];
-        var label = 'Luzes apagadas';
-        final on = light?.isOn ?? false;
-        if (light != null && on) {
+        final light = get(r.config.lightEntityId);
+        var count = 0;
+        int? bri;
+        if (light != null && light.isOn) {
           final members = (light.attributes['entity_id'] as List?)?.whereType<String>().toList();
-          final count = members == null ? 1 : members.where((m) => entities[m]?.isOn ?? false).length.clamp(1, 99);
-          final bri = numAttr(light, 'brightness');
-          label = '$count ${count == 1 ? 'luz' : 'luzes'}${bri == null ? '' : ' · ${(bri / 255 * 100).round()}%'}';
+          count = members == null ? 1 : members.where((m) => entities[m]?.isOn ?? false).length.clamp(1, 99);
+          final b = numAttr(light, 'brightness');
+          if (b != null) bri = (b / 255 * 100).round().clamp(1, 100);
         }
+        final secondary = get(r.config.secondaryEntityId);
+        final vent = secondary != null && _isVent(secondary) ? secondary : null;
+        final extra = vent == null ? secondary : null;
+        final hum = numState(entities[r.area.humidityEntityId ?? '']);
         return RoomTile(
+          areaId: r.areaId,
           name: r.name,
           temp: numState(entities[r.area.temperatureEntityId ?? '']),
-          info: info.take(3).toList(),
-          lightId: light?.entityId,
-          lightOn: on,
-          lightLabel: label,
+          humidity: hum,
+          light: light,
+          lightsOn: count,
+          brightness: bri,
+          window: get(r.config.windowEntityId),
+          cover: get(r.config.coverEntityId),
+          ac: units[r.config.climateEntityId],
+          vent: vent,
+          extra: extra,
+          note: (extra == null ? null : extraText(extra)) ?? (hum != null && hum >= 65 ? 'Humidade alta' : null),
         );
       }(),
   ];
 });
 
-Future<void> toggleLight(WidgetRef ref, String entityId, bool on) {
-  final domain = entityId.split('.').first;
+/// Open windows: the rooms' window sensors, or — none mapped — every
+/// window binary sensor.
+final openWindowsProvider = Provider<int>((ref) {
+  final rooms = ref.watch(roomTilesProvider).where((r) => r.window != null).toList();
+  if (rooms.isNotEmpty) return rooms.where((r) => r.windowOpen).length;
+  return ref.watch(kioskEntitiesProvider).values.where((e) => e.domain == 'binary_sensor' && e.deviceClass == 'window' && e.isOn).length;
+});
+
+Future<void> setBrightness(WidgetRef ref, String entityId, int pct) => ref.read(kioskEntitiesProvider.notifier).run([
+  expectEntity(
+    entityId,
+    state: 'on',
+    attrs: {'brightness': (pct * 255 / 100).round()},
+    confirmed: (e) => e.isOn && ((numAttr(e, 'brightness') ?? 0) / 255 * 100 - pct).abs() < 2,
+  ),
+], () => ref.read(haWebSocketClientProvider).callService('light', 'turn_on', target: {'entity_id': entityId}, serviceData: {'brightness_pct': pct}));
+
+/// Blinds to [pos]% (0 closed, 100 open). Covers without a position just
+/// open or close.
+Future<void> setCover(WidgetRef ref, RoomTile room, int pos) {
+  final id = room.cover!.entityId;
+  final client = ref.read(haWebSocketClientProvider);
+  final settable = room.coverSettable;
   return ref
       .read(kioskEntitiesProvider.notifier)
       .run(
-        [expectEntity(entityId, state: on ? 'on' : 'off')],
-        () => ref.read(haWebSocketClientProvider).callService(domain == 'switch' ? 'switch' : 'light', on ? 'turn_on' : 'turn_off', target: {'entity_id': entityId}),
+        [
+          OptimisticChange(
+            id,
+            slot: 'position',
+            patch: (e) => e.copyWith(state: pos == 0 ? 'closed' : 'open', attributes: {...e.attributes, 'current_position': pos}),
+            // A moving cover counts: it can take a minute to get there.
+            confirmed: (e) =>
+                e.state == 'opening' || e.state == 'closing' || ((numAttr(e, 'current_position') ?? (e.state == 'closed' ? 0 : 100)) - pos).abs() <= 2,
+          ),
+        ],
+        () => settable && pos > 0 && pos < 100
+            ? client.callService('cover', 'set_cover_position', target: {'entity_id': id}, serviceData: {'position': pos})
+            : client.callService('cover', pos == 0 ? 'close_cover' : 'open_cover', target: {'entity_id': id}),
+        timeout: const Duration(seconds: 60),
       );
+}
+
+Future<void> toggleEntity(WidgetRef ref, HaEntity e, bool on) => ref.read(kioskEntitiesProvider.notifier).run([
+  expectEntity(e.entityId, state: on ? 'on' : 'off'),
+], () => ref.read(haWebSocketClientProvider).callService(e.domain, on ? 'turn_on' : 'turn_off', target: {'entity_id': e.entityId}));
+
+Future<void> toggleLight(WidgetRef ref, String entityId, bool on) {
+  final domain = entityId.split('.').first;
+  return ref.read(kioskEntitiesProvider.notifier).run(
+    [expectEntity(entityId, state: on ? 'on' : 'off')],
+    () =>
+        ref.read(haWebSocketClientProvider).callService(domain == 'switch' ? 'switch' : 'light', on ? 'turn_on' : 'turn_off', target: {'entity_id': entityId}),
+  );
 }
 
 Future<void> allLightsOff(WidgetRef ref) async {
@@ -618,42 +561,81 @@ Future<void> allLightsOff(WidgetRef ref) async {
   final lights = ids.where((id) => id.startsWith('light.')).toList();
   final switches = ids.where((id) => id.startsWith('switch.')).toList();
   final client = ref.read(haWebSocketClientProvider);
-  await ref
-      .read(kioskEntitiesProvider.notifier)
-      .run(
-        [for (final id in ids) expectEntity(id, state: 'off')],
-        () => Future.wait([
-          if (lights.isNotEmpty) client.callService('light', 'turn_off', target: {'entity_id': lights}),
-          if (switches.isNotEmpty) client.callService('switch', 'turn_off', target: {'entity_id': switches}),
-        ]),
-      );
+  await ref.read(kioskEntitiesProvider.notifier).run(
+    [for (final id in ids) expectEntity(id, state: 'off')],
+    () => Future.wait([
+      if (lights.isNotEmpty) client.callService('light', 'turn_off', target: {'entity_id': lights}),
+      if (switches.isNotEmpty) client.callService('switch', 'turn_off', target: {'entity_id': switches}),
+    ]),
+  );
 }
 
-// ─── EV cars ───────────────────────────────────────────────────────────
+// ─── Cars ──────────────────────────────────────────────────────────────
 
 enum EvState { charging, waiting, unplugged, unknown }
 
-class EvCarInfo {
-  const EvCarInfo({
+class CarInfo {
+  const CarInfo({
     required this.name,
-    required this.battery,
+    required this.kind,
+    required this.level,
     required this.rangeKm,
     required this.limit,
     required this.state,
     required this.powerKw,
+    required this.locked,
+    required this.place,
     required this.updated,
   });
 
   final String name;
-  final double? battery;
+  final CarKind kind;
+
+  /// Battery (electric) or tank (fuel), 0-100.
+  final double? level;
   final double? rangeKm;
   final double? limit;
   final EvState state;
   final double? powerKw;
+
+  /// Fuel cars: trancado or not, null without a lock entity.
+  final bool? locked;
+
+  /// "Em casa" (or the zone it's in) when the car has a home entity.
+  final String? place;
   final DateTime? updated;
+
+  bool get isFuel => kind == CarKind.fuel;
 }
 
-EvCarInfo _ev(EvCarConfig c, Map<String, HaEntity> entities) {
+/// Whether [e] (a device tracker, person or binary sensor) says the car is
+/// at home.
+bool _atHome(HaEntity? e) => e != null && !e.isUnavailable && (e.domain == 'binary_sensor' ? e.isOn : e.state == 'home');
+
+CarInfo _car(CarConfig c, Map<String, HaEntity> entities) {
+  final home = entities[c.homeEntityId ?? ''];
+  final place = home == null || home.isUnavailable
+      ? null
+      : _atHome(home)
+      ? 'Em casa'
+      : (home.domain == 'binary_sensor' || home.state == 'not_home' ? 'Fora de casa' : home.state);
+  final range = numState(entities[c.rangeEntityId ?? '']);
+  if (c.kind == CarKind.fuel) {
+    final fuel = entities[c.fuelEntityId ?? ''];
+    final lock = entities[c.lockEntityId ?? ''];
+    return CarInfo(
+      name: c.name.trim().isNotEmpty ? c.name : 'Carro',
+      kind: c.kind,
+      level: numState(fuel),
+      rangeKm: range,
+      limit: null,
+      state: EvState.unknown,
+      powerKw: null,
+      locked: lock == null || lock.isUnavailable ? null : (lock.domain == 'lock' ? lock.state == 'locked' : !lock.isOn),
+      place: place,
+      updated: fuel?.lastUpdated.toLocal(),
+    );
+  }
   final charging = entities[c.chargingEntityId ?? ''];
   final plug = entities[c.plugConnectedEntityId ?? ''];
   final battery = entities[c.batterySocEntityId ?? ''];
@@ -667,13 +649,16 @@ EvCarInfo _ev(EvCarConfig c, Map<String, HaEntity> entities) {
   } else {
     state = charging == null || charging.isUnavailable ? EvState.unknown : EvState.unplugged;
   }
-  return EvCarInfo(
+  return CarInfo(
     name: c.name.trim().isNotEmpty ? c.name : _carNameFrom(battery),
-    battery: numState(battery),
-    rangeKm: numState(entities[c.rangeEntityId ?? '']),
+    kind: c.kind,
+    level: numState(battery),
+    rangeKm: range,
     limit: numState(entities[c.chargeLimitEntityId ?? '']),
     state: state,
     powerKw: readPowerKw(entities, c.chargePowerEntityId, 20),
+    locked: null,
+    place: place,
     updated: battery?.lastUpdated.toLocal(),
   );
 }
@@ -685,10 +670,15 @@ String _carNameFrom(HaEntity? battery) {
   return n == null || n.isEmpty ? 'Carro' : n;
 }
 
-final evCarsProvider = Provider<List<EvCarInfo>>((ref) {
-  final config = ref.watch(evCarsConfigProvider);
+/// The cars the screen shows: the first two, in the panel's order, that
+/// are at home (a car with no home entity always counts).
+final carsProvider = Provider<List<CarInfo>>((ref) {
+  final config = ref.watch(carsConfigProvider);
   final entities = ref.watch(kioskEntitiesProvider);
-  return [_ev(config.left, entities), _ev(config.right, entities)];
+  return [
+    for (final c in config.cars)
+      if (c.homeEntityId == null || _atHome(entities[c.homeEntityId])) _car(c, entities),
+  ].take(2).toList();
 });
 
 // ─── Energy ────────────────────────────────────────────────────────────

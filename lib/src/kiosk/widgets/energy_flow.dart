@@ -21,10 +21,15 @@ String _kw(double? v) =>
 /// connections carry power. [consumers] adds the Casa page's column of
 /// individual loads to the right of the house.
 class KEnergyFlow extends StatefulWidget {
-  const KEnergyFlow({super.key, required this.info, this.consumers = false});
+  const KEnergyFlow({super.key, required this.info, this.consumers = false, this.label = 'ENERGIA', this.labelColor = KColors.accent, this.radius = 22});
 
   final EnergyInfo info;
   final bool consumers;
+
+  /// The corner label: "ENERGIA" on Início, "AGORA" in Casa's Energia.
+  final String label;
+  final Color labelColor;
+  final double radius;
 
   @override
   State<KEnergyFlow> createState() => _KEnergyFlowState();
@@ -46,7 +51,7 @@ class _KEnergyFlowState extends State<KEnergyFlow> with SingleTickerProviderStat
     final c = widget.consumers;
     final gridX = c ? .125 : .15, midX = c ? .375 : .5, homeX = c ? .625 : .85;
     return Container(
-      decoration: BoxDecoration(color: KColors.sub, borderRadius: BorderRadius.circular(22)),
+      decoration: BoxDecoration(color: KColors.sub, borderRadius: BorderRadius.circular(widget.radius)),
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
@@ -54,8 +59,13 @@ class _KEnergyFlowState extends State<KEnergyFlow> with SingleTickerProviderStat
             top: 20,
             left: 22,
             child: Text(
-              'ENERGIA',
-              style: KText.s(15, weight: FontWeight.w600, color: KColors.accent, spacing: 1.5),
+              widget.label,
+              style: KText.s(
+                15,
+                weight: widget.labelColor == KColors.accent ? FontWeight.w600 : FontWeight.w700,
+                color: widget.labelColor,
+                spacing: widget.labelColor == KColors.accent ? 1.5 : 1,
+              ),
             ),
           ),
           Positioned.fill(

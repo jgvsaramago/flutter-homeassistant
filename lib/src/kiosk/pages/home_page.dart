@@ -71,7 +71,7 @@ class _HouseSection extends ConsumerWidget {
     final units = ref.watch(acUnitsProvider);
     final heater = ref.watch(waterHeaterProvider);
     final energy = ref.watch(energyInfoProvider);
-    final cars = ref.watch(evCarsProvider);
+    final cars = ref.watch(carsProvider);
     final locks = ref.watch(locksProvider);
     return KSection(
       child: Column(
@@ -142,14 +142,17 @@ class _HouseSection extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(child: KCarCard(car: cars[0])),
-              const SizedBox(width: 16),
-              Expanded(child: KCarCard(car: cars[1])),
-            ],
-          ),
+          if (cars.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                // The second slot is whichever car is at home; one alone
+                // keeps its half of the row.
+                for (final (i, c) in cars.indexed) ...[if (i > 0) const SizedBox(width: 16), Expanded(child: KCarCard(car: c))],
+                if (cars.length == 1) ...[const SizedBox(width: 16), const Spacer()],
+              ],
+            ),
+          ],
         ],
       ),
     );

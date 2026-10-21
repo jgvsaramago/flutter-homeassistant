@@ -545,11 +545,14 @@ class KBlink extends StatefulWidget {
 }
 
 class _KBlinkState extends State<KBlink> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: widget.period ~/ 2);
+  // Created up front: a lazy one would first be created in dispose() by a
+  // blink that was never enabled, after its context is already gone.
+  late final AnimationController _c;
 
   @override
   void initState() {
     super.initState();
+    _c = AnimationController(vsync: this, duration: widget.period ~/ 2);
     if (widget.enabled) _c.repeat(reverse: true);
   }
 

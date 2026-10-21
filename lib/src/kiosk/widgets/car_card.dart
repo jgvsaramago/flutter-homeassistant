@@ -6,46 +6,63 @@ import '../theme/kiosk_icons.dart';
 import '../theme/kiosk_tokens.dart';
 import 'kiosk_widgets.dart';
 
-/// One EV (the design's "Carro elétrico" component): name, a charging-state
-/// chip, battery % with range, and a battery bar with the charge-limit
-/// marker. Striped and animated while charging; red under 20%.
+/// One car (the design's "Carro" component): name, a state chip, the
+/// battery or tank % with range, and a level bar. Electric: the charging
+/// state, striped and animated while charging, with the charge-limit
+/// marker; red under 20%. Fuel: locked or not; red under 15% (reserve).
 class KCarCard extends StatelessWidget {
-  const KCarCard({super.key, required this.car, this.background = KColors.sub});
+  const KCarCard({super.key, required this.car, this.background = KColors.sub, this.radius = 24});
 
-  final EvCarInfo car;
+  final CarInfo car;
+
+  /// Grey inside a white section (Início), white on its own (Casa).
   final Color background;
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
-    final b = car.battery;
-    final low = b != null && b < 20;
-    final (chipLabel, chipBg, chipFg, chipIcon) = switch (car.state) {
-      EvState.charging => ('A carregar', KColors.green, Colors.white, KIcons.boltFilled),
-      EvState.waiting => ('Ligado · à espera de carga', KColors.amberTint, KColors.amberInk, KIcons.clock),
-      EvState.unplugged => ('Desligado da ficha', KColors.chipAlt, KColors.ink2, KIcons.unplugged),
-      EvState.unknown => ('Sem estado de carga', KColors.chipAlt, KColors.ink2, KIcons.car),
-    };
-    final detail = switch (car.state) {
-      EvState.charging => [if (car.powerKw != null) '${ptDec(car.powerKw!)} kW', if (car.limit != null) 'até ${car.limit!.round()}%'].join(' · '),
-      _ => car.updated == null ? '' : 'Atualizado às ${PtDates.hm(car.updated!)}',
-    };
+    final b = car.level;
+    final fuel = car.isFuel;
+    final low = b != null && b < (fuel ? 15 : 20);
+    final (chipLabel, chipBg, chipFg, chipIcon) = fuel
+        ? switch (car.locked) {
+            true => ('Trancado', KColors.greenTint, KColors.greenInk, KIcons.lock),
+            false => ('Destrancado', KColors.amberTint, KColors.amberInk, KIcons.lockOpen),
+            null => (car.place ?? 'Sem estado', KColors.chipAlt, KColors.ink2, KIcons.car),
+          }
+        : switch (car.state) {
+            EvState.charging => ('A carregar', KColors.green, Colors.white, KIcons.boltFilled),
+            EvState.waiting => ('Ligado · à espera de carga', KColors.amberTint, KColors.amberInk, KIcons.clock),
+            EvState.unplugged => ('Desligado da ficha', KColors.chipAlt, KColors.ink2, KIcons.unplugged),
+            EvState.unknown => ('Sem estado de carga', KColors.chipAlt, KColors.ink2, KIcons.car),
+          };
+    final updated = car.updated == null ? '' : 'Atualizado às ${PtDates.hm(car.updated!)}';
+    final detail = fuel
+        ? [?car.place, if (low) 'reserva, abastecer em breve'].join(' · ')
+        : switch (car.state) {
+            EvState.charging => [if (car.powerKw != null) '${ptDec(car.powerKw!)} kW', if (car.limit != null) 'até ${car.limit!.round()}%'].join(' · '),
+            _ => car.place ?? updated,
+          };
     final barColor = low
         ? KColors.red
+        : fuel
+        ? KColors.ink2
         : switch (car.state) {
             EvState.charging => KColors.green,
             EvState.waiting => KColors.amber,
             _ => KColors.muted,
           };
+    final caption = fuel ? 'Depósito' : (car.limit == null ? null : 'Limite ${car.limit!.round()}%');
     return Container(
       height: 150,
       padding: const EdgeInsets.fromLTRB(18, 18, 24, 18),
-      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(24)),
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(radius)),
       child: Row(
         children: [
           Container(
             width: 76,
             height: 76,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
+            decoration: BoxDecoration(color: background == Colors.white ? KColors.sub : Colors.white, borderRadius: BorderRadius.circular(22)),
             child: const Center(child: KIcon(KIcons.car, size: 38, stroke: 1.7)),
           ),
           const SizedBox(width: 18),
@@ -69,8 +86,8 @@ class KCarCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       KBlink(
-                        enabled: car.state == EvState.charging,
-                        child: KIcon(chipIcon, size: 20, color: chipFg, stroke: 2.2, filled: car.state == EvState.charging),
+                        enabled: !fuel && car.state == EvState.charging,
+                        child: KIcon(chipIcon, size: 20, color: chipFg, stroke: 2.2, filled: !fuel && car.state == EvState.charging),
                       ),
                       const SizedBox(width: 8),
                       Flexible(
@@ -87,7 +104,7 @@ class KCarCard extends StatelessWidget {
                 if (detail.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(
-                    detail,
+                    PtDates.cap(detail),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: KText.s(16, color: KColors.muted),
@@ -128,8 +145,21 @@ class KCarCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                _BatteryBar(value: (b ?? 0) / 100, limit: car.limit == null ? null : car.limit! / 100, color: barColor, striped: car.state == EvState.charging),
-                if (car.limit != null) ...[const SizedBox(height: 8), Text('Limite ${car.limit!.round()}%', style: KText.s(15, color: KColors.muted))],
+                _BatteryBar(
+                  value: (b ?? 0) / 100,
+                  limit: fuel || car.limit == null ? null : car.limit! / 100,
+                  color: barColor,
+                  striped: !fuel && car.state == EvState.charging,
+                ),
+                if (caption != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      if (fuel) ...[const KIcon(KIcons.fuel, size: 16, color: KColors.muted), const SizedBox(width: 6)],
+                      Text(caption, style: KText.s(15, color: KColors.muted)),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -152,11 +182,12 @@ class _BatteryBar extends StatefulWidget {
 }
 
 class _BatteryBarState extends State<_BatteryBar> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(seconds: 1));
+  late final AnimationController _c;
 
   @override
   void initState() {
     super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(seconds: 1));
     if (widget.striped) _c.repeat();
   }
 

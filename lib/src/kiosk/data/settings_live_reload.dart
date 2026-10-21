@@ -49,6 +49,6 @@ Future<void> _reload(Ref ref, String key) async {
     case 'individual_sensors':
       ref.read(individualSensorsProvider.notifier).state = await fresh(savedIndividualSensorsProvider);
     case 'ev_cars':
-      ref.read(evCarsConfigProvider.notifier).state = await fresh(savedEvCarsConfigProvider);
+      ref.read(carsConfigProvider.notifier).state = await fresh(savedCarsConfigProvider);
   }
 }

@@ -219,9 +219,7 @@ class HaWebSocketClient {
       completer.complete(message);
     } else {
       final error = (message['error'] as Map?)?.cast<String, dynamic>();
-      completer.completeError(
-        HaCommandException(error?['code'] as String?, error?['message'] as String? ?? 'Command failed'),
-      );
+      completer.completeError(HaCommandException(error?['code'] as String?, error?['message'] as String? ?? 'Command failed'));
     }
   }
 
@@ -299,12 +297,7 @@ class HaWebSocketClient {
   /// info and ingress sessions, for reaching Music Assistant through HA's
   /// ingress without a token of its own. Returns the response's data.
   Future<dynamic> supervisorApi(String endpoint, {String method = 'get', Map<String, dynamic>? data}) async {
-    final result = await _sendCommand({
-      'type': 'supervisor/api',
-      'endpoint': endpoint,
-      'method': method,
-      'data': ?data,
-    });
+    final result = await _sendCommand({'type': 'supervisor/api', 'endpoint': endpoint, 'method': method, 'data': ?data});
     return result['result'];
   }
 
@@ -314,7 +307,7 @@ class HaWebSocketClient {
     return (result['result'] as Map?)?.cast<String, dynamic>() ?? const {};
   }
 
-    Future<List<HaEntity>> getStates() async {
+  Future<List<HaEntity>> getStates() async {
     final result = await _sendCommand({'type': 'get_states'});
     final states = (result['result'] as List).cast<Map<String, dynamic>>();
     return states.map(HaEntity.fromJson).toList();
@@ -401,6 +394,47 @@ class HaWebSocketClient {
     return points;
   }
 
+  /// Every state [entityIds] went through since [start], oldest first —
+  /// the textual counterpart of [historyDuringPeriod] (a lock's
+  /// `locked`/`unlocked`, a gate's `open`/`closed`).
+  Future<Map<String, List<({String state, DateTime at})>>> stateHistory(List<String> entityIds, {required DateTime start}) async {
+    if (entityIds.isEmpty) return const {};
+    final result = await _sendCommand({
+      'type': 'history/history_during_period',
+      'start_time': start.toUtc().toIso8601String(),
+      'entity_ids': entityIds,
+      'minimal_response': true,
+      'no_attributes': true,
+      'significant_changes_only': true,
+    });
+    final byEntity = (result['result'] as Map?)?.cast<String, dynamic>() ?? const {};
+    return {
+      for (final e in byEntity.entries)
+        e.key: [
+          for (final entry in (e.value as List? ?? const []).whereType<Map>())
+            if (entry['s'] case final String state)
+              if ((entry['lc'] ?? entry['lu']) case final num t) (state: state, at: DateTime.fromMillisecondsSinceEpoch((t * 1000).round())),
+        ],
+    };
+  }
+
+  /// entity id → device id, from the entity registry.
+  Future<Map<String, String>> entityDeviceIds() async {
+    final entities = await _list('config/entity_registry/list');
+    return {
+      for (final e in entities)
+        if (e['entity_id'] case final String id)
+          if (e['device_id'] case final String device) id: device,
+    };
+  }
+
+  /// Any other websocket command — `energy/get_prefs`,
+  /// `recorder/statistics_during_period`, … — returning its `result`.
+  Future<dynamic> command(String type, [Map<String, dynamic> data = const {}]) async {
+    final result = await _sendCommand({'type': type, ...data});
+    return result['result'];
+  }
+
   /// Fetches events for one calendar entity between [start] and [end].
   ///
   /// Goes through the `flutter_homeassistant` custom integration's own
@@ -460,19 +494,8 @@ class HaWebSocketClient {
 
   /// Calls a Home Assistant service, e.g. domain `light`, service `turn_on`,
   /// target `{'entity_id': 'light.kitchen'}`.
-  Future<void> callService(
-    String domain,
-    String service, {
-    Map<String, dynamic>? serviceData,
-    Map<String, dynamic>? target,
-  }) async {
-    await _sendCommand({
-      'type': 'call_service',
-      'domain': domain,
-      'service': service,
-      'service_data': ?serviceData,
-      'target': ?target,
-    });
+  Future<void> callService(String domain, String service, {Map<String, dynamic>? serviceData, Map<String, dynamic>? target}) async {
+    await _sendCommand({'type': 'call_service', 'domain': domain, 'service': service, 'service_data': ?serviceData, 'target': ?target});
   }
 
   /// Fetches [entityId]'s forecast via HA's `weather.get_forecasts` service

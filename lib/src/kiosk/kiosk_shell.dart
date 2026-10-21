@@ -154,9 +154,7 @@ class _KioskShellState extends ConsumerState<KioskShell> {
   @override
   Widget build(BuildContext context) {
     final page = ref.watch(kioskPageProvider);
-    final nowPlaying = page == KioskPage.music
-        ? ref.watch(musicStoreProvider.select((m) => m.queue?.playing == true ? m.queue?.current?.name : null))
-        : null;
+    final nowPlaying = page == KioskPage.music ? ref.watch(musicStoreProvider.select((m) => m.queue?.playing == true ? m.queue?.current?.name : null)) : null;
     ref.watch(settingsLiveReloadProvider);
     // A retry after an error keeps showing the error (it retries on its own,
     // see EntitiesNotifier) rather than flashing the spinner each attempt.
@@ -165,6 +163,7 @@ class _KioskShellState extends ConsumerState<KioskShell> {
     final kiosk = ref.watch(kioskHydrationProvider.select((a) => a.isLoading && !a.hasValue));
     final loading = load.loading || settings.loading || kiosk;
     final error = load.error ?? settings.error;
+    final underNav = page == KioskPage.house && !loading && error == null;
 
     Widget body;
     if (loading) {
@@ -209,13 +208,19 @@ class _KioskShellState extends ConsumerState<KioskShell> {
                     onClockTap: () => _go(KioskPage.settings),
                   ),
                 ),
-                const SizedBox(height: 32),
+                // Casa scrolls from right under the header (fading in over
+                // the gap) to the bottom of the screen, beneath the nav bar.
+                if (!underNav) const SizedBox(height: 32),
                 Expanded(
-                  child: Padding(padding: const EdgeInsets.symmetric(horizontal: 56), child: body),
+                  child: Padding(padding: EdgeInsets.fromLTRB(56, 0, 56, underNav ? 0 : 32 + 128), child: body),
                 ),
-                const SizedBox(height: 32),
-                KioskNavBar(selected: page, onSelect: _go, onAssistant: () => showAssistant(context)),
               ],
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: KioskNavBar(selected: page, onSelect: _go, onAssistant: () => showAssistant(context), blur: underNav),
             ),
             const _DoorbellProblemBanner(),
             const _ToastLayer(),
@@ -287,7 +292,9 @@ class _PageSwitcher extends StatelessWidget {
   // Its own layer, so the toast sliding over it and the header's clock
   // don't redraw the whole page.
   @override
-  Widget build(BuildContext context) => RepaintBoundary(child: KeyedSubtree(key: ValueKey(page), child: child));
+  Widget build(BuildContext context) => RepaintBoundary(
+    child: KeyedSubtree(key: ValueKey(page), child: child),
+  );
 }
 
 class _ToastLayer extends StatelessWidget {
@@ -314,7 +321,12 @@ class _ToastLayer extends StatelessWidget {
               ),
             ),
             // Its own layer: the slide only moves the toast.
-            child: toast == null ? const SizedBox.shrink() : RepaintBoundary(key: ValueKey(toast), child: _Toast(toast: toast)),
+            child: toast == null
+                ? const SizedBox.shrink()
+                : RepaintBoundary(
+                    key: ValueKey(toast),
+                    child: _Toast(toast: toast),
+                  ),
           ),
         ),
       ),

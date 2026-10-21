@@ -27,6 +27,7 @@
     home: "M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z",
     flash: "M13 2L4 14h7l-1 8 9-12h-7z",
     car: "M5 17v-6l2.2-5h9.6l2.2 5v6M3 11h18v6H3zM7 14h.01M17 14h.01M6 17v2M18 17v2",
+    fuel: "M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M4 10h11M15 8l3 3v7a1.5 1.5 0 0 0 3 0V9l-3-3",
     light: "M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z",
     climate: "M12 2v20M4.9 7l14.2 10M4.9 17L19.1 7M9 4l3 2 3-2M9 20l3-2 3 2",
     window: "M5 3h14v18H5zM12 3v18M5 12h14",
@@ -97,7 +98,14 @@
     calendar: "calendário", sensor: "sensor", weather: "meteorologia", light: "luz", switch: "interruptor", climate: "clima",
     binary_sensor: "sensor binário", cover: "estore/portão", lock: "fechadura", alarm_control_panel: "alarme",
     water_heater: "aquecedor de água", scene: "cena", script: "script", camera: "câmara", number: "número",
+    device_tracker: "localização", person: "pessoa",
   };
+
+  // The car types (CarKind on the screen side).
+  const CAR_KINDS = [
+    { key: "electric", name: "Elétrico", icon: I.flash },
+    { key: "fuel", name: "A combustão", icon: I.fuel },
+  ];
 
   // ---------- What each sub-section edits, and where it's stored ----------
   const SUBS = {
@@ -200,16 +208,34 @@
       ],
     },
     carros: {
-      type: "cards", store: "ev_cars", title: "Carros", slots: ["left", "right"], titles: ["Primeiro carro", "Segundo carro"],
-      fields: [
-        { k: "name", t: "text", label: "Nome", ph: "Ex.: Megane" },
-        { k: "batterySocEntityId", t: "entity", dom: ["sensor"], label: "Bateria", help: "Em %." },
-        { k: "rangeEntityId", t: "entity", dom: ["sensor"], label: "Autonomia" },
-        { k: "chargingEntityId", t: "entity", dom: ["binary_sensor", "sensor"], label: "A carregar" },
-        { k: "plugConnectedEntityId", t: "entity", dom: ["binary_sensor", "sensor"], label: "Ficha ligada", help: 'Para o estado "à espera de carga".' },
-        { k: "chargeLimitEntityId", t: "entity", dom: ["number", "sensor"], label: "Limite de carga", help: "A marca na barra de bateria." },
-        { k: "chargePowerEntityId", t: "entity", dom: ["sensor"], label: "Potência de carga" },
-      ],
+      type: "list", store: "ev_cars", title: "Carros", req: "name", reqLabel: "nome", noun: ["carro", "carros"], add: "Adicionar carro", max: 4,
+      blank: () => ({ name: "", kind: "electric", homeEntityId: "" }), itemIcon: I.car,
+      hint: "O ecrã mostra até 2 carros: os primeiros desta lista que estejam em casa. Quem decide é a entidade «Em casa» de cada carro.",
+      empty: "Sem carros configurados: o ecrã não mostra carros.",
+      // The fields depend on the car's type; `fields` is every one of them,
+      // so a car switched between types keeps what was typed for each.
+      fieldsFor: (item) => {
+        const base = [
+          { k: "name", t: "text", label: "Nome", req: true, ph: "Ex.: Megane" },
+          { k: "kind", t: "seg", label: "Tipo", full: true, options: CAR_KINDS },
+          { k: "homeEntityId", t: "entity", dom: ["device_tracker", "binary_sensor", "person"], label: "Em casa", opt: true, full: true, help: "Quando esta entidade diz que o carro está em casa, o cartão aparece. Vazio: aparece sempre." },
+        ];
+        if (item.kind === "fuel") {
+          return base.concat([
+            { k: "fuelEntityId", t: "entity", dom: ["sensor"], label: "Combustível", help: "Em % do depósito." },
+            { k: "rangeEntityId", t: "entity", dom: ["sensor"], label: "Autonomia" },
+            { k: "lockEntityId", t: "entity", dom: ["lock", "binary_sensor"], label: "Trancado", full: true, help: "Mostra se o carro está trancado ou destrancado." },
+          ]);
+        }
+        return base.concat([
+          { k: "batterySocEntityId", t: "entity", dom: ["sensor"], label: "Bateria", help: "Em %." },
+          { k: "rangeEntityId", t: "entity", dom: ["sensor"], label: "Autonomia" },
+          { k: "chargingEntityId", t: "entity", dom: ["binary_sensor", "sensor"], label: "A carregar" },
+          { k: "plugConnectedEntityId", t: "entity", dom: ["binary_sensor", "sensor"], label: "Ficha ligada", help: 'Para o estado "à espera de carga".' },
+          { k: "chargeLimitEntityId", t: "entity", dom: ["number", "sensor"], label: "Limite de carga", help: "A marca na barra de bateria." },
+          { k: "chargePowerEntityId", t: "entity", dom: ["sensor"], label: "Potência de carga" },
+        ]);
+      },
     },
   };
 
@@ -220,7 +246,7 @@
     { id: "divisoes", icon: I.rooms, title: "Divisões", desc: "Luz, clima, janela e estores de cada área.", intro: "Um cartão por área do Home Assistant, ordenado por piso.", subs: ["areas"] },
     { id: "casa", icon: I.home, title: "Casa", desc: "Alarme, água quente, cenários, fechaduras e câmaras.", intro: "Segurança, água quente e atalhos da página Casa.", subs: ["alarme", "cenarios", "fechaduras", "camaras"] },
     { id: "energia", icon: I.flash, title: "Energia", desc: "Fluxo solar, rede, bateria e consumos.", intro: "Os sensores do cartão Energia.", subs: ["fluxo", "consumos"] },
-    { id: "carros", icon: I.car, title: "Carros elétricos", desc: "Bateria, autonomia e carregamento.", intro: "Dois cartões fixos, pela ordem em que aparecem no ecrã.", subs: ["carros"] },
+    { id: "carros", icon: I.car, title: "Carros", desc: "Elétricos e a combustão, e quando estão em casa.", intro: "O ecrã mostra até 2 carros, os que estiverem em casa, pela ordem desta lista.", subs: ["carros"] },
   ];
 
   // ---------- Small helpers ----------
@@ -268,15 +294,29 @@
     return el;
   }
 
+  // Every field an item of a list can have (for cars, both types').
+  function listFields(def) {
+    if (!def.fieldsFor) return def.fields;
+    const seen = {};
+    return [...def.fieldsFor({}), ...def.fieldsFor({ kind: "fuel" })].filter((f) => !seen[f.k] && (seen[f.k] = true));
+  }
+
+  // Cars saved before they became a list: the fixed {left, right} pair.
+  function carsList(raw) {
+    if (Array.isArray(raw)) return raw;
+    if (!raw || typeof raw !== "object") return [];
+    return ["left", "right"].map((slot) => raw[slot]).filter((c) => c && Object.values(c).some((v) => str(v).trim()));
+  }
+
   // ---------- Stored value <-> draft ----------
   function toDraft(subId, raw, ctx) {
     const def = SUBS[subId];
     if (def.type === "list") {
-      return (Array.isArray(raw) ? raw : []).map((it, i) => {
+      return (subId === "carros" ? carsList(raw) : Array.isArray(raw) ? raw : []).map((it, i) => {
         const d = def.blank();
-        for (const f of def.fields) {
+        for (const f of listFields(def)) {
           if (f.t === "color") d[f.k] = it[f.k] ?? (subId === "outros" ? "accent" : COLORS[i % COLORS.length].key);
-          else d[f.k] = str(it[f.k]) || (f.t === "icon" ? d[f.k] : "");
+          else d[f.k] = str(it[f.k]) || (f.t === "icon" || f.t === "seg" ? d[f.k] : "");
         }
         return d;
       });
@@ -286,15 +326,6 @@
       const d = {};
       for (const f of [...def.fields, ...(def.adv || [])]) d[f.k] = str(src[f.k]);
       return d;
-    }
-    if (def.type === "cards") {
-      const src = raw && typeof raw === "object" ? raw : {};
-      return def.slots.map((slot) => {
-        const s = src[slot] || {};
-        const d = {};
-        for (const f of def.fields) d[f.k] = str(s[f.k]);
-        return d;
-      });
     }
     if (def.type === "areas") {
       // A save from before rooms pointed at real areas (a free-typed `name`,
@@ -325,7 +356,8 @@
         dropped: draft.length - kept.length,
         value: kept.map((it) => {
           const out = {};
-          for (const f of def.fields) out[f.k] = f.t === "color" ? it[f.k] : val(it[f.k]);
+          // A car keeps only its own type's entities.
+          for (const f of def.fieldsFor ? def.fieldsFor(it) : def.fields) out[f.k] = f.t === "color" ? it[f.k] : val(it[f.k]);
           // A consumption with no name is labelled after its sensor.
           if (subId === "consumos" && !out.name) out.name = ctx.entityName(out.powerEntityId);
           return out;
@@ -336,14 +368,6 @@
       const out = {};
       for (const f of def.fields) out[f.k] = val(draft[f.k]);
       for (const f of def.adv || []) out[f.k] = str(draft[f.k]).trim() === "" ? null : Number(draft[f.k]);
-      return { dropped: 0, value: out };
-    }
-    if (def.type === "cards") {
-      const out = {};
-      def.slots.forEach((slot, i) => {
-        out[slot] = {};
-        for (const f of def.fields) out[slot][f.k] = val(draft[i][f.k]);
-      });
       return { dropped: 0, value: out };
     }
     if (def.type === "areas") {
@@ -514,6 +538,9 @@
     .swatches { display:flex; align-items:center; gap:12px; min-height:48px; flex-wrap:wrap; }
     .swatch { width:36px; height:36px; border-radius:50%; border:0; padding:0; display:flex; align-items:center; justify-content:center; }
     .icons { display:flex; flex-wrap:wrap; gap:8px; }
+    .seg { display:inline-flex; align-self:flex-start; gap:4px; padding:4px; border-radius:12px; background:var(--fd-input); border:1px solid var(--fd-border); }
+    .seg button { height:40px; padding:0 18px; border-radius:9px; border:0; background:transparent; color:var(--fd-sec); display:flex; align-items:center; gap:8px; font-size:14px; font-weight:500; }
+    .seg button.on { background:var(--fd-card); color:var(--fd-text); box-shadow:0 1px 3px rgba(0,0,0,.12); }
     .icon-opt { width:48px; height:48px; border-radius:10px; border:1.5px solid var(--fd-border); background:transparent; color:var(--fd-sec); display:flex; align-items:center; justify-content:center; padding:0; }
     .icon-opt.on { border-color:var(--fd-primary); background:var(--fd-primary-tint); color:var(--fd-primary-text); }
 
@@ -763,7 +790,7 @@
       }
       root.querySelectorAll("[data-title]").forEach((el) => {
         const [sub, i] = el.dataset.title.split(":");
-        el.textContent = sub === "carros" ? this._carSub(Number(i)) : this._itemTitle(sub, Number(i));
+        el.textContent = this._itemTitle(sub, Number(i));
       });
       const bar = root.querySelector(".bar-wrap");
       if (bar) bar.replaceWith(this._renderBar(false));
@@ -956,10 +983,9 @@
         return chip(`${fl} de 5 sensores · ${n} ${n === 1 ? "consumo" : "consumos"}`, fl === 5 ? "ok" : "warn");
       }
       if (id === "carros") {
-        const ev = obj("ev_cars");
-        const cars = ["left", "right"].map((s) => ev[s] || {}).filter((c) => c.batterySocEntityId);
+        const cars = carsList(S.ev_cars);
         if (!cars.length) return chip("Nenhum carro", "info");
-        const missing = cars.reduce((n, c) => n + SUBS.carros.fields.filter((f) => f.k !== "name" && !c[f.k]).length, 0);
+        const missing = cars.reduce((n, c) => n + SUBS.carros.fieldsFor(c).filter((f) => f.t === "entity" && !f.opt && !c[f.k]).length, 0);
         const tail = missing ? ` · ${missing === 1 ? "falta 1 campo" : `faltam ${missing} campos`}` : "";
         return chip(`${cars.length} ${cars.length === 1 ? "carro" : "carros"}${tail}`, missing ? "warn" : "ok");
       }
@@ -1011,7 +1037,6 @@
       );
       if (def.type === "form") section.appendChild(this._renderFormCard(subId));
       else if (def.type === "list") section.appendChild(this._renderList(subId));
-      else if (def.type === "cards") section.appendChild(this._renderCars(subId));
       else if (def.type === "areas") section.appendChild(this._renderAreas(subId));
       return section;
     }
@@ -1099,10 +1124,12 @@
         if (subId === "pessoas") dot = COLORS[colorIndex(item.color, i % COLORS.length)].hex;
         else if (subId === "outros") dot = isHoliday(item.entityId + " " + this._entityName(item.entityId)) ? HOLIDAY_RED : COLORS[colorIndex(item.color, 3)].hex;
         else if (subId === "consumos") icon = (APPLIANCES.find((a) => a.key === item.icon) || APPLIANCES[5]).icon;
+        else if (subId === "carros") icon = I.car;
         else icon = item.entityId ? this._entityIcon(item.entityId) : def.itemIcon;
         let subText = "";
         if (missing) subText = `Falta ${def.reqLabel}: será descartado ao guardar`;
         else if (subId === "pessoas") subText = item.calendarEntityId ? `${this._entityName(item.calendarEntityId)} · calendário pessoal` : "Sem calendário pessoal";
+        else if (subId === "carros") subText = `${item.kind === "fuel" ? "A combustão" : "Elétrico"} · ${item.homeEntityId ? "aparece quando está em casa" : "aparece sempre"}`;
         const titled = subId === "pessoas" ? !!item.name.trim() : subId === "outros" ? !!item.entityId : !!(str(item.name).trim() || item[def.req]);
         const move = (delta) => {
           const j = i + delta;
@@ -1143,7 +1170,8 @@
           )
         );
         const raised = this._picker && this._picker.sub === subId && this._picker.idx === i;
-        stack.appendChild(h("div.card" + (raised ? ".raised" : ""), {}, head, this._grid(subId, i, item, def.fields, { flagMissing: true, reqLabel: def.reqLabel })));
+        const fields = def.fieldsFor ? def.fieldsFor(item) : def.fields;
+        stack.appendChild(h("div.card" + (raised ? ".raised" : ""), {}, head, this._grid(subId, i, item, fields, { flagMissing: true, reqLabel: def.reqLabel })));
       });
       const full = def.max && list.length >= def.max;
       const add = h(
@@ -1162,26 +1190,6 @@
         full ? `Máximo de ${def.max} atingido` : def.add
       );
       return h("div.stack", {}, stack, add);
-    }
-
-    _carSub(i) {
-      return str(this._draft.carros[i].name).trim() || "Sem nome";
-    }
-
-    _renderCars(subId) {
-      const def = SUBS[subId];
-      const stack = h("div.stack");
-      this._draft[subId].forEach((item, i) => {
-        const head = h(
-          "div.card-head",
-          {},
-          h("span.hic", { style: "background:var(--fd-primary-tint); color:var(--fd-primary-text)" }, svg(I.car, 20)),
-          h("div.txt", {}, h("span.tt", { text: def.titles[i] }), h("span.ss", { "data-title": `${subId}:${i}`, text: this._carSub(i) }))
-        );
-        const raised = this._picker && this._picker.sub === subId && this._picker.idx === i;
-        stack.appendChild(h("div.card" + (raised ? ".raised" : ""), {}, head, this._grid(subId, i, item, def.fields)));
-      });
-      return stack;
     }
 
     _areaCount(a) {
@@ -1277,7 +1285,6 @@
           },
         });
         wrap.appendChild(h("div.textbox", {}, input, def.suffix ? h("span.suffix", { text: def.suffix }) : null));
-        if (def.k === "name" && subId === "carros" && !str(v).trim()) help = "Sem nome, o cartão usa o nome da entidade da bateria.";
       } else if (def.t === "entity") {
         const open = !!(this._picker && this._picker.sub === subId && this._picker.idx === idx && this._picker.k === def.k);
         const flag = def.req && !str(v).trim() && opts.flagMissing;
@@ -1346,6 +1353,13 @@
         if (holiday) {
           row.appendChild(h("span", { style: "font-size:13px; color:var(--fd-sec); line-height:1.4", text: "Reconhecido como feriados: fica sempre a vermelho." }));
           help = "";
+        }
+        wrap.appendChild(row);
+      } else if (def.t === "seg") {
+        const row = h("div.seg", { role: "radiogroup", "aria-label": def.label });
+        for (const o of def.options) {
+          const on = (v || def.options[0].key) === o.key;
+          row.appendChild(h("button" + (on ? ".on" : ""), { role: "radio", "aria-checked": on ? "true" : "false", onClick: () => !on && set(o.key, true) }, svg(o.icon, 18, { sw: 1.9 }), o.name));
         }
         wrap.appendChild(row);
       } else if (def.t === "icon") {

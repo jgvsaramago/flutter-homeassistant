@@ -99,6 +99,13 @@ Map<String, HaEntity> buildPlaceholderEntities() {
       // Plugged in but not drawing current — exercises the "Ligado, sem
       // carregar" state distinct from both "A carregar" and unplugged.
       entity('binary_sensor.demo_car_right_plug', 'on', {'friendly_name': 'Demo Right Car Plug'}),
+      // Only one of the two "second" cars is at home, so the Casa page shows
+      // the Mégane and the GLC.
+      entity('device_tracker.demo_tesla', 'not_home', {'friendly_name': 'Model Y Localização'}),
+      entity('device_tracker.demo_glc', 'home', {'friendly_name': 'GLC Localização'}),
+      entity('sensor.demo_glc_fuel', '62', {'friendly_name': 'GLC Combustível', 'unit_of_measurement': '%'}),
+      entity('sensor.demo_glc_range', '540', {'friendly_name': 'GLC Autonomia', 'unit_of_measurement': 'km'}),
+      entity('lock.demo_glc', 'locked', {'friendly_name': 'GLC Fecho'}),
       // Matches the energy card build spec's own example device readings
       // (AQS 49ºC/0.6kW, Frigorífico 0.15kW, TV 0.1kW, Máquina de lavar
       // 0.3kW) so the demo preview shows the card's 4 device slots live.
@@ -204,22 +211,31 @@ final placeholderOverrides = [
       homePowerEntityId: 'sensor.demo_home_power',
     ),
   ),
-  evCarsConfigProvider.overrideWith(
-    (ref) => const EvCarsConfig(
-      left: EvCarConfig(
+  carsConfigProvider.overrideWith(
+    (ref) => const CarsConfig([
+      CarConfig(
         name: 'Renault Mégane E-Tech',
         batterySocEntityId: 'sensor.demo_car_left_battery',
         rangeEntityId: 'sensor.demo_car_left_range',
         chargingEntityId: 'binary_sensor.demo_car_left_charging',
       ),
-      right: EvCarConfig(
+      CarConfig(
         name: 'Tesla Model Y',
+        homeEntityId: 'device_tracker.demo_tesla',
         batterySocEntityId: 'sensor.demo_car_right_battery',
         rangeEntityId: 'sensor.demo_car_right_range',
         chargingEntityId: 'binary_sensor.demo_car_right_charging',
         plugConnectedEntityId: 'binary_sensor.demo_car_right_plug',
       ),
-    ),
+      CarConfig(
+        name: 'Mercedes GLC',
+        kind: CarKind.fuel,
+        homeEntityId: 'device_tracker.demo_glc',
+        fuelEntityId: 'sensor.demo_glc_fuel',
+        rangeEntityId: 'sensor.demo_glc_range',
+        lockEntityId: 'lock.demo_glc',
+      ),
+    ]),
   ),
   individualSensorsProvider.overrideWith(
     (ref) => const [

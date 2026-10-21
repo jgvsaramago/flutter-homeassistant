@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 
 import '../theme/kiosk_icons.dart';
@@ -25,15 +27,24 @@ enum KioskPage {
 /// The bottom bar: seven labelled destinations, then the assistant button.
 /// Definições isn't here — the header's clock opens it.
 ///
+/// Translucent white over a frosted blur of whatever passes beneath it.
+/// Only Casa scrolls under the bar ([blur]); over the other pages' plain
+/// background the same tint is painted flat, without the cost of a
+/// backdrop blur on the Pi.
+///
 /// As in the design (`flex: 1 1 auto`), each destination is its own
 /// content width plus an equal share of the room left over, so the pills
 /// fill the bar edge to edge.
 class KioskNavBar extends StatelessWidget {
-  const KioskNavBar({super.key, required this.selected, required this.onSelect, required this.onAssistant});
+  const KioskNavBar({super.key, required this.selected, required this.onSelect, required this.onAssistant, this.blur = false});
 
   final KioskPage selected;
   final ValueChanged<KioskPage> onSelect;
   final VoidCallback onAssistant;
+  final bool blur;
+
+  /// The design's `rgba(255, 255, 255, 0.78)`.
+  static const _tint = Color(0xC7FFFFFF);
 
   static const _gap = 8.0;
   static const _icon = 30.0;
@@ -49,7 +60,10 @@ class KioskNavBar extends StatelessWidget {
 
   static double _contentWidth(KioskPage p) {
     final tp = TextPainter(
-      text: TextSpan(text: p.label, style: KText.s(22, weight: FontWeight.w600)),
+      text: TextSpan(
+        text: p.label,
+        style: KText.s(22, weight: FontWeight.w600),
+      ),
       textDirection: TextDirection.ltr,
       maxLines: 1,
     )..layout();
@@ -58,12 +72,12 @@ class KioskNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final bar = Container(
       height: 128,
       width: double.infinity,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: KColors.navBorder, width: 1.5)),
+      decoration: BoxDecoration(
+        color: blur ? _tint : Color.alphaBlend(_tint, KColors.page),
+        border: const Border(top: BorderSide(color: Color(0x1417191C))),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 56),
       child: LayoutBuilder(
@@ -102,7 +116,22 @@ class KioskNavBar extends StatelessWidget {
         },
       ),
     );
+    if (!blur) return bar;
+    return ClipRect(
+      child: BackdropFilter(
+        // blur(28px) saturate(180%)
+        filter: ImageFilter.compose(outer: const ColorFilter.matrix(_saturate180), inner: ImageFilter.blur(sigmaX: 14, sigmaY: 14)),
+        child: bar,
+      ),
+    );
   }
+
+  static const _saturate180 = <double>[
+    1.6296, -0.5720, -0.0576, 0, 0, //
+    -0.1704, 1.2280, -0.0576, 0, 0, //
+    -0.1704, -0.5720, 1.7424, 0, 0, //
+    0, 0, 0, 1, 0, //
+  ];
 }
 
 class _NavItem extends StatelessWidget {
@@ -130,7 +159,11 @@ class _NavItem extends StatelessWidget {
           children: [
             KIcon(page.icon, size: KioskNavBar._icon, color: fg, stroke: 1.9),
             const SizedBox(width: KioskNavBar._iconGap),
-            Text(page.label, maxLines: 1, style: KText.s(22, weight: FontWeight.w600, color: fg)),
+            Text(
+              page.label,
+              maxLines: 1,
+              style: KText.s(22, weight: FontWeight.w600, color: fg),
+            ),
           ],
         ),
       ),
