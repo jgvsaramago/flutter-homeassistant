@@ -8,6 +8,7 @@ import '../kiosk/theme/kiosk_icons.dart';
 import '../kiosk/theme/kiosk_tokens.dart';
 import 'door_station_stub.dart' if (dart.library.io) 'door_station_io.dart';
 import 'door_video.dart';
+import 'doorbell_watcher.dart';
 
 /// Where the door station lives and how to log into it. The kiosk talks to a
 /// Hikvision villa door station (DS-KV series) directly over its ISAPI HTTP
@@ -84,11 +85,15 @@ class DoorStationIntercom implements IntercomController {
   // Sound comes from the sub-stream: a second session on the 1080p main
   // stream (which the video is already playing) made the door send it twice,
   // halving the video's frame rate. The sub-stream's video is tiny.
-  DoorStationIntercom(this.station) : _doorAudio = DoorAudio(station.rtspUrl) {
+  DoorStationIntercom(this.station, {required this.doorbell}) : _doorAudio = DoorAudio(station.rtspUrl) {
     _audio.addListener(() => _doorAudio.setPlaying(_audio.value));
   }
 
   final DoorStation station;
+
+  /// This apartment's doorbell, read from the indoor station (the shared door
+  /// station can't tell apartments apart).
+  final DoorbellWatcher doorbell;
   final DoorAudio _doorAudio;
 
   @override
@@ -118,10 +123,14 @@ class DoorStationIntercom implements IntercomController {
   @override
   Future<Uint8List?> snapshot() => station.snapshot();
 
-  // Ring auto-popup is driven separately by the SDK ring-watcher (polls the
-  // user's own KH8350 indoor station); wired in a later step.
+  // Only "ringing" and "not ringing" matter to the screen: the indoor station
+  // going on-call means it was answered there, which ends the ring here.
   @override
-  Stream<IntercomMode>? get callEvents => null;
+  Stream<IntercomMode> get callEvents =>
+      doorbell.calls.map((s) => s == IndoorCallStatus.ringing ? IntercomMode.ringing : IntercomMode.view).distinct();
+
+  @override
+  ValueListenable<String?> get doorbellProblem => doorbell.problem;
 
   // A "call" is local for now: answering unmutes the door's sound, hanging up
   // mutes it again. Nothing is signalled to the door station, and with no

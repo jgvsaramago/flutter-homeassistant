@@ -17,6 +17,7 @@ import 'src/mqtt/mqtt_credentials_store.dart';
 import 'src/mqtt/pi_telemetry_publisher.dart';
 import 'src/services/door_station.dart';
 import 'src/services/door_video.dart';
+import 'src/services/doorbell_watcher.dart';
 import 'src/services/frame_stats_logger.dart';
 import 'src/services/launch_config.dart';
 import 'src/theme/theme_mode_controller.dart';
@@ -134,7 +135,22 @@ void main(List<String> args) async {
           doorNo: int.tryParse(config('DOOR_NO', 'door-no') ?? '') ?? 1,
         ),
       );
-      doorIntercom = DoorStationIntercom(station);
+      // The doorbell comes from this apartment's own indoor station; without
+      // one configured the camera still works, but the shell warns loudly
+      // that rings won't reach the screen.
+      final indoorHost = config('INDOOR_HOST', 'indoor-host');
+      final doorbell = indoorHost == null || indoorHost.isEmpty
+          ? MissingDoorbellWatcher()
+          : startDoorbellWatcher(
+              IndoorStationConfig(
+                host: indoorHost,
+                port: int.tryParse(config('INDOOR_PORT', 'indoor-port') ?? '') ?? 8000,
+                username: config('INDOOR_USER', 'indoor-user') ?? 'admin',
+                password: config('INDOOR_PASSWORD', 'indoor-password') ?? '',
+                sdkDir: config('HIK_SDK_DIR', 'hik-sdk-dir') ?? '/opt/hcnetsdk',
+              ),
+            );
+      doorIntercom = DoorStationIntercom(station, doorbell: doorbell);
     } else {
       debugPrint('[door] no DOOR_HOST given — intercom screen will show "not connected"');
     }

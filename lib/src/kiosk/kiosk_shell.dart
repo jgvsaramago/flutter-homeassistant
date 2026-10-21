@@ -16,6 +16,7 @@ import 'data/kiosk_hydration.dart';
 import 'data/meals_data.dart';
 import 'data/settings_live_reload.dart';
 import 'modals/assistant_modal.dart';
+import 'modals/intercom_modal.dart';
 import 'pages/calendar_page.dart';
 import 'pages/home_page.dart';
 import 'pages/house_page.dart';
@@ -53,10 +54,12 @@ class _KioskShellState extends ConsumerState<KioskShell> {
   Timer? _resetToHomeTimer;
   Timer? _calendarRefresh;
   StreamSubscription<SatelliteEvent>? _voice;
+  StreamSubscription<IntercomMode>? _doorbell;
 
   @override
   void initState() {
     super.initState();
+    _doorbell = ref.read(intercomControllerProvider).callEvents?.listen(_onDoorbell);
     // MQTT "open sheet" commands from the old dashboard: the calendar one
     // still has a home here; the rest belonged to screens this design
     // folds into Casa.
@@ -94,7 +97,19 @@ class _KioskShellState extends ConsumerState<KioskShell> {
     _resetToHomeTimer?.cancel();
     _calendarRefresh?.cancel();
     _voice?.cancel();
+    _doorbell?.cancel();
     super.dispose();
+  }
+
+  /// Someone rang this apartment: wake the screen and show the door, from
+  /// whatever page or modal was up. An intercom screen that's already open
+  /// switches itself to "A tocar…".
+  void _onDoorbell(IntercomMode event) {
+    if (event != IntercomMode.ringing || !mounted) return;
+    ScreenPowerController.instance.setPowered(true);
+    if (IntercomModal.isOpen) return;
+    Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst);
+    showIntercom(context, mode: IntercomMode.ringing);
   }
 
   void _go(KioskPage page) {
@@ -202,10 +217,60 @@ class _KioskShellState extends ConsumerState<KioskShell> {
                 KioskNavBar(selected: page, onSelect: _go, onAssistant: () => showAssistant(context)),
               ],
             ),
+            const _DoorbellProblemBanner(),
             const _ToastLayer(),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// A red banner across the top of every page while doorbell rings can't reach
+/// this screen. Deliberately loud and not dismissable: a doorbell that
+/// silently stopped working is the one intercom failure that must never go
+/// unnoticed. It disappears on its own once the link is back.
+class _DoorbellProblemBanner extends ConsumerWidget {
+  const _DoorbellProblemBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final problem = ref.watch(intercomControllerProvider).doorbellProblem;
+    if (problem == null) return const SizedBox.shrink();
+    return ValueListenableBuilder<String?>(
+      valueListenable: problem,
+      builder: (context, message, _) {
+        if (message == null) return const SizedBox.shrink();
+        return Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            color: KColors.red,
+            padding: const EdgeInsets.fromLTRB(56, 28, 56, 28),
+            child: Row(
+              children: [
+                const KIcon(KIcons.bell, size: 48, color: Colors.white, stroke: 2.2),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'A campainha não vai tocar neste ecrã',
+                        style: KText.s(30, weight: FontWeight.w700, color: Colors.white),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(message, style: KText.s(21, color: const Color(0xF2FFFFFF))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

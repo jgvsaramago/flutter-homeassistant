@@ -33,6 +33,11 @@ abstract class IntercomController {
   /// when there's no camera or the fetch failed.
   Future<Uint8List?> snapshot() async => null;
 
+  /// Why a doorbell ring would currently NOT reach this screen (shown as a
+  /// loud banner by the shell), or null while it would. Null for a
+  /// controller that never had ring detection.
+  ValueListenable<String?>? get doorbellProblem => null;
+
   Future<void> answer();
   Future<void> hangUp();
   Future<void> setMuted(bool muted);
@@ -62,6 +67,9 @@ class NotConnectedIntercom implements IntercomController {
 
   @override
   Future<Uint8List?> snapshot() async => null;
+
+  @override
+  ValueListenable<String?>? get doorbellProblem => null;
 
   @override
   Future<void> answer() async {}
@@ -108,20 +116,29 @@ class IntercomModal extends ConsumerStatefulWidget {
 
   final IntercomMode initialMode;
 
+  static int _open = 0;
+
+  /// Whether the intercom screen is currently showing — a ring then switches
+  /// it to "A tocar…" itself instead of the shell opening a second one.
+  static bool get isOpen => _open > 0;
+
   @override
   ConsumerState<IntercomModal> createState() => _IntercomModalState();
 }
 
 class _IntercomModalState extends ConsumerState<IntercomModal> {
   late IntercomMode _mode = widget.initialMode;
+  late final bool _openedByRing = widget.initialMode == IntercomMode.ringing;
   bool _muted = false;
   int _callSecs = 0;
   int _doorLeft = 0;
   Timer? _tick;
+  StreamSubscription<IntercomMode>? _calls;
 
   @override
   void initState() {
     super.initState();
+    IntercomModal._open++;
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() {
@@ -129,11 +146,31 @@ class _IntercomModalState extends ConsumerState<IntercomModal> {
         if (_doorLeft > 0) _doorLeft--;
       });
     });
+    _calls = ref.read(intercomControllerProvider).callEvents?.listen(_onCallEvent);
+  }
+
+  /// The doorbell, while this screen is open: a ring turns "just looking"
+  /// into "A tocar…"; when the ringing stops without being answered here
+  /// (answered on the indoor station, or the visitor gave up), a screen the
+  /// ring opened closes again and one opened by hand goes back to the view.
+  void _onCallEvent(IntercomMode event) {
+    if (!mounted) return;
+    if (event == IntercomMode.ringing && _mode == IntercomMode.view) {
+      setState(() => _mode = IntercomMode.ringing);
+    } else if (event == IntercomMode.view && _mode == IntercomMode.ringing) {
+      if (_openedByRing) {
+        Navigator.of(context).maybePop();
+      } else {
+        setState(() => _mode = IntercomMode.view);
+      }
+    }
   }
 
   @override
   void dispose() {
+    IntercomModal._open--;
     _tick?.cancel();
+    _calls?.cancel();
     super.dispose();
   }
 
