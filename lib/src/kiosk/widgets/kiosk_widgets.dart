@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' show PointMode;
 
 import 'package:flutter/material.dart';
 
@@ -378,12 +380,17 @@ class _DashedPainter extends CustomPainter {
       ..strokeWidth = width
       ..style = PaintingStyle.stroke;
     final rrect = RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)).deflate(width / 2);
-    final path = Path()..addRRect(rrect);
-    for (final metric in path.computeMetrics()) {
+    // Each dash as a straight segment, all in one call: stroking dashed
+    // paths made a page of empty slots (Refeições) slow to draw on the
+    // Pi's GPU. On the corners a 6 px chord is indistinguishable from the arc.
+    final points = <Offset>[];
+    for (final metric in (Path()..addRRect(rrect)).computeMetrics()) {
       for (double d = 0; d < metric.length; d += 12) {
-        canvas.drawPath(metric.extractPath(d, d + 6), paint);
+        final a = metric.getTangentForOffset(d), b = metric.getTangentForOffset(math.min(d + 6, metric.length));
+        if (a != null && b != null) points.addAll([a.position, b.position]);
       }
     }
+    canvas.drawPoints(PointMode.lines, points, paint);
   }
 
   @override

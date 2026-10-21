@@ -91,15 +91,19 @@ class _MealsPageState extends ConsumerState<MealsPage> {
                   opacity: t,
                   child: Transform.translate(offset: _dir == 0 ? Offset(0, 16 * (1 - t)) : Offset(48 * _dir * (1 - t), 0), child: child),
                 ),
-                child: Column(
-                  children: [
-                    for (var i = 0; i < 7; i++) ...[
-                      if (i > 0) const SizedBox(height: 10),
-                      Expanded(
-                        child: _DayRow(day: addDays(monday, i), now: now, plan: plan),
-                      ),
+                // Its own layer: the fade only moves the week, rather than
+                // redrawing the whole section every frame.
+                child: RepaintBoundary(
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < 7; i++) ...[
+                        if (i > 0) const SizedBox(height: 10),
+                        Expanded(
+                          child: _DayRow(day: addDays(monday, i), now: now, plan: plan),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
