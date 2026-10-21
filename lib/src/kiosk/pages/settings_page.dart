@@ -14,6 +14,7 @@ import '../../services/screen_brightness_service.dart';
 import '../../services/screen_power_controller.dart';
 import '../../services/system_control_service.dart';
 import '../../services/voice_satellite.dart';
+import '../modals/intercom_modal.dart';
 import '../theme/kiosk_icons.dart';
 import '../theme/kiosk_tokens.dart';
 import '../widgets/kiosk_widgets.dart';
@@ -382,9 +383,27 @@ class _ConnectionsGroup extends ConsumerWidget {
               : (music.conn == MaConnectionState.unavailable ? 'Add-on não encontrado no Home Assistant' : 'Através do Home Assistant'),
           state: maState,
         ),
-        const _Status(label: 'Intercomunicador', sub: 'Hikvision · ainda não configurado neste ecrã', state: 'off'),
+        const _IntercomStatus(),
         if (net != null) _Status(label: 'Rede', sub: net, state: 'ok'),
       ],
+    );
+  }
+}
+
+/// The intercom's row: healthy while a ring would reach this screen — the
+/// same signal as the shell's loud doorbell banner.
+class _IntercomStatus extends ConsumerWidget {
+  const _IntercomStatus();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final intercom = ref.watch(intercomControllerProvider);
+    if (!intercom.connected) return const _Status(label: 'Intercomunicador', sub: 'Hikvision · não configurado neste ecrã', state: 'off');
+    final problem = intercom.doorbellProblem;
+    if (problem == null) return const _Status(label: 'Intercomunicador', sub: 'Hikvision · câmara da porta', state: 'ok');
+    return ValueListenableBuilder<String?>(
+      valueListenable: problem,
+      builder: (context, why, _) => _Status(label: 'Intercomunicador', sub: why ?? 'Hikvision · campainha e câmara da porta', state: why == null ? 'ok' : 'off'),
     );
   }
 }
