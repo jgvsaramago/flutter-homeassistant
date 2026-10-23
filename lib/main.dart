@@ -19,6 +19,7 @@ import 'src/services/door_video.dart';
 import 'src/services/doorbell_watcher.dart';
 import 'src/services/frame_stats_logger.dart';
 import 'src/services/launch_config.dart';
+import 'src/services/sip_extension.dart';
 import 'src/theme/theme_mode_controller.dart';
 
 // Bump on every edit and check this against the console output on the Pi to
@@ -137,18 +138,39 @@ void main(List<String> args) async {
       // The doorbell comes from this apartment's own indoor station; without
       // one configured the camera still works, but the shell warns loudly
       // that rings won't reach the screen.
+      //
+      // Two ring sources: the native SIP extension (SIP_SERVER set — the Pi
+      // registers to the main station as a real indoor extension and an
+      // incoming INVITE is the ring; no proprietary SDK), or the legacy
+      // HCNetSDK poller (INDOOR_HOST). SIP wins when configured.
+      final DoorbellWatcher doorbell;
+      final sipServer = config('SIP_SERVER', 'sip-server');
       final indoorHost = config('INDOOR_HOST', 'indoor-host');
-      final doorbell = indoorHost == null || indoorHost.isEmpty
-          ? MissingDoorbellWatcher()
-          : startDoorbellWatcher(
-              IndoorStationConfig(
-                host: indoorHost,
-                port: int.tryParse(config('INDOOR_PORT', 'indoor-port') ?? '') ?? 8000,
-                username: config('INDOOR_USER', 'indoor-user') ?? 'admin',
-                password: config('INDOOR_PASSWORD', 'indoor-password') ?? '',
-                sdkDir: config('HIK_SDK_DIR', 'hik-sdk-dir') ?? '/opt/hcnetsdk',
-              ),
-            );
+      if (sipServer != null && sipServer.isNotEmpty) {
+        doorbell = startSipExtension(
+          SipExtensionConfig(
+            server: sipServer,
+            serverPort: int.tryParse(config('SIP_SERVER_PORT', 'sip-server-port') ?? '') ?? 5065,
+            number: config('SIP_NUMBER', 'sip-number') ?? '',
+            // The SIP registration password is the device admin password;
+            // fall back to the door-station password if not given separately.
+            password: config('SIP_PASSWORD', 'sip-password') ?? config('DOOR_PASSWORD', 'door-password') ?? '',
+            localPort: int.tryParse(config('SIP_LOCAL_PORT', 'sip-local-port') ?? '') ?? 5060,
+          ),
+        );
+      } else if (indoorHost != null && indoorHost.isNotEmpty) {
+        doorbell = startDoorbellWatcher(
+          IndoorStationConfig(
+            host: indoorHost,
+            port: int.tryParse(config('INDOOR_PORT', 'indoor-port') ?? '') ?? 8000,
+            username: config('INDOOR_USER', 'indoor-user') ?? 'admin',
+            password: config('INDOOR_PASSWORD', 'indoor-password') ?? '',
+            sdkDir: config('HIK_SDK_DIR', 'hik-sdk-dir') ?? '/opt/hcnetsdk',
+          ),
+        );
+      } else {
+        doorbell = MissingDoorbellWatcher();
+      }
       doorIntercom = DoorStationIntercom(station, doorbell: doorbell);
     } else {
       debugPrint('[door] no DOOR_HOST given — intercom screen will show "not connected"');
